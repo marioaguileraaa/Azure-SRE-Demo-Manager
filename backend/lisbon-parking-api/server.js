@@ -122,7 +122,7 @@ app.get('/api/parking/levels/:levelNumber', async (req, res) => {
   try {
     const levelNumber = parseInt(req.params.levelNumber);
 
-    if (levelNumber < 0 || levelNumber >= parkingState.numberOfLevels) {
+    if (isNaN(levelNumber) || levelNumber < 0 || levelNumber >= parkingState.numberOfLevels) {
       return res.status(400).json({ 
         success: false, 
         error: `Invalid level number. Must be between 0 and ${parkingState.numberOfLevels - 1}` 
@@ -152,7 +152,7 @@ app.patch('/api/parking/levels/:levelNumber', async (req, res) => {
     const levelNumber = parseInt(req.params.levelNumber);
     const { availableSlots } = req.body;
 
-    if (levelNumber < 0 || levelNumber >= parkingState.numberOfLevels) {
+    if (isNaN(levelNumber) || levelNumber < 0 || levelNumber >= parkingState.numberOfLevels) {
       return res.status(400).json({ 
         success: false, 
         error: `Invalid level number. Must be between 0 and ${parkingState.numberOfLevels - 1}` 

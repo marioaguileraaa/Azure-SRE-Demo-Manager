@@ -1,46 +1,193 @@
-# Getting Started with Create React App
+# Parking Manager Frontend
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+React-based frontend application for managing multiple parking facilities across different cities. Designed to run on Azure Web App.
 
-## Available Scripts
+## Features
 
-In the project directory, you can run:
+- **Multi-City Management**: View and manage parking facilities across multiple cities
+- **Real-Time Updates**: Auto-refresh every 30 seconds
+- **Interactive Dashboard**: View occupancy rates, available slots, and facility information
+- **Level Management**: Update availability for individual parking levels
+- **Responsive Design**: Works on desktop and mobile devices
 
-### `npm start`
+## Architecture
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+This frontend connects to multiple city-specific parking APIs:
+- Each API represents a single parking location (e.g., Lisbon, Porto)
+- The frontend aggregates data from all configured APIs
+- Each city's API can be running in a separate container
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+## Setup for Local Development
 
-### `npm test`
+### Prerequisites
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+- Node.js 16+ 
+- Running parking API instances
 
-### `npm run build`
+### Installation
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+```bash
+# Install dependencies
+npm install
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+# Copy environment variables
+cp .env.example .env
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+# Update .env with your API URLs
+```
 
-### `npm run eject`
+### Environment Variables
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+Configure the parking API URLs in `.env`:
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+```bash
+REACT_APP_LISBON_API_URL=http://localhost:3001
+# Add more cities as needed
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+### Running Locally
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+```bash
+# Development mode
+npm start
 
-## Learn More
+# Production build
+npm run build
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+# Run tests
+npm test
+```
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+The app will open at http://localhost:3000
+
+## Azure Web App Deployment
+
+### Method 1: Direct Deployment from Build
+
+```bash
+# Build the production version
+npm run build
+
+# Deploy the 'build' folder to Azure Web App
+# Via Azure Portal, Azure CLI, or GitHub Actions
+```
+
+### Method 2: Azure Web App Deployment Center
+
+1. In Azure Portal, go to your Web App
+2. Navigate to Deployment Center
+3. Connect your GitHub repository
+4. Configure build settings:
+   - **Build Provider**: Azure Pipelines or GitHub Actions
+   - **Framework**: React
+   - **App location**: `/frontend/parking-manager`
+   - **Build location**: `build`
+
+### Environment Variables in Azure
+
+Configure Application Settings in Azure Web App:
+
+```
+REACT_APP_LISBON_API_URL=https://your-lisbon-api.azurewebsites.net
+```
+
+### Deployment Script
+
+Create `.github/workflows/azure-web-app.yml` for automated deployment:
+
+```yaml
+name: Deploy to Azure Web App
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'frontend/parking-manager/**'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: '18'
+    
+    - name: Install and Build
+      working-directory: ./frontend/parking-manager
+      run: |
+        npm ci
+        npm run build
+    
+    - name: Deploy to Azure Web App
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: 'your-app-name'
+        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+        package: ./frontend/parking-manager/build
+```
+
+## Adding New Cities
+
+To add a new city parking API:
+
+1. Deploy a new parking API instance for the city
+2. Update `src/services/parkingService.ts`:
+
+```typescript
+private apis: ParkingAPI[] = [
+  {
+    id: 'lisbon',
+    city: 'Lisbon',
+    apiUrl: process.env.REACT_APP_LISBON_API_URL || 'http://localhost:3001',
+    enabled: true
+  },
+  {
+    id: 'porto',
+    city: 'Porto',
+    apiUrl: process.env.REACT_APP_PORTO_API_URL || 'http://localhost:3002',
+    enabled: true
+  }
+];
+```
+
+3. Add the environment variable to `.env`
+4. Rebuild and redeploy
+
+## Project Structure
+
+```
+src/
+├── components/         # React components
+│   ├── ParkingCard.tsx        # Card for each parking facility
+│   ├── ParkingDetails.tsx     # Detailed level view modal
+│   └── *.css                  # Component styles
+├── services/          # API services
+│   └── parkingService.ts      # Parking API client
+├── types.ts           # TypeScript interfaces
+├── App.tsx            # Main application component
+└── index.tsx          # Application entry point
+```
+
+## API Integration
+
+The frontend expects each parking API to expose:
+
+- `GET /api/parking` - Full parking information
+- `GET /api/parking/metrics` - Metrics summary
+- `GET /api/parking/levels` - All levels information
+- `PATCH /api/parking/levels/:levelNumber` - Update level availability
+- `PUT /api/parking/config` - Update parking configuration
+
+## Browser Support
+
+- Chrome (latest)
+- Firefox (latest)
+- Safari (latest)
+- Edge (latest)
+
+## License
+
+ISC

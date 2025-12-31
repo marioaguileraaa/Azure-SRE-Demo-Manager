@@ -38,6 +38,16 @@ This project implements a **Parking Manager** application that manages parking f
 
 ```
 Azure-SRE-Demo-Manager/
+├── infrastructure/              # Bicep templates for Azure deployment
+│   ├── modules/                # Modular Bicep templates
+│   │   ├── hub.bicep           # Hub VNet and Log Analytics
+│   │   ├── frontend.bicep      # React frontend App Service
+│   │   ├── lisbon-api.bicep    # Container App for Lisbon API
+│   │   ├── madrid-api.bicep    # Windows VM for Madrid API
+│   │   └── paris-api.bicep     # Ubuntu VM for Paris API
+│   ├── main.bicep              # Main orchestration template
+│   ├── deploy.sh               # Automated deployment script
+│   └── README.md               # Deployment documentation
 ├── backend/
 │   ├── lisbon-parking-api/       # Lisbon parking API (Docker + Azure Log Analytics)
 │   │   ├── server.js             # Express server
@@ -201,7 +211,43 @@ docker run -p 3001:3001 \
 
 ## Azure Deployment
 
-### Backend API (Azure Container Instances or AKS)
+### Infrastructure as Code with Bicep
+
+This project includes comprehensive Bicep templates to deploy the complete infrastructure to Azure. The infrastructure is optimized for cost efficiency and follows Azure best practices.
+
+#### Quick Deploy
+
+```bash
+cd infrastructure
+./deploy.sh
+```
+
+The deployment script will guide you through the setup and deploy:
+- **Hub Resource Group**: VNet and Log Analytics Workspace
+- **Frontend**: React app on Azure App Service (Basic B1 tier)
+- **Lisbon API**: Container App with Docker
+- **Madrid API**: Windows Server 2022 VM (Standard_B2s)
+- **Paris API**: Ubuntu Server 22.04 VM (Standard_B2s)
+
+**Estimated Monthly Cost**: ~$120-150
+
+For detailed instructions, see [infrastructure/README.md](infrastructure/README.md)
+
+#### Manual Deployment
+
+```bash
+az deployment sub create \
+  --location westeurope \
+  --template-file infrastructure/main.bicep \
+  --parameters infrastructure/main.parameters.example.json \
+  --parameters adminPassword='YourSecurePassword123!'
+```
+
+### Manual Azure Deployment (Alternative)
+
+If you prefer to deploy manually without using the Bicep templates:
+
+#### Backend API (Azure Container Instances or AKS)
 
 Deploy each city's API as a separate container:
 
@@ -218,7 +264,7 @@ az container create \
     SHARED_KEY=<your-shared-key>
 ```
 
-### Frontend (Azure Web App)
+#### Frontend (Azure Web App)
 
 The frontend is designed to run on Azure Web App:
 

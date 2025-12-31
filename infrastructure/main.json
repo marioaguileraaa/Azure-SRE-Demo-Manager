@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.39.26.7824",
-      "templateHash": "2440882388408981036"
+      "templateHash": "16061448061298554326"
     }
   },
   "parameters": {
@@ -718,7 +718,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.39.26.7824",
-              "templateHash": "12050156309096253392"
+              "templateHash": "11748154188203183106"
             }
           },
           "parameters": {
@@ -904,7 +904,7 @@
                 "typeHandlerVersion": "1.10",
                 "autoUpgradeMinorVersion": true,
                 "settings": {
-                  "commandToExecute": "powershell -ExecutionPolicy Unrestricted -Command \"Invoke-WebRequest -Uri https://nodejs.org/dist/v18.19.0/node-v18.19.0-x64.msi -OutFile node.msi; Start-Process msiexec.exe -Wait -ArgumentList '/i node.msi /quiet /norestart'; Remove-Item node.msi\""
+                  "commandToExecute": "powershell -ExecutionPolicy Bypass -Command \"Invoke-WebRequest -Uri https://nodejs.org/dist/v18.19.0/node-v18.19.0-x64.msi -OutFile node.msi; Start-Process msiexec.exe -Wait -ArgumentList '/i', 'node.msi', '/quiet', '/norestart'; Remove-Item node.msi\""
                 }
               },
               "dependsOn": [
@@ -990,7 +990,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.39.26.7824",
-              "templateHash": "15772902011052439792"
+              "templateHash": "14404339714301376327"
             }
           },
           "parameters": {
@@ -1176,7 +1176,7 @@
                 "typeHandlerVersion": "2.1",
                 "autoUpgradeMinorVersion": true,
                 "settings": {
-                  "commandToExecute": "sudo apt-get update && sudo apt-get install -y ca-certificates curl gnupg && sudo mkdir -p /etc/apt/keyrings && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && echo \"deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_18.x nodistro main\" | sudo tee /etc/apt/sources.list.d/nodesource.list && sudo apt-get update && sudo apt-get install -y nodejs rsyslog"
+                  "script": "[base64('#!/bin/bash\nset -e\napt-get update\napt-get install -y ca-certificates curl gnupg rsyslog\nmkdir -p /etc/apt/keyrings\ncurl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg\necho \"deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_18.x nodistro main\" | tee /etc/apt/sources.list.d/nodesource.list\napt-get update\napt-get install -y nodejs\n')]"
                 }
               },
               "dependsOn": [

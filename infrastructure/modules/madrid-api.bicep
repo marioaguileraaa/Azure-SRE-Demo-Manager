@@ -153,7 +153,7 @@ resource customScriptExtension 'Microsoft.Compute/virtualMachines/extensions@202
     typeHandlerVersion: '1.10'
     autoUpgradeMinorVersion: true
     settings: {
-      commandToExecute: 'powershell -ExecutionPolicy Unrestricted -Command "Invoke-WebRequest -Uri https://nodejs.org/dist/v18.19.0/node-v18.19.0-x64.msi -OutFile node.msi; Start-Process msiexec.exe -Wait -ArgumentList \'/i node.msi /quiet /norestart\'; Remove-Item node.msi"'
+      commandToExecute: 'powershell -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri https://nodejs.org/dist/v18.19.0/node-v18.19.0-x64.msi -OutFile node.msi; Start-Process msiexec.exe -Wait -ArgumentList \'/i\', \'node.msi\', \'/quiet\', \'/norestart\'; Remove-Item node.msi"'
     }
   }
 }

@@ -54,16 +54,18 @@ SUBSCRIPTION_NAME=$(az account show --query name -o tsv)
 print_info "Using subscription: $SUBSCRIPTION_NAME ($SUBSCRIPTION_ID)"
 echo ""
 
-# Prompt for parameters
-read -p "Enter location (default: westeurope): " LOCATION
-LOCATION=${LOCATION:-westeurope}
+# Check for parameters file
+PARAMS_FILE="main.parameters.json"
+if [ ! -f "$PARAMS_FILE" ]; then
+    print_error "Parameters file '$PARAMS_FILE' not found!"
+    print_info "Please create a parameters file based on main.parameters.example.json"
+    exit 1
+fi
 
-read -p "Enter environment (dev/test/prod, default: dev): " ENVIRONMENT
-ENVIRONMENT=${ENVIRONMENT:-dev}
+print_info "Using parameters file: $PARAMS_FILE"
+echo ""
 
-read -p "Enter admin username for VMs (default: azureadmin): " ADMIN_USERNAME
-ADMIN_USERNAME=${ADMIN_USERNAME:-azureadmin}
-
+# Prompt for admin password (not stored in parameters file for security)
 read -sp "Enter admin password for VMs: " ADMIN_PASSWORD
 echo ""
 
@@ -78,37 +80,9 @@ if [ ${#ADMIN_PASSWORD} -lt 12 ]; then
     exit 1
 fi
 
-read -p "Create public IPs for VMs? (yes/no, default: yes): " CREATE_PUBLIC_IPS
-CREATE_PUBLIC_IPS=${CREATE_PUBLIC_IPS:-yes}
-
-if [ "$CREATE_PUBLIC_IPS" = "yes" ]; then
-    CREATE_PUBLIC_IPS_PARAM="true"
-else
-    CREATE_PUBLIC_IPS_PARAM="false"
-fi
-
-# Optional: Container registry settings
-read -p "Use custom container registry? (yes/no, default: no): " USE_CUSTOM_REGISTRY
-if [ "$USE_CUSTOM_REGISTRY" = "yes" ]; then
-    read -p "Enter container registry server (e.g., myregistry.azurecr.io): " CONTAINER_REGISTRY
-    read -p "Enter container image name: " CONTAINER_IMAGE
-    read -p "Enter container registry username: " REGISTRY_USERNAME
-    read -sp "Enter container registry password: " REGISTRY_PASSWORD
-    echo ""
-else
-    CONTAINER_IMAGE="mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
-    CONTAINER_REGISTRY=""
-    REGISTRY_USERNAME=""
-    REGISTRY_PASSWORD=""
-fi
-
 echo ""
-print_info "Deployment Configuration:"
-echo "  Location: $LOCATION"
-echo "  Environment: $ENVIRONMENT"
-echo "  Admin Username: $ADMIN_USERNAME"
-echo "  Create Public IPs: $CREATE_PUBLIC_IPS_PARAM"
-echo "  Container Image: $CONTAINER_IMAGE"
+print_info "Deployment will use parameters from $PARAMS_FILE"
+print_info "Admin password will be provided securely at deployment time"
 echo ""
 
 read -p "Do you want to proceed with the deployment? (yes/no): " CONFIRM
@@ -119,6 +93,9 @@ fi
 
 # Generate deployment name
 DEPLOYMENT_NAME="parking-infra-$(date +%Y%m%d-%H%M%S)"
+
+# Get location from parameters file for validation/deployment location
+LOCATION=$(cat "$PARAMS_FILE" | grep -A 2 '"location"' | grep '"value"' | cut -d'"' -f4)
 
 print_info "Starting deployment: $DEPLOYMENT_NAME"
 echo ""
@@ -132,15 +109,8 @@ print_info "Validating deployment..."
 VALIDATION_OUTPUT=$(az deployment sub validate \
     --location "$LOCATION" \
     --template-file main.bicep \
-    --parameters location="$LOCATION" \
-    --parameters environment="$ENVIRONMENT" \
-    --parameters adminUsername="$ADMIN_USERNAME" \
+    --parameters "@$PARAMS_FILE" \
     --parameters adminPassword="$ADMIN_PASSWORD" \
-    --parameters lisbonContainerImage="$CONTAINER_IMAGE" \
-    --parameters containerRegistry="$CONTAINER_REGISTRY" \
-    --parameters containerRegistryUsername="$REGISTRY_USERNAME" \
-    --parameters containerRegistryPassword="$REGISTRY_PASSWORD" \
-    --parameters createPublicIps="$CREATE_PUBLIC_IPS_PARAM" \
     2>&1)
 
 if [ $? -ne 0 ]; then
@@ -162,15 +132,8 @@ az deployment sub create \
     --name "$DEPLOYMENT_NAME" \
     --location "$LOCATION" \
     --template-file main.bicep \
-    --parameters location="$LOCATION" \
-    --parameters environment="$ENVIRONMENT" \
-    --parameters adminUsername="$ADMIN_USERNAME" \
-    --parameters adminPassword="$ADMIN_PASSWORD" \
-    --parameters lisbonContainerImage="$CONTAINER_IMAGE" \
-    --parameters containerRegistry="$CONTAINER_REGISTRY" \
-    --parameters containerRegistryUsername="$REGISTRY_USERNAME" \
-    --parameters containerRegistryPassword="$REGISTRY_PASSWORD" \
-    --parameters createPublicIps="$CREATE_PUBLIC_IPS_PARAM"
+    --parameters "@$PARAMS_FILE" \
+    --parameters adminPassword="$ADMIN_PASSWORD"
 
 if [ $? -eq 0 ]; then
     print_info "Deployment completed successfully!"

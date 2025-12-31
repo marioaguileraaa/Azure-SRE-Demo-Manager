@@ -30,19 +30,6 @@ param containerRegistryPassword string = ''
 @description('Tags to apply to resources')
 param tags object = {}
 
-// Application Insights
-resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
-  name: 'appi-parking-lisbon'
-  location: location
-  tags: tags
-  kind: 'web'
-  properties: {
-    Application_Type: 'web'
-    WorkspaceResourceId: logAnalyticsWorkspaceId
-    RetentionInDays: 30
-  }
-}
-
 // Container App Environment
 resource containerAppEnvironment 'Microsoft.App/managedEnvironments@2023-05-01' = {
   name: 'cae-parking-lisbon'
@@ -126,10 +113,6 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
               name: 'LOG_TYPE'
               value: 'LisbonParkingLogs'
             }
-            {
-              name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
-              value: appInsights.properties.ConnectionString
-            }
           ]
           probes: [
             {
@@ -176,4 +159,3 @@ output containerAppName string = containerApp.name
 output containerAppFqdn string = containerApp.properties.configuration.ingress.fqdn
 output containerAppUrl string = 'https://${containerApp.properties.configuration.ingress.fqdn}'
 output containerAppEnvironmentName string = containerAppEnvironment.name
-output appInsightsName string = appInsights.name

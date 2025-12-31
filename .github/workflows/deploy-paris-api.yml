@@ -1,0 +1,118 @@
+name: Deploy Paris API to Linux VM
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/paris-parking-api/**'
+      - '.github/workflows/deploy-paris-api.yml'
+  workflow_dispatch:
+
+env:
+  APP_DIR: /opt/paris-parking-api
+  SERVICE_NAME: paris-parking-api
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Stop existing service
+        run: |
+          sudo systemctl stop ${{ env.SERVICE_NAME }} || true
+
+      - name: Create application directory
+        run: |
+          sudo mkdir -p ${{ env.APP_DIR }}
+          sudo chown -R $USER:$USER ${{ env.APP_DIR }}
+
+      - name: Copy application files
+        run: |
+          cp -r backend/paris-parking-api/* ${{ env.APP_DIR }}/
+          
+      - name: Install dependencies
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          npm ci --only=production
+
+      - name: Create .env file
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          cat > .env << EOF
+          PORT=3003
+          PARKING_NAME=Paris Centre Parking
+          PARKING_CITY=Paris
+          PARKING_LOCATION=Champs-Élysées, Paris
+          SYSLOG_FACILITY=local0
+          SYSLOG_TAG=ParisParkingAPI
+          NODE_ENV=production
+          EOF
+
+      - name: Create systemd service file
+        run: |
+          sudo tee /etc/systemd/system/${{ env.SERVICE_NAME }}.service > /dev/null << EOF
+          [Unit]
+          Description=Paris Parking API
+          After=network.target
+
+          [Service]
+          Type=simple
+          User=$USER
+          WorkingDirectory=${{ env.APP_DIR }}
+          ExecStart=/usr/bin/node ${{ env.APP_DIR }}/server.js
+          Restart=always
+          RestartSec=10
+          StandardOutput=journal
+          StandardError=journal
+          SyslogIdentifier=paris-parking-api
+
+          Environment=NODE_ENV=production
+
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+
+      - name: Reload systemd and start service
+        run: |
+          sudo systemctl daemon-reload
+          sudo systemctl enable ${{ env.SERVICE_NAME }}
+          sudo systemctl start ${{ env.SERVICE_NAME }}
+
+      - name: Verify deployment
+        run: |
+          sleep 5
+          if sudo systemctl is-active --quiet ${{ env.SERVICE_NAME }}; then
+            echo "✅ Service is running"
+            sudo systemctl status ${{ env.SERVICE_NAME }} --no-pager
+            
+            # Test the API
+            if curl -f http://localhost:3003/health > /dev/null 2>&1; then
+              echo "✅ API health check passed"
+            else
+              echo "❌ API health check failed"
+              exit 1
+            fi
+          else
+            echo "❌ Service failed to start"
+            sudo journalctl -u ${{ env.SERVICE_NAME }} --no-pager -n 50
+            exit 1
+          fi
+
+      - name: Deployment summary
+        if: success()
+        run: |
+          echo "### Deployment Successful! 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Service**: ${{ env.SERVICE_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Directory**: ${{ env.APP_DIR }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **API URL**: http://$(hostname -I | awk '{print $1}'):3003" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "#### Service Status" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          sudo systemctl status ${{ env.SERVICE_NAME }} --no-pager >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY

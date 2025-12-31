@@ -3,7 +3,7 @@
   "contentVersion": "1.0.0.0",
   "parameters": {
     "location": {
-      "value": "westeurope"
+      "value": "swedencentral"
     },
     "environment": {
       "value": "dev"
@@ -12,36 +12,19 @@
       "value": "azureadmin"
     },
     "adminPassword": {
-      "reference": {
-        "keyVault": {
-          "id": "/subscriptions/{subscription-id}/resourceGroups/{rg-name}/providers/Microsoft.KeyVault/vaults/{vault-name}"
-        },
-        "secretName": "vmAdminPassword"
-      }
+      "value": "CHANGE_ME_P@ssw0rd123!"
     },
     "lisbonContainerImage": {
       "value": "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
     },
-    "containerRegistry": {
-      "value": ""
-    },
-    "containerRegistryUsername": {
-      "value": ""
-    },
-    "containerRegistryPassword": {
-      "value": ""
-    },
     "createPublicIps": {
+      "value": false
+    },
+    "createContainerRegistry": {
       "value": true
     },
-    "vnetAddressPrefix": {
-      "value": "10.0.0.0/16"
-    },
-    "vmSubnetPrefix": {
-      "value": "10.0.1.0/24"
-    },
-    "containerSubnetPrefix": {
-      "value": "10.0.2.0/23"
+    "containerRegistrySku": {
+      "value": "Basic"
     }
   }
 }

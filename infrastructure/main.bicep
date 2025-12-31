@@ -48,6 +48,17 @@ param containerSubnetPrefix string = '10.0.2.0/23'
 @description('Allowed source IP address prefix for SSH/RDP access (use specific IPs in production)')
 param allowedSourceIpPrefix string = '*'
 
+@description('Create a private Azure Container Registry')
+param createContainerRegistry bool = true
+
+@description('Container Registry SKU')
+@allowed([
+  'Basic'
+  'Standard'
+  'Premium'
+])
+param containerRegistrySku string = 'Basic'
+
 // Common tags
 var tags = {
   Environment: environment
@@ -114,6 +125,22 @@ module hub 'modules/hub.bicep' = {
 }
 
 // ========================================
+// Container Registry
+// ========================================
+
+module acr 'modules/container-registry.bicep' = if (createContainerRegistry) {
+  scope: hubRg
+  name: 'container-registry-deployment'
+  params: {
+    location: location
+    environment: environment
+    sku: containerRegistrySku
+    adminUserEnabled: true
+    tags: tags
+  }
+}
+
+// ========================================
 // Lisbon API (Container App)
 // ========================================
 
@@ -143,7 +170,6 @@ module madridApi 'modules/madrid-api.bicep' = {
   params: {
     location: location
     vmSubnetId: hub.outputs.vmSubnetId
-    logAnalyticsWorkspaceId: hub.outputs.logAnalyticsWorkspaceId
     adminUsername: adminUsername
     adminPassword: adminPassword
     createPublicIp: createPublicIps
@@ -161,7 +187,6 @@ module parisApi 'modules/paris-api.bicep' = {
   params: {
     location: location
     vmSubnetId: hub.outputs.vmSubnetId
-    logAnalyticsWorkspaceId: hub.outputs.logAnalyticsWorkspaceId
     adminUsername: adminUsername
     adminPassword: adminPassword
     createPublicIp: createPublicIps
@@ -198,6 +223,10 @@ output parisResourceGroup string = parisRg.name
 
 output vnetName string = hub.outputs.vnetName
 output logAnalyticsWorkspaceName string = hub.outputs.logAnalyticsWorkspaceName
+
+output containerRegistryName string = createContainerRegistry ? acr!.outputs.registryName : ''
+output containerRegistryLoginServer string = createContainerRegistry ? acr!.outputs.loginServer : ''
+output containerRegistryUrl string = createContainerRegistry ? acr!.outputs.registryUrl : ''
 
 output frontendUrl string = frontend.outputs.appServiceUrl
 output lisbonApiUrl string = lisbonApi.outputs.containerAppUrl

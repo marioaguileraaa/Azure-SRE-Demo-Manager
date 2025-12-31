@@ -4,8 +4,8 @@
   "metadata": {
     "_generator": {
       "name": "bicep",
-      "version": "0.39.26.7824",
-      "templateHash": "7383614443509349853"
+      "version": "0.38.33.27573",
+      "templateHash": "16755719759376702311"
     }
   },
   "parameters": {
@@ -102,6 +102,25 @@
       "metadata": {
         "description": "Allowed source IP address prefix for SSH/RDP access (use specific IPs in production)"
       }
+    },
+    "createContainerRegistry": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Create a private Azure Container Registry"
+      }
+    },
+    "containerRegistrySku": {
+      "type": "string",
+      "defaultValue": "Basic",
+      "allowedValues": [
+        "Basic",
+        "Standard",
+        "Premium"
+      ],
+      "metadata": {
+        "description": "Container Registry SKU"
+      }
     }
   },
   "variables": {
@@ -188,8 +207,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.39.26.7824",
-              "templateHash": "15597984625200940197"
+              "version": "0.38.33.27573",
+              "templateHash": "18288599283190255669"
             }
           },
           "parameters": {
@@ -421,6 +440,142 @@
       ]
     },
     {
+      "condition": "[parameters('createContainerRegistry')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "container-registry-deployment",
+      "resourceGroup": "[variables('hubRgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "environment": {
+            "value": "[parameters('environment')]"
+          },
+          "sku": {
+            "value": "[parameters('containerRegistrySku')]"
+          },
+          "adminUserEnabled": {
+            "value": true
+          },
+          "tags": {
+            "value": "[variables('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.38.33.27573",
+              "templateHash": "7580079684313953900"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Location for the Container Registry"
+              }
+            },
+            "environment": {
+              "type": "string",
+              "metadata": {
+                "description": "Environment name (e.g., dev, test, prod)"
+              }
+            },
+            "sku": {
+              "type": "string",
+              "defaultValue": "Basic",
+              "allowedValues": [
+                "Basic",
+                "Standard",
+                "Premium"
+              ],
+              "metadata": {
+                "description": "SKU for the Container Registry"
+              }
+            },
+            "adminUserEnabled": {
+              "type": "bool",
+              "defaultValue": true,
+              "metadata": {
+                "description": "Enable admin user for the registry"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Tags to apply to resources"
+              }
+            }
+          },
+          "variables": {
+            "acrName": "[format('acrparking{0}{1}', parameters('environment'), uniqueString(resourceGroup().id))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.ContainerRegistry/registries",
+              "apiVersion": "2023-07-01",
+              "name": "[variables('acrName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "[parameters('sku')]"
+              },
+              "properties": {
+                "adminUserEnabled": "[parameters('adminUserEnabled')]",
+                "publicNetworkAccess": "Enabled",
+                "networkRuleBypassOptions": "AzureServices",
+                "zoneRedundancy": "[if(equals(parameters('sku'), 'Premium'), 'Enabled', 'Disabled')]",
+                "policies": {
+                  "quarantinePolicy": {
+                    "status": "disabled"
+                  },
+                  "trustPolicy": {
+                    "type": "Notary",
+                    "status": "disabled"
+                  },
+                  "retentionPolicy": {
+                    "days": 7,
+                    "status": "disabled"
+                  }
+                }
+              }
+            }
+          ],
+          "outputs": {
+            "registryName": {
+              "type": "string",
+              "value": "[variables('acrName')]"
+            },
+            "registryId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.ContainerRegistry/registries', variables('acrName'))]"
+            },
+            "loginServer": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.ContainerRegistry/registries', variables('acrName')), '2023-07-01').loginServer]"
+            },
+            "registryUrl": {
+              "type": "string",
+              "value": "[format('https://{0}', reference(resourceId('Microsoft.ContainerRegistry/registries', variables('acrName')), '2023-07-01').loginServer)]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('hubRgName'))]"
+      ]
+    },
+    {
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2025-04-01",
       "name": "lisbon-api-deployment",
@@ -465,8 +620,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.39.26.7824",
-              "templateHash": "17140112203705266230"
+              "version": "0.38.33.27573",
+              "templateHash": "17772424314120925408"
             }
           },
           "parameters": {
@@ -531,19 +686,6 @@
             }
           },
           "resources": [
-            {
-              "type": "Microsoft.Insights/components",
-              "apiVersion": "2020-02-02",
-              "name": "appi-parking-lisbon",
-              "location": "[parameters('location')]",
-              "tags": "[parameters('tags')]",
-              "kind": "web",
-              "properties": {
-                "Application_Type": "web",
-                "WorkspaceResourceId": "[parameters('logAnalyticsWorkspaceId')]",
-                "RetentionInDays": 30
-              }
-            },
             {
               "type": "Microsoft.App/managedEnvironments",
               "apiVersion": "2023-05-01",
@@ -616,10 +758,6 @@
                         {
                           "name": "LOG_TYPE",
                           "value": "LisbonParkingLogs"
-                        },
-                        {
-                          "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
-                          "value": "[reference(resourceId('Microsoft.Insights/components', 'appi-parking-lisbon'), '2020-02-02').ConnectionString]"
                         }
                       ],
                       "probes": [
@@ -661,7 +799,6 @@
                 }
               },
               "dependsOn": [
-                "[resourceId('Microsoft.Insights/components', 'appi-parking-lisbon')]",
                 "[resourceId('Microsoft.App/managedEnvironments', 'cae-parking-lisbon')]"
               ]
             }
@@ -682,10 +819,6 @@
             "containerAppEnvironmentName": {
               "type": "string",
               "value": "cae-parking-lisbon"
-            },
-            "appInsightsName": {
-              "type": "string",
-              "value": "appi-parking-lisbon"
             }
           }
         }
@@ -712,9 +845,6 @@
           "vmSubnetId": {
             "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'hub-deployment'), '2025-04-01').outputs.vmSubnetId.value]"
           },
-          "logAnalyticsWorkspaceId": {
-            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'hub-deployment'), '2025-04-01').outputs.logAnalyticsWorkspaceId.value]"
-          },
           "adminUsername": {
             "value": "[parameters('adminUsername')]"
           },
@@ -734,8 +864,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.39.26.7824",
-              "templateHash": "11748154188203183106"
+              "version": "0.38.33.27573",
+              "templateHash": "1670780867740228337"
             }
           },
           "parameters": {
@@ -749,12 +879,6 @@
               "type": "string",
               "metadata": {
                 "description": "VM subnet ID from hub VNet"
-              }
-            },
-            "logAnalyticsWorkspaceId": {
-              "type": "string",
-              "metadata": {
-                "description": "Log Analytics Workspace ID"
               }
             },
             "adminUsername": {
@@ -785,19 +909,6 @@
             }
           },
           "resources": [
-            {
-              "type": "Microsoft.Insights/components",
-              "apiVersion": "2020-02-02",
-              "name": "appi-parking-madrid",
-              "location": "[parameters('location')]",
-              "tags": "[parameters('tags')]",
-              "kind": "web",
-              "properties": {
-                "Application_Type": "web",
-                "WorkspaceResourceId": "[parameters('logAnalyticsWorkspaceId')]",
-                "RetentionInDays": 30
-              }
-            },
             {
               "condition": "[parameters('createPublicIp')]",
               "type": "Microsoft.Network/publicIPAddresses",
@@ -954,10 +1065,6 @@
             "apiUrl": {
               "type": "string",
               "value": "[if(parameters('createPublicIp'), format('http://{0}:3002', reference(resourceId('Microsoft.Network/publicIPAddresses', 'pip-madrid-vm'), '2023-05-01').dnsSettings.fqdn), format('http://{0}:3002', reference(resourceId('Microsoft.Network/networkInterfaces', 'nic-madrid-vm'), '2023-05-01').ipConfigurations[0].properties.privateIPAddress))]"
-            },
-            "appInsightsName": {
-              "type": "string",
-              "value": "appi-parking-madrid"
             }
           }
         }
@@ -984,9 +1091,6 @@
           "vmSubnetId": {
             "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'hub-deployment'), '2025-04-01').outputs.vmSubnetId.value]"
           },
-          "logAnalyticsWorkspaceId": {
-            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'hub-deployment'), '2025-04-01').outputs.logAnalyticsWorkspaceId.value]"
-          },
           "adminUsername": {
             "value": "[parameters('adminUsername')]"
           },
@@ -1006,8 +1110,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.39.26.7824",
-              "templateHash": "7660349961942003065"
+              "version": "0.38.33.27573",
+              "templateHash": "13466301716891118815"
             }
           },
           "parameters": {
@@ -1021,12 +1125,6 @@
               "type": "string",
               "metadata": {
                 "description": "VM subnet ID from hub VNet"
-              }
-            },
-            "logAnalyticsWorkspaceId": {
-              "type": "string",
-              "metadata": {
-                "description": "Log Analytics Workspace ID"
               }
             },
             "adminUsername": {
@@ -1057,19 +1155,6 @@
             }
           },
           "resources": [
-            {
-              "type": "Microsoft.Insights/components",
-              "apiVersion": "2020-02-02",
-              "name": "appi-parking-paris",
-              "location": "[parameters('location')]",
-              "tags": "[parameters('tags')]",
-              "kind": "web",
-              "properties": {
-                "Application_Type": "web",
-                "WorkspaceResourceId": "[parameters('logAnalyticsWorkspaceId')]",
-                "RetentionInDays": 30
-              }
-            },
             {
               "condition": "[parameters('createPublicIp')]",
               "type": "Microsoft.Network/publicIPAddresses",
@@ -1226,10 +1311,6 @@
             "apiUrl": {
               "type": "string",
               "value": "[if(parameters('createPublicIp'), format('http://{0}:3003', reference(resourceId('Microsoft.Network/publicIPAddresses', 'pip-paris-vm'), '2023-05-01').dnsSettings.fqdn), format('http://{0}:3003', reference(resourceId('Microsoft.Network/networkInterfaces', 'nic-paris-vm'), '2023-05-01').ipConfigurations[0].properties.privateIPAddress))]"
-            },
-            "appInsightsName": {
-              "type": "string",
-              "value": "appi-parking-paris"
             }
           }
         }
@@ -1275,8 +1356,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.39.26.7824",
-              "templateHash": "3268082063440627531"
+              "version": "0.38.33.27573",
+              "templateHash": "8145095969393173906"
             }
           },
           "parameters": {
@@ -1466,6 +1547,18 @@
     "logAnalyticsWorkspaceName": {
       "type": "string",
       "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'hub-deployment'), '2025-04-01').outputs.logAnalyticsWorkspaceName.value]"
+    },
+    "containerRegistryName": {
+      "type": "string",
+      "value": "[if(parameters('createContainerRegistry'), reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'container-registry-deployment'), '2025-04-01').outputs.registryName.value, '')]"
+    },
+    "containerRegistryLoginServer": {
+      "type": "string",
+      "value": "[if(parameters('createContainerRegistry'), reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'container-registry-deployment'), '2025-04-01').outputs.loginServer.value, '')]"
+    },
+    "containerRegistryUrl": {
+      "type": "string",
+      "value": "[if(parameters('createContainerRegistry'), reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'container-registry-deployment'), '2025-04-01').outputs.registryUrl.value, '')]"
     },
     "frontendUrl": {
       "type": "string",

@@ -45,6 +45,9 @@ param vmSubnetPrefix string = '10.0.1.0/24'
 @description('Subnet address prefix for Container Apps')
 param containerSubnetPrefix string = '10.0.2.0/23'
 
+@description('Allowed source IP address prefix for SSH/RDP access (use specific IPs in production)')
+param allowedSourceIpPrefix string = '*'
+
 // Common tags
 var tags = {
   Environment: environment
@@ -105,6 +108,7 @@ module hub 'modules/hub.bicep' = {
     vnetAddressPrefix: vnetAddressPrefix
     vmSubnetPrefix: vmSubnetPrefix
     containerSubnetPrefix: containerSubnetPrefix
+    allowedSourceIpPrefix: allowedSourceIpPrefix
     tags: tags
   }
 }

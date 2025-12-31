@@ -1,4 +1,6 @@
 // Lisbon API module - Container App for Docker-based API
+// NOTE: For production, consider using Azure Container Registry with Managed Identity
+// instead of username/password authentication for improved security
 @description('Location for all Lisbon API resources')
 param location string
 
@@ -14,14 +16,14 @@ param logAnalyticsCustomerId string
 @description('Container image name')
 param containerImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
 
-@description('Container registry server')
+@description('Container registry server (leave empty for public registries)')
 param containerRegistry string = ''
 
-@description('Container registry username')
+@description('Container registry username (not needed for public registries or managed identity)')
 @secure()
 param containerRegistryUsername string = ''
 
-@description('Container registry password')
+@description('Container registry password (not needed for public registries or managed identity)')
 @secure()
 param containerRegistryPassword string = ''
 

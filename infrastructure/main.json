@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.39.26.7824",
-      "templateHash": "16061448061298554326"
+      "templateHash": "11845973262032720766"
     }
   },
   "parameters": {
@@ -95,6 +95,13 @@
       "metadata": {
         "description": "Subnet address prefix for Container Apps"
       }
+    },
+    "allowedSourceIpPrefix": {
+      "type": "string",
+      "defaultValue": "*",
+      "metadata": {
+        "description": "Allowed source IP address prefix for SSH/RDP access (use specific IPs in production)"
+      }
     }
   },
   "variables": {
@@ -168,6 +175,9 @@
           "containerSubnetPrefix": {
             "value": "[parameters('containerSubnetPrefix')]"
           },
+          "allowedSourceIpPrefix": {
+            "value": "[parameters('allowedSourceIpPrefix')]"
+          },
           "tags": {
             "value": "[variables('tags')]"
           }
@@ -179,7 +189,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.39.26.7824",
-              "templateHash": "4839363595173414690"
+              "templateHash": "15597984625200940197"
             }
           },
           "parameters": {
@@ -210,6 +220,13 @@
                 "description": "Subnet address prefix for Container Apps"
               }
             },
+            "allowedSourceIpPrefix": {
+              "type": "string",
+              "defaultValue": "*",
+              "metadata": {
+                "description": "Allowed source IP address prefix for SSH/RDP access. Use specific IP ranges in production."
+              }
+            },
             "tags": {
               "type": "object",
               "defaultValue": {},
@@ -219,48 +236,6 @@
             }
           },
           "resources": [
-            {
-              "type": "Microsoft.Network/virtualNetworks",
-              "apiVersion": "2023-05-01",
-              "name": "vnet-parking-hub",
-              "location": "[parameters('location')]",
-              "tags": "[parameters('tags')]",
-              "properties": {
-                "addressSpace": {
-                  "addressPrefixes": [
-                    "[parameters('vnetAddressPrefix')]"
-                  ]
-                },
-                "subnets": [
-                  {
-                    "name": "snet-vms",
-                    "properties": {
-                      "addressPrefix": "[parameters('vmSubnetPrefix')]",
-                      "networkSecurityGroup": {
-                        "id": "[resourceId('Microsoft.Network/networkSecurityGroups', 'nsg-vms')]"
-                      }
-                    }
-                  },
-                  {
-                    "name": "snet-container-apps",
-                    "properties": {
-                      "addressPrefix": "[parameters('containerSubnetPrefix')]",
-                      "delegations": [
-                        {
-                          "name": "Microsoft.App/environments",
-                          "properties": {
-                            "serviceName": "Microsoft.App/environments"
-                          }
-                        }
-                      ]
-                    }
-                  }
-                ]
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.Network/networkSecurityGroups', 'nsg-vms')]"
-              ]
-            },
             {
               "type": "Microsoft.Network/networkSecurityGroups",
               "apiVersion": "2023-05-01",
@@ -330,7 +305,7 @@
                       "protocol": "Tcp",
                       "sourcePortRange": "*",
                       "destinationPortRange": "22",
-                      "sourceAddressPrefix": "*",
+                      "sourceAddressPrefix": "[parameters('allowedSourceIpPrefix')]",
                       "destinationAddressPrefix": "*"
                     }
                   },
@@ -343,12 +318,54 @@
                       "protocol": "Tcp",
                       "sourcePortRange": "*",
                       "destinationPortRange": "3389",
-                      "sourceAddressPrefix": "*",
+                      "sourceAddressPrefix": "[parameters('allowedSourceIpPrefix')]",
                       "destinationAddressPrefix": "*"
                     }
                   }
                 ]
               }
+            },
+            {
+              "type": "Microsoft.Network/virtualNetworks",
+              "apiVersion": "2023-05-01",
+              "name": "vnet-parking-hub",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "addressSpace": {
+                  "addressPrefixes": [
+                    "[parameters('vnetAddressPrefix')]"
+                  ]
+                },
+                "subnets": [
+                  {
+                    "name": "snet-vms",
+                    "properties": {
+                      "addressPrefix": "[parameters('vmSubnetPrefix')]",
+                      "networkSecurityGroup": {
+                        "id": "[resourceId('Microsoft.Network/networkSecurityGroups', 'nsg-vms')]"
+                      }
+                    }
+                  },
+                  {
+                    "name": "snet-container-apps",
+                    "properties": {
+                      "addressPrefix": "[parameters('containerSubnetPrefix')]",
+                      "delegations": [
+                        {
+                          "name": "Microsoft.App/environments",
+                          "properties": {
+                            "serviceName": "Microsoft.App/environments"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/networkSecurityGroups', 'nsg-vms')]"
+              ]
             },
             {
               "type": "Microsoft.OperationalInsights/workspaces",
@@ -449,7 +466,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.39.26.7824",
-              "templateHash": "9023066575969464057"
+              "templateHash": "17140112203705266230"
             }
           },
           "parameters": {
@@ -488,21 +505,21 @@
               "type": "string",
               "defaultValue": "",
               "metadata": {
-                "description": "Container registry server"
+                "description": "Container registry server (leave empty for public registries)"
               }
             },
             "containerRegistryUsername": {
               "type": "securestring",
               "defaultValue": "",
               "metadata": {
-                "description": "Container registry username"
+                "description": "Container registry username (not needed for public registries or managed identity)"
               }
             },
             "containerRegistryPassword": {
               "type": "securestring",
               "defaultValue": "",
               "metadata": {
-                "description": "Container registry password"
+                "description": "Container registry password (not needed for public registries or managed identity)"
               }
             },
             "tags": {

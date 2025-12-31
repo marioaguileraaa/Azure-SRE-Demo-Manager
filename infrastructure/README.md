@@ -336,13 +336,40 @@ az vm boot-diagnostics enable \
 
 ## Security Considerations
 
-1. **Use Key Vault** for storing sensitive parameters (VM passwords, container registry credentials)
-2. **Enable Azure AD authentication** for App Service and Container Apps
-3. **Configure NSG rules** to restrict access to VMs
-4. **Enable Azure Monitor** and Application Insights for all resources
-5. **Use Managed Identities** instead of connection strings where possible
-6. **Enable HTTPS only** for web applications
-7. **Regular patching** of VMs through Azure Update Management
+### Critical Security Settings
+
+1. **SSH/RDP Access**: By default, the NSG allows SSH (port 22) and RDP (port 3389) from any IP address (`*`). **This is for development/demo purposes only.**
+
+   For production:
+   ```bash
+   # Deploy with restricted IP access
+   az deployment sub create \
+     --location westeurope \
+     --template-file main.bicep \
+     --parameters allowedSourceIpPrefix='YOUR.IP.ADDRESS.HERE/32'
+   ```
+   
+   Or better yet, use **Azure Bastion** for secure VM access without public IPs:
+   ```bash
+   # Disable public IPs and use Bastion
+   --parameters createPublicIps=false
+   ```
+
+2. **Container Registry Authentication**: The default configuration uses username/password for private registries. For production:
+   - Use **Azure Container Registry** with **Managed Identity** authentication
+   - Enable **admin user** only when necessary
+   - Rotate credentials regularly if using username/password
+
+### Additional Security Best Practices
+
+3. **Use Key Vault** for storing sensitive parameters (VM passwords, container registry credentials)
+4. **Enable Azure AD authentication** for App Service and Container Apps
+5. **Configure NSG rules** to restrict access based on your needs
+6. **Enable Azure Monitor** and Application Insights for all resources
+7. **Use Managed Identities** instead of connection strings where possible
+8. **Enable HTTPS only** for web applications
+9. **Regular patching** of VMs through Azure Update Management
+10. **Enable Azure Defender** for advanced threat protection
 
 ## Networking
 

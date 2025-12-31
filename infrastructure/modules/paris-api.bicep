@@ -153,7 +153,28 @@ resource customScriptExtension 'Microsoft.Compute/virtualMachines/extensions@202
     typeHandlerVersion: '2.1'
     autoUpgradeMinorVersion: true
     settings: {
-      script: base64('#!/bin/bash\nset -e\napt-get update\napt-get install -y ca-certificates curl gnupg rsyslog\nmkdir -p /etc/apt/keyrings\ncurl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg\necho "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_18.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list\napt-get update\napt-get install -y nodejs\n')
+      script: base64('''#!/bin/bash
+set -e
+
+# Update package lists
+apt-get update
+
+# Install required packages
+apt-get install -y ca-certificates curl gnupg rsyslog
+
+# Setup NodeSource repository for Node.js 18.x
+mkdir -p /etc/apt/keyrings
+curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_18.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list
+
+# Install Node.js
+apt-get update
+apt-get install -y nodejs
+
+# Verify installation
+node --version
+npm --version
+''')
     }
   }
 }

@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.39.26.7824",
-      "templateHash": "11845973262032720766"
+      "templateHash": "7383614443509349853"
     }
   },
   "parameters": {
@@ -1007,7 +1007,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.39.26.7824",
-              "templateHash": "14404339714301376327"
+              "templateHash": "7660349961942003065"
             }
           },
           "parameters": {
@@ -1193,7 +1193,7 @@
                 "typeHandlerVersion": "2.1",
                 "autoUpgradeMinorVersion": true,
                 "settings": {
-                  "script": "[base64('#!/bin/bash\nset -e\napt-get update\napt-get install -y ca-certificates curl gnupg rsyslog\nmkdir -p /etc/apt/keyrings\ncurl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg\necho \"deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_18.x nodistro main\" | tee /etc/apt/sources.list.d/nodesource.list\napt-get update\napt-get install -y nodejs\n')]"
+                  "script": "[base64('#!/bin/bash\nset -e\n\n# Update package lists\napt-get update\n\n# Install required packages\napt-get install -y ca-certificates curl gnupg rsyslog\n\n# Setup NodeSource repository for Node.js 18.x\nmkdir -p /etc/apt/keyrings\ncurl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg\necho \"deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_18.x nodistro main\" | tee /etc/apt/sources.list.d/nodesource.list\n\n# Install Node.js\napt-get update\napt-get install -y nodejs\n\n# Verify installation\nnode --version\nnpm --version\n')]"
                 }
               },
               "dependsOn": [

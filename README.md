@@ -20,17 +20,18 @@ This project implements a **Parking Manager** application that manages parking f
     │          │          │
     ▼          ▼          ▼
 ┌────────┐ ┌────────┐ ┌────────┐
-│ Lisbon │ │ Porto  │ │ Madrid │
+│ Lisbon │ │ Madrid │ │ Porto  │
 │ API    │ │ API    │ │ API    │
-│(Docker)│ │(Docker)│ │(Docker)│
+│(Docker)│ │(Windows│ │(Docker)│
+│        │ │ Server)│ │        │
 └───┬────┘ └───┬────┘ └───┬────┘
     │          │          │
-    └──────────┴──────────┘
-               │
-               ▼
-    ┌──────────────────────┐
-    │ Azure Log Analytics  │
-    └──────────────────────┘
+    ▼          ▼          ▼
+┌─────────┐ ┌─────────┐ ┌─────────┐
+│ Azure   │ │ Windows │ │ Azure   │
+│   Log   │ │  Event  │ │   Log   │
+│Analytics│ │ Viewer  │ │Analytics│
+└─────────┘ └─────────┘ └─────────┘
 ```
 
 ## Project Structure
@@ -38,10 +39,15 @@ This project implements a **Parking Manager** application that manages parking f
 ```
 Azure-SRE-Demo-Manager/
 ├── backend/
-│   ├── lisbon-parking-api/      # Lisbon parking API (containerized)
+│   ├── lisbon-parking-api/       # Lisbon parking API (Docker + Azure Log Analytics)
 │   │   ├── server.js             # Express server
 │   │   ├── azureLogger.js        # Azure Log Analytics integration
 │   │   ├── Dockerfile            # Container configuration
+│   │   └── README.md
+│   ├── madrid-parking-api/       # Madrid parking API (Windows Server + Event Viewer)
+│   │   ├── server.js             # Express server
+│   │   ├── windowsEventLogger.js # Windows Event Viewer integration
+│   │   ├── install-event-source.js # Event Source installer
 │   │   └── README.md
 │   └── [other city APIs...]      # Future city APIs
 │
@@ -59,11 +65,12 @@ Azure-SRE-Demo-Manager/
 ## Features
 
 ### Backend APIs (City-Specific)
-- **Containerized NodeJS APIs** - Each city has its own Docker container
-- **Azure Log Analytics Integration** - Custom logging for monitoring and diagnostics
+- **Lisbon API**: Containerized NodeJS with Azure Log Analytics integration
+- **Madrid API**: NodeJS for Windows Server with Windows Event Viewer logging
 - **RESTful API Design** - Standard HTTP methods for all operations
 - **Real-time Parking Data** - Track availability across multiple levels
 - **Metrics & Statistics** - Occupancy rates, available slots, facilities
+- **Flexible Logging** - Azure Log Analytics or Windows Event Viewer based on deployment
 
 ### Frontend (Parking Manager)
 - **Multi-City Dashboard** - Manage multiple parking facilities from one interface
@@ -85,10 +92,11 @@ Azure-SRE-Demo-Manager/
 
 ### Prerequisites
 - **Node.js 18+**
-- **Docker** (for API containers)
+- **Docker** (for containerized APIs like Lisbon)
+- **Windows Server** (optional, for Madrid API with Event Viewer)
 - **Azure Account** (optional, for Log Analytics)
 
-### 1. Start the Lisbon Parking API
+### 1. Start the Lisbon Parking API (Linux/Docker)
 
 ```bash
 cd backend/lisbon-parking-api
@@ -106,7 +114,30 @@ npm start
 
 The API will run on `http://localhost:3001`
 
-### 2. Start the Frontend
+### 2. Start the Madrid Parking API (Windows Server)
+
+```bash
+cd backend/madrid-parking-api
+
+# Install dependencies
+npm install
+
+# Configure environment (optional)
+copy .env.example .env
+# Edit .env with your configuration
+
+# Register Windows Event Source (Run as Administrator)
+npm run install-windows
+
+# Start the API
+npm start
+```
+
+The API will run on `http://localhost:3002`
+
+> **Note**: Madrid API uses Windows Event Viewer for logging. On non-Windows systems, it falls back to console logging.
+
+### 3. Start the Frontend
 
 ```bash
 cd frontend/parking-manager

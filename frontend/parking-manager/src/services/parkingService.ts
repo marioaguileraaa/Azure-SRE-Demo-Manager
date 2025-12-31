@@ -7,14 +7,14 @@ class ParkingService {
       city: 'Lisbon',
       apiUrl: process.env.REACT_APP_LISBON_API_URL || 'http://localhost:3001',
       enabled: true
+    },
+    {
+      id: 'madrid',
+      city: 'Madrid',
+      apiUrl: process.env.REACT_APP_MADRID_API_URL || 'http://localhost:3002',
+      enabled: true
     }
     // More cities can be added here as more APIs are created
-    // {
-    //   id: 'porto',
-    //   city: 'Porto',
-    //   apiUrl: process.env.REACT_APP_PORTO_API_URL || 'http://localhost:3002',
-    //   enabled: true
-    // }
   ];
 
   getConfiguredAPIs(): ParkingAPI[] {

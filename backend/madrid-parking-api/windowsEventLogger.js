@@ -93,7 +93,7 @@ class WindowsEventLogger {
       level: 'ERROR',
       message,
       error: error.message || error,
-      stack: error.stack,
+      stack: error instanceof Error ? error.stack : undefined,
       details,
       source: this.eventSource
     };

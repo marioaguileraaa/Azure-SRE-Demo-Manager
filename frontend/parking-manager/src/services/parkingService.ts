@@ -14,7 +14,6 @@ class ParkingService {
       apiUrl: process.env.REACT_APP_MADRID_API_URL || 'http://localhost:3002',
       enabled: true
     }
-    // More cities can be added here as more APIs are created
   ];
 
   getConfiguredAPIs(): ParkingAPI[] {

@@ -133,7 +133,7 @@ class SyslogLogger {
   logError(message, error, details = {}) {
     const errorDetails = {
       ...details,
-      error: error.message || error,
+      error: error?.message || String(error),
       stack: error instanceof Error ? error.stack : undefined
     };
     this._log(SEVERITY.ERR, message, errorDetails);

@@ -13,6 +13,12 @@ class ParkingService {
       city: 'Madrid',
       apiUrl: process.env.REACT_APP_MADRID_API_URL || 'http://localhost:3002',
       enabled: true
+    },
+    {
+      id: 'paris',
+      city: 'Paris',
+      apiUrl: process.env.REACT_APP_PARIS_API_URL || 'http://localhost:3003',
+      enabled: true
     }
   ];
 

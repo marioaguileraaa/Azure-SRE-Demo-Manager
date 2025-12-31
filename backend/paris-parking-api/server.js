@@ -1,0 +1,245 @@
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const SyslogLogger = require('./syslogLogger');
+
+const app = express();
+const PORT = process.env.PORT || 3003;
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// Initialize Syslog Logger
+const logger = new SyslogLogger(
+  process.env.SYSLOG_FACILITY || 'local0',
+  process.env.SYSLOG_TAG || 'ParisParkingAPI'
+);
+
+// Paris Parking State
+let parkingState = {
+  id: 'paris-parking-001',
+  name: process.env.PARKING_NAME || 'Paris Centre Parking',
+  city: process.env.PARKING_CITY || 'Paris',
+  location: process.env.PARKING_LOCATION || 'Champs-Élysées, Paris',
+  numberOfLevels: 6,
+  parkingSlotsPerLevel: 80,
+  availableSlotsPerLevel: [65, 72, 58, 75, 68, 70], // Available slots per level
+  workingHours: {
+    open: '05:00',
+    close: '24:00'
+  },
+  availableWC: 5,
+  availableElectricChargers: 25,
+  lastUpdated: new Date().toISOString()
+};
+
+// Request logging middleware
+app.use((req, res, next) => {
+  logger.logInfo('HTTP Request', {
+    method: req.method,
+    path: req.path,
+    ip: req.ip,
+    city: parkingState.city
+  });
+  next();
+});
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'healthy', 
+    timestamp: new Date().toISOString(),
+    service: 'paris-parking-api',
+    city: parkingState.city,
+    platform: process.platform,
+    syslogLogging: logger.isAvailable()
+  });
+});
+
+// Get parking information
+app.get('/api/parking', async (req, res) => {
+  try {
+    logger.logOperation('GET_PARKING_INFO', parkingState.id, { city: parkingState.city });
+    res.json({ success: true, data: parkingState });
+  } catch (error) {
+    logger.logError('GET_PARKING_INFO', error);
+    res.status(500).json({ success: false, error: 'Failed to retrieve parking information' });
+  }
+});
+
+// Get parking metrics
+app.get('/api/parking/metrics', async (req, res) => {
+  try {
+    const totalSlots = parkingState.numberOfLevels * parkingState.parkingSlotsPerLevel;
+    const totalAvailable = parkingState.availableSlotsPerLevel.reduce((sum, slots) => sum + slots, 0);
+    const occupancyRate = ((totalSlots - totalAvailable) / totalSlots * 100).toFixed(2);
+
+    const metrics = {
+      city: parkingState.city,
+      totalSlots,
+      totalAvailable,
+      totalOccupied: totalSlots - totalAvailable,
+      occupancyRate: parseFloat(occupancyRate),
+      numberOfLevels: parkingState.numberOfLevels,
+      availableWC: parkingState.availableWC,
+      availableElectricChargers: parkingState.availableElectricChargers,
+      workingHours: parkingState.workingHours,
+      lastUpdated: parkingState.lastUpdated
+    };
+
+    logger.logOperation('GET_METRICS', parkingState.id, metrics);
+    res.json({ success: true, data: metrics });
+  } catch (error) {
+    logger.logError('GET_METRICS', error);
+    res.status(500).json({ success: false, error: 'Failed to retrieve metrics' });
+  }
+});
+
+// Get level information
+app.get('/api/parking/levels', async (req, res) => {
+  try {
+    const levels = parkingState.availableSlotsPerLevel.map((available, index) => ({
+      level: index,
+      totalSlots: parkingState.parkingSlotsPerLevel,
+      availableSlots: available,
+      occupiedSlots: parkingState.parkingSlotsPerLevel - available,
+      occupancyRate: ((parkingState.parkingSlotsPerLevel - available) / parkingState.parkingSlotsPerLevel * 100).toFixed(2)
+    }));
+
+    logger.logOperation('GET_LEVELS', parkingState.id, { levelsCount: levels.length });
+    res.json({ success: true, data: levels });
+  } catch (error) {
+    logger.logError('GET_LEVELS', error);
+    res.status(500).json({ success: false, error: 'Failed to retrieve level information' });
+  }
+});
+
+// Get specific level information
+app.get('/api/parking/levels/:levelNumber', async (req, res) => {
+  try {
+    const levelNumber = parseInt(req.params.levelNumber);
+
+    if (isNaN(levelNumber) || levelNumber < 0 || levelNumber >= parkingState.numberOfLevels) {
+      return res.status(400).json({ 
+        success: false, 
+        error: `Invalid level number. Must be between 0 and ${parkingState.numberOfLevels - 1}` 
+      });
+    }
+
+    const available = parkingState.availableSlotsPerLevel[levelNumber];
+    const levelInfo = {
+      level: levelNumber,
+      totalSlots: parkingState.parkingSlotsPerLevel,
+      availableSlots: available,
+      occupiedSlots: parkingState.parkingSlotsPerLevel - available,
+      occupancyRate: ((parkingState.parkingSlotsPerLevel - available) / parkingState.parkingSlotsPerLevel * 100).toFixed(2)
+    };
+
+    logger.logOperation('GET_LEVEL', parkingState.id, { level: levelNumber });
+    res.json({ success: true, data: levelInfo });
+  } catch (error) {
+    logger.logError('GET_LEVEL', error);
+    res.status(500).json({ success: false, error: 'Failed to retrieve level information' });
+  }
+});
+
+// Update available slots for a specific level
+app.patch('/api/parking/levels/:levelNumber', async (req, res) => {
+  try {
+    const levelNumber = parseInt(req.params.levelNumber);
+    const { availableSlots } = req.body;
+
+    if (isNaN(levelNumber) || levelNumber < 0 || levelNumber >= parkingState.numberOfLevels) {
+      return res.status(400).json({ 
+        success: false, 
+        error: `Invalid level number. Must be between 0 and ${parkingState.numberOfLevels - 1}` 
+      });
+    }
+
+    if (availableSlots === undefined || availableSlots < 0 || availableSlots > parkingState.parkingSlotsPerLevel) {
+      return res.status(400).json({ 
+        success: false, 
+        error: `Invalid slot count. Must be between 0 and ${parkingState.parkingSlotsPerLevel}` 
+      });
+    }
+
+    parkingState.availableSlotsPerLevel[levelNumber] = availableSlots;
+    parkingState.lastUpdated = new Date().toISOString();
+
+    logger.logOperation('UPDATE_LEVEL_SLOTS', parkingState.id, { 
+      level: levelNumber,
+      availableSlots
+    });
+
+    res.json({ success: true, data: parkingState });
+  } catch (error) {
+    logger.logError('UPDATE_LEVEL_SLOTS', error);
+    res.status(500).json({ success: false, error: 'Failed to update level slots' });
+  }
+});
+
+// Update parking configuration
+app.put('/api/parking/config', async (req, res) => {
+  try {
+    const { workingHours, availableWC, availableElectricChargers } = req.body;
+
+    if (workingHours) {
+      parkingState.workingHours = workingHours;
+    }
+    if (availableWC !== undefined) {
+      parkingState.availableWC = availableWC;
+    }
+    if (availableElectricChargers !== undefined) {
+      parkingState.availableElectricChargers = availableElectricChargers;
+    }
+
+    parkingState.lastUpdated = new Date().toISOString();
+
+    logger.logOperation('UPDATE_CONFIG', parkingState.id, { 
+      changes: Object.keys(req.body)
+    });
+
+    res.json({ success: true, data: parkingState });
+  } catch (error) {
+    logger.logError('UPDATE_CONFIG', error);
+    res.status(500).json({ success: false, error: 'Failed to update configuration' });
+  }
+});
+
+// Start server
+app.listen(PORT, () => {
+  console.log(`🚗 ${parkingState.city} Parking API running on port ${PORT}`);
+  console.log(`📍 Location: ${parkingState.location}`);
+  console.log(`🐧 Platform: ${process.platform}`);
+  console.log(`📝 Syslog: ${logger.isAvailable() ? 'Enabled' : 'Not available (using console logging)'}`);
+  
+  // Log server start
+  logger.logOperation('SERVER_START', parkingState.id, { 
+    port: PORT,
+    city: parkingState.city,
+    platform: process.platform,
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  console.log('SIGTERM signal received: closing HTTP server');
+  logger.logOperation('SERVER_SHUTDOWN', parkingState.id, { 
+    city: parkingState.city,
+    reason: 'SIGTERM' 
+  });
+  logger.close();
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  console.log('SIGINT signal received: closing HTTP server');
+  logger.logOperation('SERVER_SHUTDOWN', parkingState.id, { 
+    city: parkingState.city,
+    reason: 'SIGINT' 
+  });
+  logger.close();
+  process.exit(0);
+});

@@ -16,22 +16,22 @@ This project implements a **Parking Manager** application that manages parking f
                │
                │ REST API Calls
                │
-    ┌──────────┼──────────┐
-    │          │          │
-    ▼          ▼          ▼
-┌────────┐ ┌────────┐ ┌────────┐
-│ Lisbon │ │ Madrid │ │ Porto  │
-│ API    │ │ API    │ │ API    │
-│(Docker)│ │(Windows│ │(Docker)│
-│        │ │ Server)│ │        │
-└───┬────┘ └───┬────┘ └───┬────┘
-    │          │          │
-    ▼          ▼          ▼
-┌─────────┐ ┌─────────┐ ┌─────────┐
-│ Azure   │ │ Windows │ │ Azure   │
-│   Log   │ │  Event  │ │   Log   │
-│Analytics│ │ Viewer  │ │Analytics│
-└─────────┘ └─────────┘ └─────────┘
+    ┌──────────┼──────────┬──────────┐
+    │          │          │          │
+    ▼          ▼          ▼          ▼
+┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐
+│ Lisbon │ │ Madrid │ │ Paris  │ │ Porto  │
+│ API    │ │ API    │ │ API    │ │ API    │
+│(Docker)│ │(Windows│ │(Linux) │ │(Docker)│
+│        │ │ Server)│ │        │ │        │
+└───┬────┘ └───┬────┘ └───┬────┘ └───┬────┘
+    │          │          │          │
+    ▼          ▼          ▼          ▼
+┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐
+│ Azure   │ │ Windows │ │ Syslog  │ │ Azure   │
+│   Log   │ │  Event  │ │ (Linux) │ │   Log   │
+│Analytics│ │ Viewer  │ │         │ │Analytics│
+└─────────┘ └─────────┘ └─────────┘ └─────────┘
 ```
 
 ## Project Structure
@@ -48,6 +48,10 @@ Azure-SRE-Demo-Manager/
 │   │   ├── server.js             # Express server
 │   │   ├── windowsEventLogger.js # Windows Event Viewer integration
 │   │   ├── install-event-source.js # Event Source installer
+│   │   └── README.md
+│   ├── paris-parking-api/        # Paris parking API (Linux + Syslog)
+│   │   ├── server.js             # Express server
+│   │   ├── syslogLogger.js       # Syslog integration
 │   │   └── README.md
 │   └── [other city APIs...]      # Future city APIs
 │
@@ -67,10 +71,11 @@ Azure-SRE-Demo-Manager/
 ### Backend APIs (City-Specific)
 - **Lisbon API**: Containerized NodeJS with Azure Log Analytics integration
 - **Madrid API**: NodeJS for Windows Server with Windows Event Viewer logging
+- **Paris API**: NodeJS for Linux with Syslog logging
 - **RESTful API Design** - Standard HTTP methods for all operations
 - **Real-time Parking Data** - Track availability across multiple levels
 - **Metrics & Statistics** - Occupancy rates, available slots, facilities
-- **Flexible Logging** - Azure Log Analytics or Windows Event Viewer based on deployment
+- **Flexible Logging** - Azure Log Analytics, Windows Event Viewer, or Syslog based on deployment
 
 ### Frontend (Parking Manager)
 - **Multi-City Dashboard** - Manage multiple parking facilities from one interface
@@ -94,6 +99,7 @@ Azure-SRE-Demo-Manager/
 - **Node.js 18+**
 - **Docker** (for containerized APIs like Lisbon)
 - **Windows Server** (optional, for Madrid API with Event Viewer)
+- **Linux** (optional, for Paris API with Syslog)
 - **Azure Account** (optional, for Log Analytics)
 
 ### 1. Start the Lisbon Parking API (Linux/Docker)
@@ -137,7 +143,27 @@ The API will run on `http://localhost:3002`
 
 > **Note**: Madrid API uses Windows Event Viewer for logging. On non-Windows systems, it falls back to console logging.
 
-### 3. Start the Frontend
+### 3. Start the Paris Parking API (Linux)
+
+```bash
+cd backend/paris-parking-api
+
+# Install dependencies
+npm install
+
+# Configure environment (optional)
+cp .env.example .env
+# Edit .env with your syslog configuration
+
+# Start the API
+npm start
+```
+
+The API will run on `http://localhost:3003`
+
+> **Note**: Paris API uses Syslog for logging on Linux. On non-Linux systems, it falls back to console logging.
+
+### 4. Start the Frontend
 
 ```bash
 cd frontend/parking-manager

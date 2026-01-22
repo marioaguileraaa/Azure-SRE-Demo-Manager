@@ -30,6 +30,8 @@ on:
 jobs:
   validate-input:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       proceed: ${{ steps.check.outputs.proceed }}
     steps:

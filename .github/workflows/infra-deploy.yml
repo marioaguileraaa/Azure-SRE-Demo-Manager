@@ -96,23 +96,35 @@ jobs:
 
       - name: Run pre-deployment What-If
         id: whatif
-        continue-on-error: true
         run: |
           DEPLOYMENT_NAME="infra-deploy-${{ inputs.environment }}-$(date +%Y%m%d-%H%M%S)"
           
           echo "Running What-If analysis before deployment..."
+          set +e  # Don't exit on error, we'll handle it
           az deployment sub what-if \
             --name "$DEPLOYMENT_NAME" \
             --location "${{ inputs.location }}" \
             --template-file infrastructure/main.bicep \
             --parameters "${{ inputs.parametersFile }}" \
             --subscription "${{ steps.extract-sub.outputs.subscription-id }}" \
-            > whatif-output.txt 2>&1 || true
+            > whatif-output.txt 2>&1
+          WHATIF_EXIT_CODE=$?
+          set -e
           
           echo "deployment-name=$DEPLOYMENT_NAME" >> $GITHUB_OUTPUT
+          echo "whatif-exit-code=$WHATIF_EXIT_CODE" >> $GITHUB_OUTPUT
           
           if [ -f whatif-output.txt ]; then
             echo "### Pre-Deployment What-If Analysis" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            if [ $WHATIF_EXIT_CODE -ne 0 ]; then
+              echo "⚠️ **Warning**: What-If analysis encountered errors (exit code: $WHATIF_EXIT_CODE)" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "The deployment will still proceed. Review the errors below:" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+            fi
+            
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
             head -n 50 whatif-output.txt >> $GITHUB_STEP_SUMMARY
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY

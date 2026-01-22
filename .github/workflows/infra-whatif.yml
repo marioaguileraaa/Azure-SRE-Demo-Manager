@@ -96,7 +96,7 @@ jobs:
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           fi
           
-          if [ ${{ job.status }} == 'success' ]; then
+          if [ '${{ job.status }}' == 'success' ]; then
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "✅ **What-If analysis completed successfully**" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY

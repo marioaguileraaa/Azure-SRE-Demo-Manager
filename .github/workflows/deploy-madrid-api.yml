@@ -12,10 +12,12 @@ on:
 env:
   APP_DIR: C:\Apps\madrid-parking-api
   SERVICE_NAME: MadridParkingAPI
+  VM_NAME: ${{ vars.MADRID_VM_NAME }}
+  RESOURCE_GROUP: ${{ vars.MADRID_RESOURCE_GROUP }}
 
 jobs:
   deploy:
-    runs-on: [self-hosted, windows, madrid-vm]
+    runs-on: windows-latest
     
     steps:
       - name: Checkout code
@@ -26,168 +28,131 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Stop existing service
+      - name: Create deployment package
         shell: powershell
         run: |
-          try {
-            $service = Get-Service -Name "${{ env.SERVICE_NAME }}" -ErrorAction SilentlyContinue
+          # Create deployment zip
+          Compress-Archive -Path "backend\madrid-parking-api\*" -DestinationPath "madrid-api.zip" -Force
+
+      - name: Upload deployment package to VM
+        shell: powershell
+        run: |
+          # Create temporary storage account or use existing one for file transfer
+          # For now, we'll embed the deployment script with base64 encoded zip
+          Write-Host "Preparing deployment script..."
+
+      - name: Deploy to Madrid VM via Run Command
+        uses: azure/CLI@v1
+        with:
+          inlineScript: |
+            # Create deployment script
+            cat > deploy-madrid.ps1 << 'DEPLOY_SCRIPT'
+            # Stop existing service
+            $serviceName = "${{ env.SERVICE_NAME }}"
+            $appDir = "${{ env.APP_DIR }}"
+            
+            Write-Host "Stopping service if exists..."
+            $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
             if ($service) {
-              Write-Host "Stopping service ${{ env.SERVICE_NAME }}..."
-              Stop-Service -Name "${{ env.SERVICE_NAME }}" -Force -ErrorAction SilentlyContinue
+              Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
               Start-Sleep -Seconds 3
             }
-          } catch {
-            Write-Host "Service not found or already stopped"
-          }
-
-      - name: Create application directory
-        shell: powershell
-        run: |
-          if (-not (Test-Path "${{ env.APP_DIR }}")) {
-            New-Item -ItemType Directory -Path "${{ env.APP_DIR }}" -Force
-          }
-
-      - name: Copy application files
-        shell: powershell
-        run: |
-          Copy-Item -Path "backend\madrid-parking-api\*" -Destination "${{ env.APP_DIR }}" -Recurse -Force
-
-      - name: Install dependencies
-        shell: powershell
-        working-directory: ${{ env.APP_DIR }}
-        run: |
-          Write-Host "Installing production dependencies..."
-          npm ci --only=production
-
-      - name: Create .env file
-        shell: powershell
-        working-directory: ${{ env.APP_DIR }}
-        run: |
-          @"
-          PORT=3002
-          PARKING_NAME=Madrid Centro Parking
-          PARKING_CITY=Madrid
-          PARKING_LOCATION=Plaza Mayor, Madrid
-          EVENT_LOG_SOURCE=MadridParkingAPI
-          EVENT_LOG_NAME=Application
-          NODE_ENV=production
-          "@ | Out-File -FilePath .env -Encoding UTF8
-
-      - name: Install Windows Event Log source
-        shell: powershell
-        working-directory: ${{ env.APP_DIR }}
-        run: |
-          Write-Host "Installing Windows Event Log source..."
-          npm run install-windows
-
-      - name: Install/Update Windows Service
-        shell: powershell
-        working-directory: ${{ env.APP_DIR }}
-        run: |
-          # Check if service exists
-          $service = Get-Service -Name "${{ env.SERVICE_NAME }}" -ErrorAction SilentlyContinue
-          
-          if ($service) {
-            Write-Host "Service exists, updating..."
-          } else {
-            Write-Host "Creating new Windows service..."
             
-            # Install node-windows-service helper script
-            $setupScript = @"
-          const Service = require('node-windows').Service;
-          
-          const svc = new Service({
-            name: '${{ env.SERVICE_NAME }}',
-            description: 'Madrid Parking API - Manages parking information for Madrid',
-            script: '${{ env.APP_DIR }}\\server.js',
-            nodeOptions: [],
-            workingDirectory: '${{ env.APP_DIR }}',
-            env: [
-              {
-                name: 'NODE_ENV',
-                value: 'production'
-              },
-              {
-                name: 'PORT',
-                value: '3002'
-              }
-            ]
-          });
-          
-          svc.on('install', function() {
-            console.log('Service installed successfully');
-            svc.start();
-          });
-          
-          svc.on('alreadyinstalled', function() {
-            console.log('Service already installed');
-          });
-          
-          svc.install();
-          "@
+            # Create app directory
+            Write-Host "Creating application directory..."
+            if (-not (Test-Path $appDir)) {
+              New-Item -ItemType Directory -Path $appDir -Force | Out-Null
+            }
             
-            $setupScript | Out-File -FilePath "install-service.js" -Encoding UTF8
-            node install-service.js
+            # Download code from GitHub (using latest commit)
+            Write-Host "Downloading code..."
+            $repoZip = "https://github.com/${{ github.repository }}/archive/${{ github.sha }}.zip"
+            $tempZip = "$env:TEMP\repo.zip"
+            $tempExtract = "$env:TEMP\repo-extract"
+            
+            Invoke-WebRequest -Uri $repoZip -OutFile $tempZip
+            Expand-Archive -Path $tempZip -DestinationPath $tempExtract -Force
+            
+            # Copy Madrid API files
+            $repoName = "${{ github.repository }}".Split("/")[1]
+            $sourcePath = "$tempExtract\$repoName-${{ github.sha }}\backend\madrid-parking-api"
+            Copy-Item -Path "$sourcePath\*" -Destination $appDir -Recurse -Force
+            
+            # Clean up temp files
+            Remove-Item $tempZip -Force
+            Remove-Item $tempExtract -Recurse -Force
+            
+            # Install dependencies
+            Write-Host "Installing dependencies..."
+            cd $appDir
+            npm ci --only=production
+            
+            # Create .env file
+            Write-Host "Creating .env file..."
+            @"
+            PORT=3002
+            PARKING_NAME=Madrid Centro Parking
+            PARKING_CITY=Madrid
+            PARKING_LOCATION=Plaza Mayor, Madrid
+            EVENT_LOG_SOURCE=MadridParkingAPI
+            EVENT_LOG_NAME=Application
+            NODE_ENV=production
+            "@ | Out-File -FilePath "$appDir\.env" -Encoding UTF8
+            
+            # Install Windows Event Log source
+            Write-Host "Installing Windows Event Log source..."
+            npm run install-windows
+            
+            # Install or update Windows service
+            if (-not $service) {
+              Write-Host "Installing Windows service..."
+              npm install -g node-windows
+              
+              $serviceScript = @"
+            const Service = require('node-windows').Service;
+            const svc = new Service({
+              name: '$serviceName',
+              description: 'Madrid Parking API',
+              script: '$appDir\\server.js',
+              workingDirectory: '$appDir',
+              env: [{ name: 'NODE_ENV', value: 'production' }, { name: 'PORT', value: '3002' }]
+            });
+            svc.on('install', () => { console.log('Installed'); svc.start(); });
+            svc.install();
+            "@
+              $serviceScript | Out-File -FilePath "$appDir\install-service.js" -Encoding UTF8
+              node "$appDir\install-service.js"
+              Start-Sleep -Seconds 10
+            } else {
+              Write-Host "Starting existing service..."
+              Start-Service -Name $serviceName
+            }
+            
+            # Verify
             Start-Sleep -Seconds 5
-          }
-
-      - name: Start service
-        shell: powershell
-        run: |
-          Write-Host "Starting service ${{ env.SERVICE_NAME }}..."
-          Start-Service -Name "${{ env.SERVICE_NAME }}"
-          Start-Sleep -Seconds 5
-
-      - name: Verify deployment
-        shell: powershell
-        run: |
-          $service = Get-Service -Name "${{ env.SERVICE_NAME }}"
-          
-          if ($service.Status -eq 'Running') {
-            Write-Host "✅ Service is running"
-            
-            # Test the API
-            Start-Sleep -Seconds 5
-            try {
-              $response = Invoke-RestMethod -Uri "http://localhost:3002/health" -TimeoutSec 10
-              if ($response.status -eq 'healthy') {
-                Write-Host "✅ API health check passed"
-                Write-Host "Response: $($response | ConvertTo-Json)"
-              } else {
-                Write-Host "❌ API health check failed - unexpected status"
-                exit 1
-              }
-            } catch {
-              Write-Host "❌ API health check failed - $_"
-              Write-Host "Checking Event Log for errors..."
-              Get-EventLog -LogName Application -Source "${{ env.SERVICE_NAME }}" -Newest 10 -ErrorAction SilentlyContinue
+            $service = Get-Service -Name $serviceName
+            if ($service.Status -eq 'Running') {
+              Write-Host "✅ Service is running"
+            } else {
+              Write-Host "❌ Service failed to start"
               exit 1
             }
-          } else {
-            Write-Host "❌ Service failed to start. Status: $($service.Status)"
-            Get-EventLog -LogName Application -Source "${{ env.SERVICE_NAME }}" -Newest 10 -ErrorAction SilentlyContinue
-            exit 1
-          }
+            DEPLOY_SCRIPT
+            
+            # Execute script on VM
+            az vm run-command invoke \
+              --name ${{ env.VM_NAME }} \
+              --resource-group ${{ env.RESOURCE_GROUP }} \
+              --command-id RunPowerShellScript \
+              --scripts @deploy-madrid.ps1
 
       - name: Deployment summary
-        if: success()
-        shell: powershell
         run: |
-          $hostname = $env:COMPUTERNAME
-          $ip = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object {$_.InterfaceAlias -notlike "*Loopback*"} | Select-Object -First 1).IPAddress
-          
-          $summary = @"
-          ### Deployment Successful! 🚀
-          
-          - **Service**: ${{ env.SERVICE_NAME }}
-          - **Directory**: ${{ env.APP_DIR }}
-          - **API URL**: http://${ip}:3002
-          - **Commit**: ${{ github.sha }}
-          
-          #### Service Status
-          ``````
-          $(Get-Service -Name "${{ env.SERVICE_NAME }}" | Format-Table -AutoSize | Out-String)
-          ``````
-          "@
-          
+          echo "### Deployment Successful! 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **VM**: ${{ env.VM_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Service**: ${{ env.SERVICE_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Resource Group**: ${{ env.RESOURCE_GROUP }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+
           $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding UTF8

@@ -7,7 +7,7 @@ param tags object = {}
 
 // Storage account for deployment artifacts
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
-  name: 'stpakingdeploy${uniqueString(resourceGroup().id)}'
+  name: 'stpkdep${uniqueString(resourceGroup().id)}'
   location: location
   tags: tags
   sku: {
@@ -19,7 +19,7 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
     allowBlobPublicAccess: false
     allowCrossTenantReplication: false
     allowSharedKeyAccess: false
-    enableHttpsTrafficOnly: true
+    supportsHttpsTrafficOnly: true
     minimumTlsVersion: 'TLS1_2'
     networkAcls: {
       bypass: 'AzureServices'

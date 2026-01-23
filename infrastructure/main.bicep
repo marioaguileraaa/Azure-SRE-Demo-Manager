@@ -140,9 +140,6 @@ module spStorageAccess 'modules/sp-storage-access.bicep' = if (!empty(githubActi
     principalId: githubActionsPrincipalId
     storageAccountId: deploymentStorage.outputs.storageAccountId
   }
-  dependsOn: [
-    deploymentStorage
-  ]
 }
 
 // ========================================
@@ -177,9 +174,6 @@ module lisbonApi 'modules/lisbon-api.bicep' = {
     containerRegistry: createContainerRegistry ? acr!.outputs.loginServer : containerRegistry
     tags: tags
   }
-  dependsOn: [
-    acr
-  ]
 }
 
 // Grant Container App access to ACR
@@ -231,6 +225,7 @@ module parisApi 'modules/paris-api.bicep' = {
 // ========================================
 
 module madridStorageAccess 'modules/storage-role-assignment.bicep' = {
+  scope: subscription()
   name: 'madrid-storage-access'
   params: {
     principalId: madridApi.outputs.vmPrincipalId
@@ -238,6 +233,7 @@ module madridStorageAccess 'modules/storage-role-assignment.bicep' = {
 }
 
 module parisStorageAccess 'modules/storage-role-assignment.bicep' = {
+  scope: subscription()
   name: 'paris-storage-access'
   params: {
     principalId: parisApi.outputs.vmPrincipalId

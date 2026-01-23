@@ -1,3 +1,5 @@
+targetScope = 'subscription'
+
 // Role assignment module for VMs to access storage accounts
 @description('Principal ID of the managed identity')
 param principalId string

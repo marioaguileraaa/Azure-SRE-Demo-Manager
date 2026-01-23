@@ -42,109 +42,117 @@ jobs:
           Write-Host "Preparing deployment script..."
 
       - name: Deploy to Madrid VM via Run Command
-        uses: azure/CLI@v1
-        with:
-          inlineScript: |
-            # Create deployment script
-            cat > deploy-madrid.ps1 << 'DEPLOY_SCRIPT'
-            # Stop existing service
-            $serviceName = "${{ env.SERVICE_NAME }}"
-            $appDir = "${{ env.APP_DIR }}"
+        shell: pwsh
+        run: |
+          # Create PowerShell deployment script
+          $deployScript = @'
+          # Stop existing service
+          $serviceName = "${{ env.SERVICE_NAME }}"
+          $appDir = "${{ env.APP_DIR }}"
+          
+          Write-Host "Stopping service if exists..."
+          $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+          if ($service) {
+            Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 3
+          }
+          
+          # Create app directory
+          Write-Host "Creating application directory..."
+          if (-not (Test-Path $appDir)) {
+            New-Item -ItemType Directory -Path $appDir -Force | Out-Null
+          }
+          
+          # Download code from GitHub
+          Write-Host "Downloading code..."
+          $repoZip = "https://github.com/${{ github.repository }}/archive/${{ github.sha }}.zip"
+          $tempZip = "$env:TEMP\repo.zip"
+          $tempExtract = "$env:TEMP\repo-extract"
+          
+          Invoke-WebRequest -Uri $repoZip -OutFile $tempZip
+          Expand-Archive -Path $tempZip -DestinationPath $tempExtract -Force
+          
+          # Copy Madrid API files
+          $repoName = "${{ github.repository }}".Split("/")[1]
+          $sourcePath = "$tempExtract\$repoName-${{ github.sha }}\backend\madrid-parking-api"
+          Copy-Item -Path "$sourcePath\*" -Destination $appDir -Recurse -Force
+          
+          # Clean up temp files
+          Remove-Item $tempZip -Force
+          Remove-Item $tempExtract -Recurse -Force
+          
+          # Install dependencies
+          Write-Host "Installing dependencies..."
+          cd $appDir
+          npm ci --only=production
+          
+          # Create .env file
+          Write-Host "Creating .env file..."
+          @"
+          PORT=3002
+          PARKING_NAME=Madrid Centro Parking
+          PARKING_CITY=Madrid
+          PARKING_LOCATION=Plaza Mayor, Madrid
+          EVENT_LOG_SOURCE=MadridParkingAPI
+          EVENT_LOG_NAME=Application
+          NODE_ENV=production
+          "@ | Out-File -FilePath "$appDir\.env" -Encoding UTF8
+          
+          # Install Windows Event Log source
+          Write-Host "Installing Windows Event Log source..."
+          npm run install-windows
+          
+          # Install or update Windows service
+          $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+          if (-not $service) {
+            Write-Host "Installing Windows service..."
+            npm install -g node-windows
             
-            Write-Host "Stopping service if exists..."
-            $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
-            if ($service) {
-              Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
-              Start-Sleep -Seconds 3
-            }
-            
-            # Create app directory
-            Write-Host "Creating application directory..."
-            if (-not (Test-Path $appDir)) {
-              New-Item -ItemType Directory -Path $appDir -Force | Out-Null
-            }
-            
-            # Download code from GitHub (using latest commit)
-            Write-Host "Downloading code..."
-            $repoZip = "https://github.com/${{ github.repository }}/archive/${{ github.sha }}.zip"
-            $tempZip = "$env:TEMP\repo.zip"
-            $tempExtract = "$env:TEMP\repo-extract"
-            
-            Invoke-WebRequest -Uri $repoZip -OutFile $tempZip
-            Expand-Archive -Path $tempZip -DestinationPath $tempExtract -Force
-            
-            # Copy Madrid API files
-            $repoName = "${{ github.repository }}".Split("/")[1]
-            $sourcePath = "$tempExtract\$repoName-${{ github.sha }}\backend\madrid-parking-api"
-            Copy-Item -Path "$sourcePath\*" -Destination $appDir -Recurse -Force
-            
-            # Clean up temp files
-            Remove-Item $tempZip -Force
-            Remove-Item $tempExtract -Recurse -Force
-            
-            # Install dependencies
-            Write-Host "Installing dependencies..."
-            cd $appDir
-            npm ci --only=production
-            
-            # Create .env file
-            Write-Host "Creating .env file..."
-            @"
-            PORT=3002
-            PARKING_NAME=Madrid Centro Parking
-            PARKING_CITY=Madrid
-            PARKING_LOCATION=Plaza Mayor, Madrid
-            EVENT_LOG_SOURCE=MadridParkingAPI
-            EVENT_LOG_NAME=Application
-            NODE_ENV=production
-            "@ | Out-File -FilePath "$appDir\.env" -Encoding UTF8
-            
-            # Install Windows Event Log source
-            Write-Host "Installing Windows Event Log source..."
-            npm run install-windows
-            
-            # Install or update Windows service
-            if (-not $service) {
-              Write-Host "Installing Windows service..."
-              npm install -g node-windows
-              
-              $serviceScript = @"
-            const Service = require('node-windows').Service;
-            const svc = new Service({
-              name: '$serviceName',
-              description: 'Madrid Parking API',
-              script: '$appDir\\server.js',
-              workingDirectory: '$appDir',
-              env: [{ name: 'NODE_ENV', value: 'production' }, { name: 'PORT', value: '3002' }]
-            });
-            svc.on('install', () => { console.log('Installed'); svc.start(); });
-            svc.install();
-            "@
-              $serviceScript | Out-File -FilePath "$appDir\install-service.js" -Encoding UTF8
-              node "$appDir\install-service.js"
-              Start-Sleep -Seconds 10
-            } else {
-              Write-Host "Starting existing service..."
-              Start-Service -Name $serviceName
-            }
-            
-            # Verify
-            Start-Sleep -Seconds 5
-            $service = Get-Service -Name $serviceName
-            if ($service.Status -eq 'Running') {
-              Write-Host "✅ Service is running"
-            } else {
-              Write-Host "❌ Service failed to start"
-              exit 1
-            }
-            DEPLOY_SCRIPT
-            
-            # Execute script on VM
-            az vm run-command invoke \
-              --name ${{ env.VM_NAME }} \
-              --resource-group ${{ env.RESOURCE_GROUP }} \
-              --command-id RunPowerShellScript \
-              --scripts @deploy-madrid.ps1
+            $serviceScript = @"
+          const Service = require('node-windows').Service;
+          const svc = new Service({
+            name: '$serviceName',
+            description: 'Madrid Parking API',
+            script: '$appDir\\server.js',
+            workingDirectory: '$appDir',
+            env: [{ name: 'NODE_ENV', value: 'production' }, { name: 'PORT', value: '3002' }]
+          });
+          svc.on('install', () => { console.log('Installed'); svc.start(); });
+          svc.install();
+          "@
+            $serviceScript | Out-File -FilePath "$appDir\install-service.js" -Encoding UTF8
+            node "$appDir\install-service.js"
+            Start-Sleep -Seconds 10
+          } else {
+            Write-Host "Starting existing service..."
+            Start-Service -Name $serviceName
+          }
+          
+          # Verify
+          Start-Sleep -Seconds 5
+          $service = Get-Service -Name $serviceName
+          if ($service.Status -eq 'Running') {
+            Write-Host "✅ Service is running"
+          } else {
+            Write-Host "❌ Service failed to start"
+            exit 1
+          }
+          '@
+          
+          # Save script to temp file
+          $scriptPath = "$env:TEMP\deploy-madrid-${{ github.run_id }}.ps1"
+          $deployScript | Out-File -FilePath $scriptPath -Encoding UTF8
+          
+          # Execute script on VM using Run Command
+          Write-Host "Deploying to VM ${{ env.VM_NAME }}..."
+          az vm run-command invoke `
+            --name ${{ env.VM_NAME }} `
+            --resource-group ${{ env.RESOURCE_GROUP }} `
+            --command-id RunPowerShellScript `
+            --scripts @$scriptPath
+          
+          # Clean up
+          Remove-Item $scriptPath -Force
 
       - name: Deployment summary
         run: |

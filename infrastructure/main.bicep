@@ -51,6 +51,9 @@ param createContainerRegistry bool = true
 ])
 param containerRegistrySku string = 'Basic'
 
+@description('GitHub Actions Service Principal Object ID (for deployment storage access)')
+param githubActionsPrincipalId string = ''
+
 // Common tags
 var tags = {
   Environment: environment
@@ -127,6 +130,19 @@ module deploymentStorage 'modules/deployment-storage.bicep' = {
     location: location
     tags: tags
   }
+}
+
+// Grant GitHub Actions SP access to deployment storage
+module spStorageAccess 'modules/sp-storage-access.bicep' = if (!empty(githubActionsPrincipalId)) {
+  scope: hubRg
+  name: 'sp-storage-access'
+  params: {
+    principalId: githubActionsPrincipalId
+    storageAccountId: deploymentStorage.outputs.storageAccountId
+  }
+  dependsOn: [
+    deploymentStorage
+  ]
 }
 
 // ========================================

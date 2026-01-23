@@ -12,10 +12,13 @@ on:
 env:
   APP_DIR: /opt/paris-parking-api
   SERVICE_NAME: paris-parking-api
+  VM_NAME: ${{ vars.PARIS_VM_NAME }}
+  RESOURCE_GROUP: ${{ vars.PARIS_RESOURCE_GROUP }}
+  HUB_RESOURCE_GROUP: ${{ vars.HUB_RESOURCE_GROUP }}
 
 jobs:
   deploy:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     
     steps:
       - name: Checkout code
@@ -26,28 +29,114 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Stop existing service
+      - name: Create deployment package
+        shell: bash
         run: |
-          sudo systemctl stop ${{ env.SERVICE_NAME }} || true
+          # Create zip of Paris API
+          echo "Creating deployment package..."
+          cd backend/paris-parking-api
+          zip -r "../../paris-api-${{ github.run_id }}.zip" .
+          cd ../../
 
-      - name: Create application directory
+      - name: Upload to temporary storage
+        shell: bash
         run: |
-          sudo mkdir -p ${{ env.APP_DIR }}
-          sudo chown -R $USER:$USER ${{ env.APP_DIR }}
-
-      - name: Copy application files
-        run: |
-          cp -r backend/paris-parking-api/* ${{ env.APP_DIR }}/
+          # Get or create storage account in hub resource group
+          STORAGE_RG="${{ env.HUB_RESOURCE_GROUP }}"
+          STORAGE_NAME="stpakingtmp${{ github.run_id }}" | tr -d '-'
+          STORAGE_NAME="${STORAGE_NAME:0:24}"
           
-      - name: Install dependencies
-        working-directory: ${{ env.APP_DIR }}
-        run: |
-          npm ci --only=production
+          echo "Using temporary storage: $STORAGE_NAME"
+          
+          # Create storage account if needed
+          az storage account create -n $STORAGE_NAME -g $STORAGE_RG -l swedencentral --sku Standard_LRS --only-show-errors 2>/dev/null || true
+          
+          # Get storage key
+          STORAGE_KEY=$(az storage account keys list -n $STORAGE_NAME -g $STORAGE_RG --query "[0].value" -o tsv)
+          
+          # Create container
+          echo "Creating container..."
+          az storage container create \
+            --account-name $STORAGE_NAME \
+            --account-key $STORAGE_KEY \
+            --name "deployments" \
+            --only-show-errors 2>/dev/null || true
+          
+          # Upload zip file
+          echo "Uploading deployment package..."
+          az storage blob upload \
+            --account-name $STORAGE_NAME \
+            --account-key $STORAGE_KEY \
+            --container-name "deployments" \
+            --file "paris-api-${{ github.run_id }}.zip" \
+            --name "paris-api.zip"
+          
+          # Get SAS URL (valid for 1 hour)
+          BLOB_URL=$(az storage blob generate-sas \
+            --account-name $STORAGE_NAME \
+            --account-key $STORAGE_KEY \
+            --container-name "deployments" \
+            --name "paris-api.zip" \
+            --expiry $(date -u -d '+1 hour' '+%Y-%m-%dT%H:%MZ') \
+            --permissions r \
+            -o tsv)
+          
+          FULL_BLOB_URL="https://$STORAGE_NAME.blob.core.windows.net/deployments/paris-api.zip?$BLOB_URL"
+          echo "Storage URL ready"
+          
+          # Save for next step
+          echo "BLOB_URL=$FULL_BLOB_URL" >> $GITHUB_ENV
+          echo "STORAGE_NAME=$STORAGE_NAME" >> $GITHUB_ENV
+          echo "STORAGE_RG=$STORAGE_RG" >> $GITHUB_ENV
 
-      - name: Create .env file
-        working-directory: ${{ env.APP_DIR }}
+      - name: Deploy to Paris VM via Run Command
+        shell: bash
         run: |
-          cat > .env << EOF
+          # Create bash deployment script
+          cat > /tmp/deploy-paris-${{ github.run_id }}.sh << 'EOFSCRIPT'
+          #!/bin/bash
+          set -e
+          
+          SERVICE_NAME="${{ env.SERVICE_NAME }}"
+          APP_DIR="${{ env.APP_DIR }}"
+          BLOB_URL="${{ env.BLOB_URL }}"
+          
+          echo "Stopping service if exists..."
+          sudo systemctl stop $SERVICE_NAME || true
+          sleep 2
+          
+          echo "Creating application directory..."
+          sudo mkdir -p $APP_DIR
+          
+          echo "Downloading deployment package..."
+          TEMP_ZIP="/tmp/paris-api.zip"
+          TEMP_EXTRACT="/tmp/paris-extract"
+          
+          # Download using SAS URL (no auth needed - URL is pre-signed)
+          wget -q "$BLOB_URL" -O "$TEMP_ZIP" || curl -s -o "$TEMP_ZIP" "$BLOB_URL"
+          
+          if [ ! -f "$TEMP_ZIP" ]; then
+            echo "ERROR: Download failed - file not created"
+            exit 1
+          fi
+          
+          echo "Extracting package..."
+          mkdir -p $TEMP_EXTRACT
+          unzip -q "$TEMP_ZIP" -d $TEMP_EXTRACT
+          
+          echo "Copying application files..."
+          sudo cp -r $TEMP_EXTRACT/* $APP_DIR/
+          sudo chown -R $USER:$USER $APP_DIR
+          
+          # Clean up
+          rm -rf "$TEMP_ZIP" "$TEMP_EXTRACT"
+          
+          echo "Installing dependencies..."
+          cd $APP_DIR
+          npm ci --only=production
+          
+          echo "Creating .env file..."
+          cat > "$APP_DIR/.env" << EOF
           PORT=3003
           PARKING_NAME=Paris Centre Parking
           PARKING_CITY=Paris
@@ -56,68 +145,69 @@ jobs:
           SYSLOG_TAG=ParisParkingAPI
           NODE_ENV=production
           EOF
-
-      - name: Create systemd service file
-        run: |
-          sudo tee /etc/systemd/system/${{ env.SERVICE_NAME }}.service > /dev/null << EOF
+          
+          echo "Creating systemd service file..."
+          sudo tee /etc/systemd/system/$SERVICE_NAME.service > /dev/null << EOF
           [Unit]
           Description=Paris Parking API
           After=network.target
-
+          
           [Service]
           Type=simple
           User=$USER
-          WorkingDirectory=${{ env.APP_DIR }}
-          ExecStart=/usr/bin/node ${{ env.APP_DIR }}/server.js
+          WorkingDirectory=$APP_DIR
+          ExecStart=/usr/bin/node $APP_DIR/server.js
           Restart=always
           RestartSec=10
           StandardOutput=journal
           StandardError=journal
           SyslogIdentifier=paris-parking-api
-
+          
           Environment=NODE_ENV=production
-
+          
           [Install]
           WantedBy=multi-user.target
           EOF
-
-      - name: Reload systemd and start service
-        run: |
+          
+          echo "Reloading systemd and starting service..."
           sudo systemctl daemon-reload
-          sudo systemctl enable ${{ env.SERVICE_NAME }}
-          sudo systemctl start ${{ env.SERVICE_NAME }}
-
-      - name: Verify deployment
-        run: |
+          sudo systemctl enable $SERVICE_NAME
+          sudo systemctl start $SERVICE_NAME
+          
+          echo "Waiting for service to start..."
           sleep 5
-          if sudo systemctl is-active --quiet ${{ env.SERVICE_NAME }}; then
+          
+          if sudo systemctl is-active --quiet $SERVICE_NAME; then
             echo "✅ Service is running"
-            sudo systemctl status ${{ env.SERVICE_NAME }} --no-pager
-            
-            # Test the API
-            if curl -f http://localhost:3003/health > /dev/null 2>&1; then
-              echo "✅ API health check passed"
-            else
-              echo "❌ API health check failed"
-              exit 1
-            fi
           else
             echo "❌ Service failed to start"
-            sudo journalctl -u ${{ env.SERVICE_NAME }} --no-pager -n 50
+            sudo journalctl -u $SERVICE_NAME --no-pager -n 50
             exit 1
           fi
+          EOFSCRIPT
+          
+          chmod +x /tmp/deploy-paris-${{ github.run_id }}.sh
+          
+          echo "Deploying to VM ${{ env.VM_NAME }}..."
+          az vm run-command invoke \
+            --name ${{ env.VM_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --command-id RunShellScript \
+            --scripts @/tmp/deploy-paris-${{ github.run_id }}.sh
+          
+          rm -f /tmp/deploy-paris-${{ github.run_id }}.sh
 
-      - name: Deployment summary
-        if: success()
+      - name: Cleanup temporary storage
+        if: always()
+        shell: bash
         run: |
-          echo "### Deployment Successful! 🚀" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Service**: ${{ env.SERVICE_NAME }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Directory**: ${{ env.APP_DIR }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **API URL**: http://$(hostname -I | awk '{print $1}'):3003" >> $GITHUB_STEP_SUMMARY
-          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "#### Service Status" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          sudo systemctl status ${{ env.SERVICE_NAME }} --no-pager >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
+          if [ -n "${{ env.STORAGE_NAME }}" ]; then
+            echo "Cleaning up temporary storage..."
+            az storage account delete \
+              --name ${{ env.STORAGE_NAME }} \
+              --resource-group ${{ env.STORAGE_RG }} \
+              --yes \
+              --only-show-errors 2>/dev/null || true
+            
+            echo "✅ Cleanup complete"
+          fi

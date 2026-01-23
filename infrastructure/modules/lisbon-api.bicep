@@ -22,9 +22,6 @@ param containerRegistry string = ''
 @description('Tags to apply to resources')
 param tags object = {}
 
-@description('Container Registry ID for role assignment')
-param containerRegistryId string = ''
-
 // Container App Environment
 resource containerAppEnvironment 'Microsoft.App/managedEnvironments@2023-05-01' = {
   name: 'cae-parking-lisbon'

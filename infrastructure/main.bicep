@@ -146,19 +146,17 @@ module lisbonApi 'modules/lisbon-api.bicep' = {
     logAnalyticsCustomerId: hub.outputs.logAnalyticsCustomerId
     containerImage: lisbonContainerImage
     containerRegistry: containerRegistry
-    containerRegistryId: createContainerRegistry ? acr!.outputs.registryId : ''
     tags: tags
   }
 }
 
-// Role assignment for Container App to pull from ACR
-resource lisbonAcrPullRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (createContainerRegistry) {
-  name: guid(lisbonApi.outputs.containerAppPrincipalId, acr!.outputs.registryId, 'AcrPull')
-  scope: resourceGroup(hubRgName)
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d') // AcrPull
+// Grant Container App access to ACR
+module lisbonAcrAccess 'modules/acr-role-assignment.bicep' = if (createContainerRegistry) {
+  scope: hubRg
+  name: 'lisbon-acr-access'
+  params: {
     principalId: lisbonApi.outputs.containerAppPrincipalId
-    principalType: 'ServicePrincipal'
+    acrName: acr!.outputs.registryName
   }
 }
 

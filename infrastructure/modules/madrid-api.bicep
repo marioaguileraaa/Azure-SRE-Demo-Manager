@@ -62,6 +62,9 @@ resource vm 'Microsoft.Compute/virtualMachines@2023-03-01' = {
   name: 'vm-madrid-api'
   location: location
   tags: tags
+  identity: {
+    type: 'SystemAssigned'
+  }
   properties: {
     hardwareProfile: {
       vmSize: 'Standard_B2s' // Cost-optimized: 2 vCPUs, 4 GB RAM
@@ -145,6 +148,7 @@ resource customScriptExtension 'Microsoft.Compute/virtualMachines/extensions@202
 // Outputs
 output vmName string = vm.name
 output vmId string = vm.id
+output vmPrincipalId string = vm.identity.principalId
 output privateIpAddress string = nic.properties.ipConfigurations[0].properties.privateIPAddress
 output publicIpAddress string = createPublicIp ? publicIp!.properties.ipAddress : ''
 output fqdn string = createPublicIp ? publicIp!.properties.dnsSettings.fqdn : ''

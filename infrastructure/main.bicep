@@ -198,6 +198,24 @@ module parisApi 'modules/paris-api.bicep' = {
 }
 
 // ========================================
+// Storage Role Assignments for VMs
+// ========================================
+
+module madridStorageAccess 'modules/storage-role-assignment.bicep' = {
+  name: 'madrid-storage-access'
+  params: {
+    principalId: madridApi.outputs.vmPrincipalId
+  }
+}
+
+module parisStorageAccess 'modules/storage-role-assignment.bicep' = {
+  name: 'paris-storage-access'
+  params: {
+    principalId: parisApi.outputs.vmPrincipalId
+  }
+}
+
+// ========================================
 // Frontend (React App on App Service)
 // ========================================
 

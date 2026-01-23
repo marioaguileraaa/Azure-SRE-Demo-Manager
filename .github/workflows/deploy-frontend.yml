@@ -60,6 +60,7 @@ jobs:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           resource-group-name: ${{ env.RESOURCE_GROUP }}
           package: frontend/deployment.zip
+          enable-oryx-build: false
 
       - name: Configure App Service settings
         uses: azure/CLI@v1

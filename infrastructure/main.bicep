@@ -25,14 +25,6 @@ param lisbonContainerImage string = 'mcr.microsoft.com/azuredocs/containerapps-h
 @description('Container registry server (if using private registry)')
 param containerRegistry string = ''
 
-@description('Container registry username')
-@secure()
-param containerRegistryUsername string = ''
-
-@description('Container registry password')
-@secure()
-param containerRegistryPassword string = ''
-
 @description('Create public IPs for VMs')
 param createPublicIps bool = true
 
@@ -154,14 +146,20 @@ module lisbonApi 'modules/lisbon-api.bicep' = {
     logAnalyticsCustomerId: hub.outputs.logAnalyticsCustomerId
     containerImage: lisbonContainerImage
     containerRegistry: containerRegistry
-    containerRegistryUsername: containerRegistryUsername
-    containerRegistryPassword: containerRegistryPassword
     containerRegistryId: createContainerRegistry ? acr!.outputs.registryId : ''
     tags: tags
   }
-  dependsOn: [
-    acr
-  ]
+}
+
+// Role assignment for Container App to pull from ACR
+resource lisbonAcrPullRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (createContainerRegistry) {
+  name: guid(lisbonApi.outputs.containerAppPrincipalId, acr!.outputs.registryId, 'AcrPull')
+  scope: resourceGroup(hubRgName)
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d') // AcrPull
+    principalId: lisbonApi.outputs.containerAppPrincipalId
+    principalType: 'ServicePrincipal'
+  }
 }
 
 // ========================================

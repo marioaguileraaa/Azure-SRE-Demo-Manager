@@ -19,14 +19,6 @@ param containerImage string = 'mcr.microsoft.com/azuredocs/containerapps-hellowo
 @description('Container registry server (leave empty for public registries)')
 param containerRegistry string = ''
 
-@description('Container registry username (not needed for public registries or managed identity)')
-@secure()
-param containerRegistryUsername string = ''
-
-@description('Container registry password (not needed for public registries or managed identity)')
-@secure()
-param containerRegistryPassword string = ''
-
 @description('Tags to apply to resources')
 param tags object = {}
 
@@ -150,17 +142,6 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
         ]
       }
     }
-  }
-}
-
-// Role assignment for ACR pull access
-resource acrPullRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(containerRegistryId)) {
-  name: guid(containerApp.id, containerRegistryId, 'AcrPull')
-  scope: resourceGroup()
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d') // AcrPull role
-    principalId: containerApp.identity.principalId
-    principalType: 'ServicePrincipal'
   }
 }
 

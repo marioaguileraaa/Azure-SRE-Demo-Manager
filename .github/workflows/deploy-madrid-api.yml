@@ -63,23 +63,50 @@ jobs:
             New-Item -ItemType Directory -Path $appDir -Force | Out-Null
           }
           
-          # Download code from GitHub
-          Write-Host "Downloading code..."
-          $repoZip = "https://github.com/${{ github.repository }}/archive/${{ github.sha }}.zip"
-          $tempZip = "$env:TEMP\repo.zip"
-          $tempExtract = "$env:TEMP\repo-extract"
+          # Download code from GitHub using git
+          Write-Host "Downloading code from GitHub..."
+          $tempDir = "$env:TEMP\sre-demo-${{ github.run_id }}"
           
-          Invoke-WebRequest -Uri $repoZip -OutFile $tempZip
-          Expand-Archive -Path $tempZip -DestinationPath $tempExtract -Force
+          # Try git clone first
+          if (Get-Command git -ErrorAction SilentlyContinue) {
+            Write-Host "Using git to clone repository..."
+            git clone --depth 1 --branch main https://github.com/${{ github.repository }}.git $tempDir
+          } else {
+            # Fallback: download and extract zip
+            Write-Host "Git not found, using zip download..."
+            $repoZip = "https://github.com/${{ github.repository }}/archive/main.zip"
+            $tempZip = "$env:TEMP\repo-${{ github.run_id }}.zip"
+            
+            try {
+              [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+              Invoke-WebRequest -Uri $repoZip -OutFile $tempZip -UseBasicParsing
+              
+              if (-not (Test-Path $tempZip)) {
+                throw "Download failed: file not created"
+              }
+              
+              Write-Host "Extracting archive..."
+              Expand-Archive -Path $tempZip -DestinationPath $tempDir -Force
+              Remove-Item $tempZip -Force
+            } catch {
+              Write-Host "Download failed: $_"
+              exit 1
+            }
+          }
           
           # Copy Madrid API files
+          Write-Host "Copying Madrid API files..."
           $repoName = "${{ github.repository }}".Split("/")[1]
-          $sourcePath = "$tempExtract\$repoName-${{ github.sha }}\backend\madrid-parking-api"
-          Copy-Item -Path "$sourcePath\*" -Destination $appDir -Recurse -Force
+          $sourcePath = Get-ChildItem -Path $tempDir -Directory | Select-Object -First 1
+          $srcMadrid = Join-Path $sourcePath.FullName "backend\madrid-parking-api"
           
-          # Clean up temp files
-          Remove-Item $tempZip -Force
-          Remove-Item $tempExtract -Recurse -Force
+          if (-not (Test-Path $srcMadrid)) {
+            Write-Host "ERROR: Madrid API source not found at $srcMadrid"
+            exit 1
+          }
+          
+          Copy-Item -Path "$srcMadrid\*" -Destination $appDir -Recurse -Force
+          Remove-Item $tempDir -Recurse -Force
           
           # Install dependencies
           Write-Host "Installing dependencies..."

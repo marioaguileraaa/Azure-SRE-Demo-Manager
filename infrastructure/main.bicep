@@ -145,9 +145,12 @@ module lisbonApi 'modules/lisbon-api.bicep' = {
     logAnalyticsWorkspaceId: hub.outputs.logAnalyticsWorkspaceId
     logAnalyticsCustomerId: hub.outputs.logAnalyticsCustomerId
     containerImage: lisbonContainerImage
-    containerRegistry: containerRegistry
+    containerRegistry: createContainerRegistry ? acr!.outputs.loginServer : containerRegistry
     tags: tags
   }
+  dependsOn: [
+    acr
+  ]
 }
 
 // Grant Container App access to ACR

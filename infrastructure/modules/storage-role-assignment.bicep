@@ -4,9 +4,6 @@ targetScope = 'subscription'
 @description('Principal ID of the managed identity')
 param principalId string
 
-@description('Subscription ID for the scope')
-param subscriptionId string = subscription().subscriptionId
-
 @description('Role to assign (Storage Blob Data Reader or Storage Blob Data Contributor)')
 param roleDefinitionId string = '2a2b9908-6ea1-4ae2-8e65-a410df84e7d1' // Storage Blob Data Reader
 
@@ -16,7 +13,7 @@ resource roleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleDefinitionId)
     principalId: principalId
-    principalType: 'MSI'
+    principalType: 'ServicePrincipal'
   }
 }
 

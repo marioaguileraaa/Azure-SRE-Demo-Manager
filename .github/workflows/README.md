@@ -5,14 +5,110 @@ This document explains the GitHub Actions workflows configured for the Azure SRE
 ## Overview
 
 The project uses multiple deployment workflows:
-1. **Lisbon API** - Container App deployment
-2. **Madrid API** - Windows VM deployment (self-hosted runner)
-3. **Paris API** - Linux VM deployment (self-hosted runner)
-4. **Frontend** - Azure App Service deployment
+1. **Infrastructure** - Azure infrastructure provisioning using Bicep (IaC)
+2. **Lisbon API** - Container App deployment
+3. **Madrid API** - Windows VM deployment (self-hosted runner)
+4. **Paris API** - Linux VM deployment (self-hosted runner)
+5. **Frontend** - Azure App Service deployment
 
 ---
 
-## Workflows
+## Infrastructure Workflows
+
+### 1. Infrastructure What-If Analysis
+
+**File:** `.github/workflows/infra-whatif.yml`
+
+Runs a preview analysis of infrastructure changes for pull requests without making any actual deployments.
+
+**Purpose:** 
+- Validates Bicep templates before merging
+- Shows what resources will be created, modified, or deleted
+- Prevents accidental infrastructure changes
+
+**Triggers:** 
+- Pull requests affecting `infrastructure/**` paths
+- Changes to the workflow file itself
+
+**Required Secrets:**
+- `AZURE_CREDENTIALS` - Service principal JSON (same as other workflows)
+
+**How it works:**
+1. Detects changes to infrastructure files
+2. Runs `az deployment sub what-if` command
+3. Posts analysis results to the PR summary
+4. Fails if template validation fails
+
+**No Variables Required** - Uses default parameters from `infrastructure/main.parameters.json`
+
+---
+
+### 2. Infrastructure Deployment (Manual)
+
+**File:** `.github/workflows/infra-deploy.yml`
+
+Manually deploys Azure infrastructure using Bicep templates at subscription scope.
+
+**Purpose:**
+- Deploy all infrastructure resources (VMs, networking, Container Apps, App Services, ACR)
+- Support multiple environments (dev, test, prod)
+- Provide safe, auditable infrastructure changes
+
+**Trigger:** Manual only (`workflow_dispatch`)
+
+**Required Secrets:**
+- `AZURE_CREDENTIALS` - Service principal JSON
+
+**Workflow Inputs:**
+- `environment` - Environment to deploy (dev/test/prod) - **Required**
+- `location` - Azure region (default: westeurope) - **Required**
+- `parametersFile` - Path to parameters file (default: infrastructure/main.parameters.json) - **Required**
+- `confirmDeployment` - Type "DEPLOY" to confirm - **Required**
+
+**How to run:**
+1. Go to **Actions** tab in GitHub
+2. Select **Deploy Infrastructure to Azure**
+3. Click **Run workflow**
+4. Fill in the inputs:
+   - Environment: Choose `dev`, `test`, or `prod`
+   - Location: Azure region (e.g., `westeurope`, `swedencentral`)
+   - Parameters File: Path to parameter file (usually `infrastructure/main.parameters.json`)
+   - Confirmation: Type `DEPLOY` to proceed
+5. Click **Run workflow**
+
+**GitHub Environments:**
+This workflow supports GitHub environment protection rules. You can configure:
+- Environment-specific approvals
+- Environment-specific secrets/variables
+- Deployment branches restrictions
+
+To set up environments:
+1. Go to **Settings** → **Environments**
+2. Create environments: `dev`, `test`, `prod`
+3. Add protection rules (e.g., require reviewers for `prod`)
+
+**What it deploys:**
+- Resource groups for each component (hub, frontend, Lisbon, Madrid, Paris)
+- VNet and networking (hub infrastructure)
+- Log Analytics workspace
+- Azure Container Registry (ACR)
+- Container App for Lisbon API
+- Windows VM for Madrid API
+- Linux VM for Paris API
+- App Service for Frontend
+
+**Deployment Outputs:**
+The workflow captures and displays:
+- Resource group names
+- VNet and networking details
+- Container Registry URL and credentials
+- Frontend URL
+- API endpoints
+- VM names and IPs
+
+---
+
+## Application Deployment Workflows
 
 ### 1. Lisbon API Deployment (Container App)
 
@@ -78,24 +174,13 @@ Deploys the Paris Parking API to Linux VM using a self-hosted runner.
 
 ## Configuration Setup
 
-### GitHub Variables
-
-Configure these variables in **Settings → Secrets and variables → Actions → Variables**:
-
-- `AZURE_CONTAINER_REGISTRY` - Your ACR name (e.g., `acrparkingdev725vs7xw6g7qg`)
-- `RESOURCE_GROUP` - Resource group for Lisbon API (e.g., `rg-parking-lisbon-dev`)
-- `AZURE_WEBAPP_NAME` - App Service name (e.g., `app-parking-frontend-yd5hvpxzlffke`)
-- `FRONTEND_RESOURCE_GROUP` - Resource group for frontend (e.g., `rg-parking-frontend-dev`)
-
-### GitHub Secrets
-
 ### GitHub Secrets
 
 Configure these secrets in **Settings → Secrets and variables → Actions → Secrets**:
 
-**1. AZURE_CREDENTIALS** (Used by Lisbon API and Frontend)
+**AZURE_CREDENTIALS** (Required for ALL workflows)
 
-Create a service principal with contributor access:
+Create a service principal with contributor access at the subscription level:
 
 ```bash
 az ad sp create-for-rbac \
@@ -107,7 +192,13 @@ az ad sp create-for-rbac \
 
 Copy the entire JSON output and add it as the `AZURE_CREDENTIALS` secret.
 
-**2. ACR_USERNAME and ACR_PASSWORD** (Used by Lisbon API)
+**Note:** This same secret is used by:
+- Infrastructure deployment workflows (infra-whatif, infra-deploy)
+- Application deployment workflows (Lisbon API, Frontend)
+
+**Additional Secrets for Application Workflows:**
+
+**ACR_USERNAME and ACR_PASSWORD** (Used by Lisbon API only)
 
 Get your Azure Container Registry credentials:
 
@@ -123,16 +214,63 @@ Add these as secrets:
 - `ACR_USERNAME`: The username from the first command
 - `ACR_PASSWORD`: The password from the second command
 
+### GitHub Variables
+
+Configure these variables in **Settings → Secrets and variables → Actions → Variables**:
+
+**For Application Deployment Workflows:**
+
+- `AZURE_CONTAINER_REGISTRY` - Your ACR name (e.g., `acrparkingdev725vs7xw6g7qg`)
+- `RESOURCE_GROUP` - Resource group for Lisbon API (e.g., `rg-parking-lisbon-dev`)
+- `AZURE_WEBAPP_NAME` - App Service name (e.g., `app-parking-frontend-yd5hvpxzlffke`)
+- `FRONTEND_RESOURCE_GROUP` - Resource group for frontend (e.g., `rg-parking-frontend-dev`)
+
+**Note:** Infrastructure workflows don't require GitHub Variables - they use parameters from `infrastructure/main.parameters.json`
+
+### Infrastructure Parameters
+
+The infrastructure deployment workflows use parameter files in the `infrastructure/` directory:
+
+- `main.parameters.json` - Default parameters (used by workflows)
+- `main.parameters.example01.json` - Example configuration 1
+- `main.parameters.example02.json` - Example configuration 2
+
+**Key Parameters:**
+- `location` - Azure region (e.g., `westeurope`, `swedencentral`)
+- `environment` - Environment name (dev, test, prod)
+- `adminUsername` - VM administrator username
+- `adminPassword` - VM administrator password (keep secure!)
+- `createPublicIps` - Whether to create public IPs for VMs (true/false)
+- `createContainerRegistry` - Whether to create ACR (true/false)
+
+**Important:** Update `main.parameters.json` with your desired configuration before running infrastructure deployments. Sensitive values like passwords should be managed securely.
+
 ## Configuration Summary
 
-### Variables (Settings → Secrets and variables → Actions → Variables)
-1. `AZURE_CONTAINER_REGISTRY` = `acrparkingdev725vs7xw6g7qg`
-2. `RESOURCE_GROUP` = `rg-parking-lisbon-dev`
+### Required for ALL Workflows
 
-### Secrets (Settings → Secrets and variables → Actions → Secrets)
-1. `AZURE_CREDENTIALS` - Service principal JSON
-2. `ACR_USERNAME` - Container registry username
-3. `ACR_PASSWORD` - Container registry password
+**Secrets:**
+1. `AZURE_CREDENTIALS` - Service principal JSON (subscription-level contributor access)
+
+### Additional for Application Deployment Workflows
+
+**Variables:**
+1. `AZURE_CONTAINER_REGISTRY` - ACR name (e.g., `acrparkingdev725vs7xw6g7qg`)
+2. `RESOURCE_GROUP` - Resource group for Lisbon API (e.g., `rg-parking-lisbon-dev`)
+3. `AZURE_WEBAPP_NAME` - App Service name (e.g., `app-parking-frontend-yd5hvpxzlffke`)
+4. `FRONTEND_RESOURCE_GROUP` - Resource group for frontend (e.g., `rg-parking-frontend-dev`)
+
+**Secrets:**
+1. `ACR_USERNAME` - Container registry username
+2. `ACR_PASSWORD` - Container registry password
+
+### Infrastructure Workflows Configuration
+
+**No GitHub Variables Required** - Uses parameter files in `infrastructure/` directory
+
+**Parameter File:** `infrastructure/main.parameters.json`
+- Customize before deployment
+- Contains environment settings, credentials, and resource configurations
 
 ## Setting Up GitHub Secrets and Variables
 
@@ -189,13 +327,70 @@ If your infrastructure changes (e.g., different resource names), update these va
 
 ### Authentication Issues
 - Verify `AZURE_CREDENTIALS` secret is correct and not expired
-- Check that the service principal has appropriate permissions
+- Check that the service principal has appropriate permissions (Contributor role at subscription level)
+- Ensure the service principal hasn't been deleted or disabled
+
+### Infrastructure Deployment Issues
+
+**What-If Analysis Failures:**
+- Check Bicep template syntax using `az bicep build --file infrastructure/main.bicep`
+- Verify parameter file is valid JSON
+- Ensure all required parameters are provided
+
+**Deployment Failures:**
+- Review deployment logs in Azure Portal (Deployments section)
+- Check for resource naming conflicts
+- Verify subscription has sufficient quota for requested resources
+- Ensure parameter values meet Azure resource requirements (naming, regions, etc.)
+
+**Common Issues:**
+- **VM Password Requirements:** Must meet Azure complexity requirements (12+ chars, upper, lower, number, special)
+- **Region Availability:** Not all Azure regions support all resource types
+- **Naming Conflicts:** Resource names must be unique within their scope
 
 ### Registry Access Issues
 - Ensure `ACR_USERNAME` and `ACR_PASSWORD` are correct
 - Verify admin user is enabled on the Container Registry
+- Check ACR exists and is accessible from your subscription
 
-### Deployment Failures
+### Application Deployment Failures
 - Check the Container App logs in Azure Portal
 - Verify the image was successfully pushed to ACR
 - Ensure the Container App environment is healthy
+- Verify resource group and resource names in GitHub Variables are correct
+
+## Deployment Order
+
+For a fresh deployment, follow this order:
+
+1. **Deploy Infrastructure First** (Manual)
+   - Run `Deploy Infrastructure to Azure` workflow
+   - Wait for completion and note the output resource names
+   - Update GitHub Variables with the created resource names
+
+2. **Update GitHub Variables** (One-time setup)
+   - Add `AZURE_CONTAINER_REGISTRY` (from infrastructure outputs)
+   - Add `RESOURCE_GROUP` for Lisbon API
+   - Add `AZURE_WEBAPP_NAME` (from infrastructure outputs)
+   - Add `FRONTEND_RESOURCE_GROUP`
+   - Add ACR credentials as secrets
+
+3. **Deploy Applications** (Can be automatic or manual)
+   - Deploy Lisbon API (pushes to ACR and updates Container App)
+   - Deploy Frontend (builds and deploys to App Service)
+   - Deploy Madrid/Paris APIs if using VMs with self-hosted runners
+
+## Best Practices
+
+### Infrastructure
+- Always review What-If analysis before merging infrastructure changes
+- Use manual deployment for infrastructure (never automatic on push)
+- Test infrastructure changes in dev environment first
+- Use parameter files for different environments
+- Keep sensitive values secure (use Azure Key Vault references in production)
+
+### Application Deployments
+- Automatic deployment on push to main is acceptable for applications
+- Review PR builds and tests before merging
+- Monitor deployment summaries in GitHub Actions
+- Check application health after deployment

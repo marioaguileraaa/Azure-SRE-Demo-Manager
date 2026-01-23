@@ -48,8 +48,14 @@ jobs:
           
           echo "Using temporary storage: $STORAGE_NAME"
           
-          # Create storage account if needed
-          az storage account create -n $STORAGE_NAME -g $STORAGE_RG -l swedencentral --sku Standard_LRS --only-show-errors 2>/dev/null || true
+          # Create storage account with shared key access enabled
+          az storage account create \
+            -n $STORAGE_NAME \
+            -g $STORAGE_RG \
+            -l swedencentral \
+            --sku Standard_LRS \
+            --allow-shared-key-access true \
+            --only-show-errors 2>/dev/null || true
           
           # Get storage key
           STORAGE_KEY=$(az storage account keys list -n $STORAGE_NAME -g $STORAGE_RG --query "[0].value" -o tsv)

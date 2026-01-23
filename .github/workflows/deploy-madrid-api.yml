@@ -46,13 +46,16 @@ jobs:
           
           Write-Host "Using temporary storage: $storageName"
           
-          # Create storage account if needed (might fail if exists, that's ok)
-          az storage account create -n $storageName -g $storageRg -l swedencentral --sku Standard_LRS --only-show-errors 2>$null
+          # Create storage account with shared key access enabled
+          az storage account create `
+            -n $storageName `
+            -g $storageRg `
+            -l swedencentral `
+            --sku Standard_LRS `
+            --allow-shared-key-access true `
+            --only-show-errors 2>$null
           
-          # Get storage account details
-          $storageId = (az storage account show -n $storageName -g $storageRg --query id -o tsv)
-          
-          # Get storage keys for direct auth
+          # Get storage key
           $storageKey = (az storage account keys list -n $storageName -g $storageRg --query "[0].value" -o tsv)
           
           # Create container

@@ -156,8 +156,12 @@ module lisbonApi 'modules/lisbon-api.bicep' = {
     containerRegistry: containerRegistry
     containerRegistryUsername: containerRegistryUsername
     containerRegistryPassword: containerRegistryPassword
+    containerRegistryId: createContainerRegistry ? acr!.outputs.registryId : ''
     tags: tags
   }
+  dependsOn: [
+    acr
+  ]
 }
 
 // ========================================

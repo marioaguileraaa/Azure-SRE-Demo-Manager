@@ -30,6 +30,9 @@ param containerRegistryPassword string = ''
 @description('Tags to apply to resources')
 param tags object = {}
 
+@description('Container Registry ID for role assignment')
+param containerRegistryId string = ''
+
 // Container App Environment
 resource containerAppEnvironment 'Microsoft.App/managedEnvironments@2023-05-01' = {
   name: 'cae-parking-lisbon'
@@ -60,6 +63,9 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
   name: 'ca-parking-lisbon'
   location: location
   tags: tags
+  identity: {
+    type: 'SystemAssigned'
+  }
   properties: {
     environmentId: containerAppEnvironment.id
     configuration: {
@@ -72,14 +78,7 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
       registries: empty(containerRegistry) ? [] : [
         {
           server: containerRegistry
-          username: containerRegistryUsername
-          passwordSecretRef: 'registry-password'
-        }
-      ]
-      secrets: empty(containerRegistry) ? [] : [
-        {
-          name: 'registry-password'
-          value: containerRegistryPassword
+          identity: 'system'
         }
       ]
     }
@@ -154,8 +153,20 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
   }
 }
 
+// Role assignment for ACR pull access
+resource acrPullRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(containerRegistryId)) {
+  name: guid(containerApp.id, containerRegistryId, 'AcrPull')
+  scope: resourceGroup()
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d') // AcrPull role
+    principalId: containerApp.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
 // Outputs
 output containerAppName string = containerApp.name
 output containerAppFqdn string = containerApp.properties.configuration.ingress.fqdn
 output containerAppUrl string = 'https://${containerApp.properties.configuration.ingress.fqdn}'
 output containerAppEnvironmentName string = containerAppEnvironment.name
+output containerAppPrincipalId string = containerApp.identity.principalId

@@ -54,15 +54,7 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Deploy to Azure App Service
-        uses: azure/webapps-deploy@v2
-        with:
-          app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          resource-group-name: ${{ env.RESOURCE_GROUP }}
-          package: frontend/deployment.zip
-          enable-oryx-build: false
-
-      - name: Configure App Service settings
+      - name: Configure App Service settings (pre-deploy)
         uses: azure/CLI@v1
         with:
           inlineScript: |
@@ -78,7 +70,34 @@ jobs:
               --resource-group ${{ env.RESOURCE_GROUP }} \
               --startup-file "pm2 serve /home/site/wwwroot --no-daemon --spa"
             
-            # Set environment variables
+            # Set environment variables and disable Oryx during zip deploy
+            az webapp config appsettings set \
+              --name ${{ env.AZURE_WEBAPP_NAME }} \
+              --resource-group ${{ env.RESOURCE_GROUP }} \
+              --settings \
+                WEBSITE_NODE_DEFAULT_VERSION="${{ env.NODE_VERSION }}" \
+                SCM_DO_BUILD_DURING_DEPLOYMENT=false
+
+      - name: Deploy to Azure App Service
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          resource-group-name: ${{ env.RESOURCE_GROUP }}
+          package: frontend/deployment.zip
+
+      - name: Configure App Service settings (post-deploy)
+        uses: azure/CLI@v1
+        with:
+          inlineScript: |
+            # Re-apply settings post deploy (idempotent safety)
+            az webapp config set \
+              --name ${{ env.AZURE_WEBAPP_NAME }} \
+              --resource-group ${{ env.RESOURCE_GROUP }} \
+              --linux-fx-version "NODE|${{ env.NODE_VERSION }}"
+            az webapp config set \
+              --name ${{ env.AZURE_WEBAPP_NAME }} \
+              --resource-group ${{ env.RESOURCE_GROUP }} \
+              --startup-file "pm2 serve /home/site/wwwroot --no-daemon --spa"
             az webapp config appsettings set \
               --name ${{ env.AZURE_WEBAPP_NAME }} \
               --resource-group ${{ env.RESOURCE_GROUP }} \

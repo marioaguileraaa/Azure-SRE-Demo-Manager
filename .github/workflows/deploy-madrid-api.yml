@@ -52,38 +52,34 @@ jobs:
           # Get storage account details
           $storageId = (az storage account show -n $storageName -g $storageRg --query id -o tsv)
           
-          # Grant current SP access to storage account (Storage Blob Data Contributor)
-          Write-Host "Granting storage access to GitHub Actions SP..."
-          az role assignment create `
-            --role "Storage Blob Data Contributor" `
-            --assignee-object-id (az account show --query id -o tsv) `
-            --scope $storageId `
-            --only-show-errors 2>$null
+          # Get storage keys for direct auth
+          $storageKey = (az storage account keys list -n $storageName -g $storageRg --query "[0].value" -o tsv)
           
           # Create container
+          Write-Host "Creating container..."
           az storage container create `
             --account-name $storageName `
+            --account-key $storageKey `
             --name "deployments" `
-            --auth-mode login `
             --only-show-errors 2>$null
           
-          # Upload zip file using managed identity auth
+          # Upload zip file using storage key auth
           Write-Host "Uploading deployment package..."
           az storage blob upload `
             --account-name $storageName `
+            --account-key $storageKey `
             --container-name "deployments" `
             --file "madrid-api-${{ github.run_id }}.zip" `
-            --name "madrid-api.zip" `
-            --auth-mode login
+            --name "madrid-api.zip"
           
-          # Get SAS URL (valid for 1 hour) using SP auth
+          # Get SAS URL (valid for 1 hour) using account key
           $blobUrl = az storage blob generate-sas `
             --account-name $storageName `
+            --account-key $storageKey `
             --container-name "deployments" `
             --name "madrid-api.zip" `
             --expiry (Get-Date).AddHours(1).ToString("yyyy-MM-ddTHH:mm:ssZ") `
             --permissions r `
-            --auth-mode login `
             -o tsv
           
           $fullBlobUrl = "https://$storageName.blob.core.windows.net/deployments/madrid-api.zip?$blobUrl"
@@ -93,7 +89,6 @@ jobs:
           "BLOB_URL=$fullBlobUrl" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "STORAGE_NAME=$storageName" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "STORAGE_RG=$storageRg" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          "STORAGE_ID=$storageId" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Deploy to Madrid VM via Run Command
         shell: pwsh
@@ -117,24 +112,17 @@ jobs:
             New-Item -ItemType Directory -Path $appDir -Force | Out-Null
           }
           
-          # Download code from storage using managed identity
+          # Download code from storage using SAS URL
           Write-Host "Downloading deployment package..."
           $blobUrl = "${{ env.BLOB_URL }}"
-          $storageName = "${{ env.STORAGE_NAME }}"
           $tempZip = "$env:TEMP\madrid-api.zip"
           
           try {
             [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
             
-            # Use managed identity to get auth token for storage
-            Write-Host "Authenticating with managed identity..."
-            $token = (Invoke-RestMethod -Uri "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2017-12-01&resource=https://storage.azure.com/" `
-              -Headers @{ Metadata = "true" } -Method Get).access_token
-            
-            # Download using token auth
+            # Download using SAS URL (no auth needed - URL is pre-signed)
             Invoke-WebRequest -Uri $blobUrl `
               -OutFile $tempZip `
-              -Headers @{ Authorization = "Bearer $token" } `
               -UseBasicParsing
             
             if (-not (Test-Path $tempZip)) {

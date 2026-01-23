@@ -49,36 +49,51 @@ jobs:
           # Create storage account if needed (might fail if exists, that's ok)
           az storage account create -n $storageName -g $storageRg -l swedencentral --sku Standard_LRS --only-show-errors 2>$null
           
-          # Get storage account key
-          $storageKey = (az storage account keys list -n $storageName -g $storageRg --query "[0].value" -o tsv)
+          # Get storage account details
+          $storageId = (az storage account show -n $storageName -g $storageRg --query id -o tsv)
           
-          # Upload zip file
+          # Grant current SP access to storage account (Storage Blob Data Contributor)
+          Write-Host "Granting storage access to GitHub Actions SP..."
+          az role assignment create `
+            --role "Storage Blob Data Contributor" `
+            --assignee-object-id (az account show --query id -o tsv) `
+            --scope $storageId `
+            --only-show-errors 2>$null
+          
+          # Create container
+          az storage container create `
+            --account-name $storageName `
+            --name "deployments" `
+            --auth-mode login `
+            --only-show-errors 2>$null
+          
+          # Upload zip file using managed identity auth
           Write-Host "Uploading deployment package..."
           az storage blob upload `
             --account-name $storageName `
-            --account-key $storageKey `
             --container-name "deployments" `
             --file "madrid-api-${{ github.run_id }}.zip" `
-            --name "madrid-api.zip"
+            --name "madrid-api.zip" `
+            --auth-mode login
           
-          # Get SAS URL (valid for 1 hour)
+          # Get SAS URL (valid for 1 hour) using SP auth
           $blobUrl = az storage blob generate-sas `
             --account-name $storageName `
-            --account-key $storageKey `
             --container-name "deployments" `
             --name "madrid-api.zip" `
             --expiry (Get-Date).AddHours(1).ToString("yyyy-MM-ddTHH:mm:ssZ") `
             --permissions r `
-            --full-uri `
+            --auth-mode login `
             -o tsv
           
-          Write-Host "Storage URL: $blobUrl"
+          $fullBlobUrl = "https://$storageName.blob.core.windows.net/deployments/madrid-api.zip?$blobUrl"
+          Write-Host "Storage URL ready"
           
           # Save for next step
-          "BLOB_URL=$blobUrl" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "BLOB_URL=$fullBlobUrl" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "STORAGE_NAME=$storageName" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "STORAGE_RG=$storageRg" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          "STORAGE_KEY=$storageKey" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "STORAGE_ID=$storageId" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Deploy to Madrid VM via Run Command
         shell: pwsh
@@ -102,17 +117,28 @@ jobs:
             New-Item -ItemType Directory -Path $appDir -Force | Out-Null
           }
           
-          # Download code from storage
+          # Download code from storage using managed identity
           Write-Host "Downloading deployment package..."
           $blobUrl = "${{ env.BLOB_URL }}"
+          $storageName = "${{ env.STORAGE_NAME }}"
           $tempZip = "$env:TEMP\madrid-api.zip"
           
           try {
             [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-            Invoke-WebRequest -Uri $blobUrl -OutFile $tempZip -UseBasicParsing
+            
+            # Use managed identity to get auth token for storage
+            Write-Host "Authenticating with managed identity..."
+            $token = (Invoke-RestMethod -Uri "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2017-12-01&resource=https://storage.azure.com/" `
+              -Headers @{ Metadata = "true" } -Method Get).access_token
+            
+            # Download using token auth
+            Invoke-WebRequest -Uri $blobUrl `
+              -OutFile $tempZip `
+              -Headers @{ Authorization = "Bearer $token" } `
+              -UseBasicParsing
             
             if (-not (Test-Path $tempZip)) {
-              throw "Download failed"
+              throw "Download failed - file not created"
             }
             
             Write-Host "Extracting package..."
@@ -210,13 +236,12 @@ jobs:
         run: |
           if ($env:STORAGE_NAME) {
             Write-Host "Cleaning up temporary storage..."
-            $rg = "${{ env.STORAGE_RG }}"
             
-            # Delete container or blobs
-            az storage container delete `
-              --account-name $env:STORAGE_NAME `
-              --account-key $env:STORAGE_KEY `
-              --name "deployments" `
+            # Delete storage account entirely (faster than deleting blobs one by one)
+            az storage account delete `
+              --name $env:STORAGE_NAME `
+              --resource-group $env:STORAGE_RG `
+              --yes `
               --only-show-errors 2>$null
             
             Write-Host "✅ Cleanup complete"

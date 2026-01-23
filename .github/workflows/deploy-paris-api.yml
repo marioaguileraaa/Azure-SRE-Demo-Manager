@@ -21,6 +21,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Log in to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
       - name: Stop existing service
         run: |
           sudo systemctl stop ${{ env.SERVICE_NAME }} || true

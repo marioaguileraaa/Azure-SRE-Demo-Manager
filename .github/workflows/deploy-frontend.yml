@@ -42,6 +42,12 @@ jobs:
           # Copy static files for Azure App Service
           cp -r build ../build-output
 
+          # Instruct Kudu to skip Oryx during zip deploy
+          cat > ../build-output/.deployment <<'EOF'
+          [config]
+          SCM_DO_BUILD_DURING_DEPLOYMENT=false
+          EOF
+
       - name: Create deployment package
         working-directory: frontend
         run: |

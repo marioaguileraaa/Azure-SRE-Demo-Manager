@@ -40,37 +40,48 @@ jobs:
       - name: Upload deployment package to storage
         shell: pwsh
         run: |
-          Write-Host "Enabling temporary key access for upload..."
-          az storage account update `
-            --name $env:STORAGE_ACCOUNT `
-            --resource-group $env:STORAGE_RG `
-            --allow-shared-key-access true `
-            --only-show-errors
+          Write-Host "Uploading package to storage account (with retry for RBAC propagation)..."
           
-          # Get storage key
-          $storageKey = (az storage account keys list -n $env:STORAGE_ACCOUNT -g $env:STORAGE_RG --query "[0].value" -o tsv)
+          $maxRetries = 5
+          $retryCount = 0
+          $uploaded = $false
           
-          Write-Host "Uploading package to storage account..."
-          az storage blob upload `
-            --account-name $env:STORAGE_ACCOUNT `
-            --account-key $storageKey `
-            --container-name "deployments" `
-            --file "madrid-api-${{ github.run_id }}.zip" `
-            --name "madrid-api-deploy-${{ github.run_id }}.zip"
+          while ($retryCount -lt $maxRetries -and -not $uploaded) {
+            try {
+              az storage blob upload `
+                --account-name $env:STORAGE_ACCOUNT `
+                --container-name "deployments" `
+                --file "madrid-api-${{ github.run_id }}.zip" `
+                --name "madrid-api-deploy-${{ github.run_id }}.zip" `
+                --auth-mode login `
+                --overwrite
+              
+              $uploaded = $true
+              Write-Host "Package uploaded successfully"
+            } catch {
+              $retryCount++
+              if ($retryCount -lt $maxRetries) {
+                Write-Host "Upload failed, retrying in 10 seconds (attempt $retryCount/$maxRetries)..."
+                Start-Sleep -Seconds 10
+              } else {
+                throw "Failed to upload after $maxRetries attempts: $_"
+              }
+            }
+          }
           
-          # Generate SAS URL (valid for 30 minutes)
+          # Generate SAS URL (valid for 30 minutes) using RBAC
           $blobUrl = az storage blob generate-sas `
             --account-name $env:STORAGE_ACCOUNT `
-            --account-key $storageKey `
             --container-name "deployments" `
             --name "madrid-api-deploy-${{ github.run_id }}.zip" `
             --expiry (Get-Date).AddMinutes(30).ToString("yyyy-MM-ddTHH:mm:ssZ") `
             --permissions r `
+            --auth-mode login `
+            --as-user `
             -o tsv
           
           $fullBlobUrl = "https://$($env:STORAGE_ACCOUNT).blob.core.windows.net/deployments/madrid-api-deploy-${{ github.run_id }}.zip?$blobUrl"
           "BLOB_URL=$fullBlobUrl" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          Write-Host "Package uploaded successfully"
 
       - name: Deploy to Madrid VM via Run Command
         shell: pwsh
@@ -205,23 +216,12 @@ jobs:
         shell: pwsh
         run: |
           Write-Host "Cleaning up deployment package from storage..."
-          $storageKey = (az storage account keys list -n $env:STORAGE_ACCOUNT -g $env:STORAGE_RG --query "[0].value" -o tsv 2>$null)
-          
-          if ($storageKey) {
-            az storage blob delete `
-              --account-name $env:STORAGE_ACCOUNT `
-              --account-key $storageKey `
-              --container-name "deployments" `
-              --name "madrid-api-deploy-${{ github.run_id }}.zip" `
-              --only-show-errors 2>$null
-          }
-          
-          Write-Host "Disabling key access..."
-          az storage account update `
-            --name $env:STORAGE_ACCOUNT `
-            --resource-group $env:STORAGE_RG `
-            --allow-shared-key-access false `
-            --only-show-errors
+          az storage blob delete `
+            --account-name $env:STORAGE_ACCOUNT `
+            --container-name "deployments" `
+            --name "madrid-api-deploy-${{ github.run_id }}.zip" `
+            --auth-mode login `
+            --only-show-errors 2>$null
           
           Write-Host "✅ Cleanup complete"
 

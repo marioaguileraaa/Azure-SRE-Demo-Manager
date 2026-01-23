@@ -42,37 +42,47 @@ jobs:
       - name: Upload deployment package to storage
         shell: bash
         run: |
-          echo "Enabling temporary key access for upload..."
-          az storage account update \
-            --name $STORAGE_ACCOUNT \
-            --resource-group $STORAGE_RG \
-            --allow-shared-key-access true \
-            --only-show-errors
+          echo "Uploading package to storage account (with retry for RBAC propagation)..."
           
-          # Get storage key
-          STORAGE_KEY=$(az storage account keys list -n $STORAGE_ACCOUNT -g $STORAGE_RG --query "[0].value" -o tsv)
+          MAX_RETRIES=5
+          RETRY_COUNT=0
+          UPLOADED=false
           
-          echo "Uploading package to storage account..."
-          az storage blob upload \
-            --account-name $STORAGE_ACCOUNT \
-            --account-key $STORAGE_KEY \
-            --container-name "deployments" \
-            --file "paris-api-${{ github.run_id }}.zip" \
-            --name "paris-api-deploy-${{ github.run_id }}.zip"
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ] && [ "$UPLOADED" = "false" ]; do
+            if az storage blob upload \
+              --account-name $STORAGE_ACCOUNT \
+              --container-name "deployments" \
+              --file "paris-api-${{ github.run_id }}.zip" \
+              --name "paris-api-deploy-${{ github.run_id }}.zip" \
+              --auth-mode login \
+              --overwrite; then
+              UPLOADED=true
+              echo "Package uploaded successfully"
+            else
+              RETRY_COUNT=$((RETRY_COUNT + 1))
+              if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+                echo "Upload failed, retrying in 10 seconds (attempt $RETRY_COUNT/$MAX_RETRIES)..."
+                sleep 10
+              else
+                echo "Failed to upload after $MAX_RETRIES attempts"
+                exit 1
+              fi
+            fi
+          done
           
-          # Generate SAS URL (valid for 30 minutes)
+          # Generate SAS URL (valid for 30 minutes) using RBAC
           BLOB_URL=$(az storage blob generate-sas \
             --account-name $STORAGE_ACCOUNT \
-            --account-key $STORAGE_KEY \
             --container-name "deployments" \
             --name "paris-api-deploy-${{ github.run_id }}.zip" \
             --expiry $(date -u -d '+30 minutes' '+%Y-%m-%dT%H:%MZ') \
             --permissions r \
+            --auth-mode login \
+            --as-user \
             -o tsv)
           
           FULL_BLOB_URL="https://$STORAGE_ACCOUNT.blob.core.windows.net/deployments/paris-api-deploy-${{ github.run_id }}.zip?$BLOB_URL"
           echo "BLOB_URL=$FULL_BLOB_URL" >> $GITHUB_ENV
-          echo "Package uploaded successfully"
 
       - name: Deploy to Paris VM via Run Command
         shell: bash
@@ -187,22 +197,11 @@ jobs:
         shell: bash
         run: |
           echo "Cleaning up deployment package from storage..."
-          STORAGE_KEY=$(az storage account keys list -n $STORAGE_ACCOUNT -g $STORAGE_RG --query "[0].value" -o tsv 2>/dev/null)
-          
-          if [ -n "$STORAGE_KEY" ]; then
-            az storage blob delete \
-              --account-name $STORAGE_ACCOUNT \
-              --account-key $STORAGE_KEY \
-              --container-name "deployments" \
-              --name "paris-api-deploy-${{ github.run_id }}.zip" \
-              --only-show-errors 2>/dev/null || true
-          fi
-          
-          echo "Disabling key access..."
-          az storage account update \
-            --name $STORAGE_ACCOUNT \
-            --resource-group $STORAGE_RG \
-            --allow-shared-key-access false \
-            --only-show-errors
+          az storage blob delete \
+            --account-name $STORAGE_ACCOUNT \
+            --container-name "deployments" \
+            --name "paris-api-deploy-${{ github.run_id }}.zip" \
+            --auth-mode login \
+            --only-show-errors 2>/dev/null || true
           
           echo "✅ Cleanup complete"

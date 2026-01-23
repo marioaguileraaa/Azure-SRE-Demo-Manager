@@ -83,7 +83,16 @@ jobs:
               --resource-group ${{ env.RESOURCE_GROUP }} \
               --settings \
                 WEBSITE_NODE_DEFAULT_VERSION="${{ env.NODE_VERSION }}" \
-                SCM_DO_BUILD_DURING_DEPLOYMENT=false
+                SCM_DO_BUILD_DURING_DEPLOYMENT=false \
+                ENABLE_ORYX_BUILD=false
+            
+            # Restart to apply settings
+            az webapp restart \
+              --name ${{ env.AZURE_WEBAPP_NAME }} \
+              --resource-group ${{ env.RESOURCE_GROUP }}
+            
+            # Wait for restart
+            sleep 10
 
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v2

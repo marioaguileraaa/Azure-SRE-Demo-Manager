@@ -14,7 +14,8 @@ env:
   SERVICE_NAME: MadridParkingAPI
   VM_NAME: ${{ vars.MADRID_VM_NAME }}
   RESOURCE_GROUP: ${{ vars.MADRID_RESOURCE_GROUP }}
-  HUB_RESOURCE_GROUP: ${{ vars.HUB_RESOURCE_GROUP }}
+  STORAGE_ACCOUNT: ${{ vars.DEPLOYMENT_STORAGE_ACCOUNT }}
+  STORAGE_RG: ${{ vars.HUB_RESOURCE_GROUP }}
 
 jobs:
   deploy:
@@ -36,62 +37,40 @@ jobs:
           Write-Host "Creating deployment package..."
           Compress-Archive -Path "backend\madrid-parking-api\*" -DestinationPath "madrid-api-${{ github.run_id }}.zip" -Force
 
-      - name: Upload to temporary storage
+      - name: Upload deployment package to storage
         shell: pwsh
         run: |
-          # Get or create storage account in hub resource group
-          $storageRg = "${{ vars.HUB_RESOURCE_GROUP }}"
-          $storageName = "stpakingtmp${{ github.run_id }}" -replace '-', ''
-          $storageName = $storageName.Substring(0, [Math]::Min(24, $storageName.Length))
-          
-          Write-Host "Using temporary storage: $storageName"
-          
-          # Create storage account with shared key access enabled
-          az storage account create `
-            -n $storageName `
-            -g $storageRg `
-            -l swedencentral `
-            --sku Standard_LRS `
+          Write-Host "Enabling temporary key access for upload..."
+          az storage account update `
+            --name $env:STORAGE_ACCOUNT `
+            --resource-group $env:STORAGE_RG `
             --allow-shared-key-access true `
-            --only-show-errors 2>$null
+            --only-show-errors
           
           # Get storage key
-          $storageKey = (az storage account keys list -n $storageName -g $storageRg --query "[0].value" -o tsv)
+          $storageKey = (az storage account keys list -n $env:STORAGE_ACCOUNT -g $env:STORAGE_RG --query "[0].value" -o tsv)
           
-          # Create container
-          Write-Host "Creating container..."
-          az storage container create `
-            --account-name $storageName `
-            --account-key $storageKey `
-            --name "deployments" `
-            --only-show-errors 2>$null
-          
-          # Upload zip file using storage key auth
-          Write-Host "Uploading deployment package..."
+          Write-Host "Uploading package to storage account..."
           az storage blob upload `
-            --account-name $storageName `
+            --account-name $env:STORAGE_ACCOUNT `
             --account-key $storageKey `
             --container-name "deployments" `
             --file "madrid-api-${{ github.run_id }}.zip" `
-            --name "madrid-api.zip"
+            --name "madrid-api-deploy-${{ github.run_id }}.zip"
           
-          # Get SAS URL (valid for 1 hour) using account key
+          # Generate SAS URL (valid for 30 minutes)
           $blobUrl = az storage blob generate-sas `
-            --account-name $storageName `
+            --account-name $env:STORAGE_ACCOUNT `
             --account-key $storageKey `
             --container-name "deployments" `
-            --name "madrid-api.zip" `
-            --expiry (Get-Date).AddHours(1).ToString("yyyy-MM-ddTHH:mm:ssZ") `
+            --name "madrid-api-deploy-${{ github.run_id }}.zip" `
+            --expiry (Get-Date).AddMinutes(30).ToString("yyyy-MM-ddTHH:mm:ssZ") `
             --permissions r `
             -o tsv
           
-          $fullBlobUrl = "https://$storageName.blob.core.windows.net/deployments/madrid-api.zip?$blobUrl"
-          Write-Host "Storage URL ready"
-          
-          # Save for next step
+          $fullBlobUrl = "https://$($env:STORAGE_ACCOUNT).blob.core.windows.net/deployments/madrid-api-deploy-${{ github.run_id }}.zip?$blobUrl"
           "BLOB_URL=$fullBlobUrl" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          "STORAGE_NAME=$storageName" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          "STORAGE_RG=$storageRg" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "Package uploaded successfully"
 
       - name: Deploy to Madrid VM via Run Command
         shell: pwsh
@@ -221,22 +200,30 @@ jobs:
           # Clean up local script
           Remove-Item $scriptPath -Force
 
-      - name: Cleanup temporary storage
+      - name: Cleanup deployment package
         if: always()
         shell: pwsh
         run: |
-          if ($env:STORAGE_NAME) {
-            Write-Host "Cleaning up temporary storage..."
-            
-            # Delete storage account entirely (faster than deleting blobs one by one)
-            az storage account delete `
-              --name $env:STORAGE_NAME `
-              --resource-group $env:STORAGE_RG `
-              --yes `
+          Write-Host "Cleaning up deployment package from storage..."
+          $storageKey = (az storage account keys list -n $env:STORAGE_ACCOUNT -g $env:STORAGE_RG --query "[0].value" -o tsv 2>$null)
+          
+          if ($storageKey) {
+            az storage blob delete `
+              --account-name $env:STORAGE_ACCOUNT `
+              --account-key $storageKey `
+              --container-name "deployments" `
+              --name "madrid-api-deploy-${{ github.run_id }}.zip" `
               --only-show-errors 2>$null
-            
-            Write-Host "✅ Cleanup complete"
           }
+          
+          Write-Host "Disabling key access..."
+          az storage account update `
+            --name $env:STORAGE_ACCOUNT `
+            --resource-group $env:STORAGE_RG `
+            --allow-shared-key-access false `
+            --only-show-errors
+          
+          Write-Host "✅ Cleanup complete"
 
       - name: Deployment summary
         run: |

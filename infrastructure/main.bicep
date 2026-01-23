@@ -117,6 +117,19 @@ module hub 'modules/hub.bicep' = {
 }
 
 // ========================================
+// Deployment Storage Account (for CI/CD)
+// ========================================
+
+module deploymentStorage 'modules/deployment-storage.bicep' = {
+  scope: hubRg
+  name: 'deployment-storage'
+  params: {
+    location: location
+    tags: tags
+  }
+}
+
+// ========================================
 // Container Registry
 // ========================================
 
@@ -248,6 +261,9 @@ output logAnalyticsWorkspaceName string = hub.outputs.logAnalyticsWorkspaceName
 output containerRegistryName string = createContainerRegistry ? acr!.outputs.registryName : ''
 output containerRegistryLoginServer string = createContainerRegistry ? acr!.outputs.loginServer : ''
 output containerRegistryUrl string = createContainerRegistry ? acr!.outputs.registryUrl : ''
+
+output deploymentStorageAccountName string = deploymentStorage.outputs.storageAccountName
+output deploymentStorageBlobEndpoint string = deploymentStorage.outputs.blobEndpoint
 
 output frontendUrl string = frontend.outputs.appServiceUrl
 output lisbonApiUrl string = lisbonApi.outputs.containerAppUrl

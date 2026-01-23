@@ -39,8 +39,9 @@ jobs:
           # Create production build
           npm run build
           
-          # Copy static files for Azure App Service
-          cp -r build ../build-output
+          # Copy static files for Azure App Service (contents only, not the folder)
+          mkdir -p ../build-output
+          cp -r build/* ../build-output/
 
           # Instruct Kudu to skip Oryx during zip deploy
           cat > ../build-output/.deployment <<'EOF'

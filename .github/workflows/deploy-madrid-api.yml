@@ -14,6 +14,7 @@ env:
   SERVICE_NAME: MadridParkingAPI
   VM_NAME: ${{ vars.MADRID_VM_NAME }}
   RESOURCE_GROUP: ${{ vars.MADRID_RESOURCE_GROUP }}
+  HUB_RESOURCE_GROUP: ${{ vars.HUB_RESOURCE_GROUP }}
 
 jobs:
   deploy:
@@ -29,17 +30,55 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Create deployment package
-        shell: powershell
+        shell: pwsh
         run: |
-          # Create deployment zip
-          Compress-Archive -Path "backend\madrid-parking-api\*" -DestinationPath "madrid-api.zip" -Force
+          # Create zip of Madrid API
+          Write-Host "Creating deployment package..."
+          Compress-Archive -Path "backend\madrid-parking-api\*" -DestinationPath "madrid-api-${{ github.run_id }}.zip" -Force
 
-      - name: Upload deployment package to VM
-        shell: powershell
+      - name: Upload to temporary storage
+        shell: pwsh
         run: |
-          # Create temporary storage account or use existing one for file transfer
-          # For now, we'll embed the deployment script with base64 encoded zip
-          Write-Host "Preparing deployment script..."
+          # Get or create storage account in hub resource group
+          $storageRg = "${{ vars.HUB_RESOURCE_GROUP }}"
+          $storageName = "stpakingtmp${{ github.run_id }}" -replace '-', ''
+          $storageName = $storageName.Substring(0, [Math]::Min(24, $storageName.Length))
+          
+          Write-Host "Using temporary storage: $storageName"
+          
+          # Create storage account if needed (might fail if exists, that's ok)
+          az storage account create -n $storageName -g $storageRg -l swedencentral --sku Standard_LRS --only-show-errors 2>$null
+          
+          # Get storage account key
+          $storageKey = (az storage account keys list -n $storageName -g $storageRg --query "[0].value" -o tsv)
+          
+          # Upload zip file
+          Write-Host "Uploading deployment package..."
+          az storage blob upload `
+            --account-name $storageName `
+            --account-key $storageKey `
+            --container-name "deployments" `
+            --file "madrid-api-${{ github.run_id }}.zip" `
+            --name "madrid-api.zip"
+          
+          # Get SAS URL (valid for 1 hour)
+          $blobUrl = az storage blob generate-sas `
+            --account-name $storageName `
+            --account-key $storageKey `
+            --container-name "deployments" `
+            --name "madrid-api.zip" `
+            --expiry (Get-Date).AddHours(1).ToString("yyyy-MM-ddTHH:mm:ssZ") `
+            --permissions r `
+            --full-uri `
+            -o tsv
+          
+          Write-Host "Storage URL: $blobUrl"
+          
+          # Save for next step
+          "BLOB_URL=$blobUrl" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "STORAGE_NAME=$storageName" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "STORAGE_RG=$storageRg" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "STORAGE_KEY=$storageKey" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Deploy to Madrid VM via Run Command
         shell: pwsh
@@ -63,50 +102,34 @@ jobs:
             New-Item -ItemType Directory -Path $appDir -Force | Out-Null
           }
           
-          # Download code from GitHub using git
-          Write-Host "Downloading code from GitHub..."
-          $tempDir = "$env:TEMP\sre-demo-${{ github.run_id }}"
+          # Download code from storage
+          Write-Host "Downloading deployment package..."
+          $blobUrl = "${{ env.BLOB_URL }}"
+          $tempZip = "$env:TEMP\madrid-api.zip"
           
-          # Try git clone first
-          if (Get-Command git -ErrorAction SilentlyContinue) {
-            Write-Host "Using git to clone repository..."
-            git clone --depth 1 --branch main https://github.com/${{ github.repository }}.git $tempDir
-          } else {
-            # Fallback: download and extract zip
-            Write-Host "Git not found, using zip download..."
-            $repoZip = "https://github.com/${{ github.repository }}/archive/main.zip"
-            $tempZip = "$env:TEMP\repo-${{ github.run_id }}.zip"
+          try {
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+            Invoke-WebRequest -Uri $blobUrl -OutFile $tempZip -UseBasicParsing
             
-            try {
-              [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-              Invoke-WebRequest -Uri $repoZip -OutFile $tempZip -UseBasicParsing
-              
-              if (-not (Test-Path $tempZip)) {
-                throw "Download failed: file not created"
-              }
-              
-              Write-Host "Extracting archive..."
-              Expand-Archive -Path $tempZip -DestinationPath $tempDir -Force
-              Remove-Item $tempZip -Force
-            } catch {
-              Write-Host "Download failed: $_"
-              exit 1
+            if (-not (Test-Path $tempZip)) {
+              throw "Download failed"
             }
-          }
-          
-          # Copy Madrid API files
-          Write-Host "Copying Madrid API files..."
-          $repoName = "${{ github.repository }}".Split("/")[1]
-          $sourcePath = Get-ChildItem -Path $tempDir -Directory | Select-Object -First 1
-          $srcMadrid = Join-Path $sourcePath.FullName "backend\madrid-parking-api"
-          
-          if (-not (Test-Path $srcMadrid)) {
-            Write-Host "ERROR: Madrid API source not found at $srcMadrid"
+            
+            Write-Host "Extracting package..."
+            $tempExtract = "$env:TEMP\madrid-extract"
+            Expand-Archive -Path $tempZip -DestinationPath $tempExtract -Force
+            
+            # Copy files
+            Write-Host "Copying application files..."
+            Copy-Item -Path "$tempExtract\*" -Destination $appDir -Recurse -Force
+            
+            # Clean up
+            Remove-Item $tempZip -Force
+            Remove-Item $tempExtract -Recurse -Force
+          } catch {
+            Write-Host "ERROR: $_"
             exit 1
           }
-          
-          Copy-Item -Path "$srcMadrid\*" -Destination $appDir -Recurse -Force
-          Remove-Item $tempDir -Recurse -Force
           
           # Install dependencies
           Write-Host "Installing dependencies..."
@@ -178,8 +201,26 @@ jobs:
             --command-id RunPowerShellScript `
             --scripts @$scriptPath
           
-          # Clean up
+          # Clean up local script
           Remove-Item $scriptPath -Force
+
+      - name: Cleanup temporary storage
+        if: always()
+        shell: pwsh
+        run: |
+          if ($env:STORAGE_NAME) {
+            Write-Host "Cleaning up temporary storage..."
+            $rg = "${{ env.STORAGE_RG }}"
+            
+            # Delete container or blobs
+            az storage container delete `
+              --account-name $env:STORAGE_NAME `
+              --account-key $env:STORAGE_KEY `
+              --name "deployments" `
+              --only-show-errors 2>$null
+            
+            Write-Host "✅ Cleanup complete"
+          }
 
       - name: Deployment summary
         run: |

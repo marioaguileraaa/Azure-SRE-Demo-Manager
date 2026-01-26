@@ -15,6 +15,9 @@ param adminPassword string
 @description('Create public IP for the VM')
 param createPublicIp bool = true
 
+@description('Deploy VM resources (set to false if VM already exists to avoid disk update conflicts)')
+param deployVM bool = true
+
 @description('Tags to apply to resources')
 param tags object = {}
 
@@ -58,7 +61,7 @@ resource nic 'Microsoft.Network/networkInterfaces@2023-05-01' = {
 }
 
 // Windows Server VM
-resource vm 'Microsoft.Compute/virtualMachines@2023-03-01' = {
+resource vm 'Microsoft.Compute/virtualMachines@2023-03-01' = if (deployVM) {
   name: 'vm-madrid-api'
   location: location
   tags: tags
@@ -146,10 +149,10 @@ resource customScriptExtension 'Microsoft.Compute/virtualMachines/extensions@202
 }
 
 // Outputs
-output vmName string = vm.name
-output vmId string = vm.id
-output vmPrincipalId string = vm.identity.principalId
+output vmName string = deployVM ? vm.name : ''
+output vmId string = deployVM ? vm.id : ''
+output vmPrincipalId string = deployVM ? vm.identity.principalId : ''
 output privateIpAddress string = nic.properties.ipConfigurations[0].properties.privateIPAddress
-output publicIpAddress string = createPublicIp ? publicIp!.properties.ipAddress : ''
-output fqdn string = createPublicIp ? publicIp!.properties.dnsSettings.fqdn : ''
-output apiUrl string = createPublicIp ? 'http://${publicIp!.properties.dnsSettings.fqdn}:3002' : 'http://${nic.properties.ipConfigurations[0].properties.privateIPAddress}:3002'
+output publicIpAddress string = (deployVM && createPublicIp) ? publicIp!.properties.ipAddress : ''
+output fqdn string = (deployVM && createPublicIp) ? publicIp!.properties.dnsSettings.fqdn : ''
+output apiUrl string = (deployVM && createPublicIp) ? 'http://${publicIp!.properties.dnsSettings.fqdn}:3002' : 'http://${nic.properties.ipConfigurations[0].properties.privateIPAddress}:3002'

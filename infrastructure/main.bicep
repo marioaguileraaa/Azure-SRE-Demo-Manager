@@ -199,6 +199,7 @@ module madridApi 'modules/madrid-api.bicep' = {
     adminUsername: adminUsername
     adminPassword: adminPassword
     createPublicIp: createPublicIps
+    deployVM: false // VMs already exist, this prevents disk update conflicts
     tags: tags
   }
 }
@@ -216,6 +217,7 @@ module parisApi 'modules/paris-api.bicep' = {
     adminUsername: adminUsername
     adminPassword: adminPassword
     createPublicIp: createPublicIps
+    deployVM: false // VMs already exist, this prevents disk update conflicts
     tags: tags
   }
 }

@@ -130,7 +130,9 @@ resource azureMonitorWindowsAgent 'Microsoft.Compute/virtualMachines/extensions@
 }
 
 // VM Extension - Custom Script to install Node.js and setup application
-resource customScriptExtension 'Microsoft.Compute/virtualMachines/extensions@2023-03-01' = if (deployVM) {
+// NOTE: Node.js is installed during GitHub Actions deployment workflow (deploy-madrid-api.yml)
+// This extension is skipped to avoid network/internet dependency during Bicep deployment
+resource customScriptExtension 'Microsoft.Compute/virtualMachines/extensions@2023-03-01' = if (deployVM && false) {
   parent: vm
   name: 'CustomScriptExtension'
   location: location
@@ -143,7 +145,7 @@ resource customScriptExtension 'Microsoft.Compute/virtualMachines/extensions@202
     typeHandlerVersion: '1.10'
     autoUpgradeMinorVersion: true
     settings: {
-      commandToExecute: 'powershell -ExecutionPolicy Bypass -Command "[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12; iex ((New-Object System.Net.WebClient).DownloadString(\'https://community.chocolatey.org/install.ps1\')); choco install nodejs --version=18.19.0 -y"'
+      commandToExecute: 'echo VM provisioned - Node.js will be installed during GitHub Actions deployment'
     }
   }
 }

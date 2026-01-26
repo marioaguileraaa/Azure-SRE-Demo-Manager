@@ -28,6 +28,12 @@ param containerRegistry string = ''
 @description('Create public IPs for VMs')
 param createPublicIps bool = true
 
+@description('Deploy or skip the Madrid VM and its extensions')
+param deployMadridVm bool = true
+
+@description('Deploy or skip the Paris VM and its extensions')
+param deployParisVm bool = true
+
 @description('Virtual Network address prefix')
 param vnetAddressPrefix string = '10.0.0.0/16'
 
@@ -199,7 +205,7 @@ module madridApi 'modules/madrid-api.bicep' = {
     adminUsername: adminUsername
     adminPassword: adminPassword
     createPublicIp: createPublicIps
-    deployVM: false // VM already exists; skip VM/ext redeploy to avoid conflicts
+    deployVM: deployMadridVm
     tags: tags
   }
 }
@@ -217,7 +223,7 @@ module parisApi 'modules/paris-api.bicep' = {
     adminUsername: adminUsername
     adminPassword: adminPassword
     createPublicIp: createPublicIps
-    deployVM: true // VMs already exist, this prevents disk update conflicts
+    deployVM: deployParisVm
     tags: tags
   }
 }
@@ -226,7 +232,7 @@ module parisApi 'modules/paris-api.bicep' = {
 // Storage Role Assignments for VMs
 // ========================================
 
-module madridStorageAccess 'modules/storage-role-assignment.bicep' = if (!empty(madridApi.outputs.vmPrincipalId)) {
+module madridStorageAccess 'modules/storage-role-assignment.bicep' = if (deployMadridVm) {
   scope: subscription()
   name: 'madrid-storage-access'
   params: {
@@ -234,7 +240,7 @@ module madridStorageAccess 'modules/storage-role-assignment.bicep' = if (!empty(
   }
 }
 
-module parisStorageAccess 'modules/storage-role-assignment.bicep' = if (!empty(parisApi.outputs.vmPrincipalId)) {
+module parisStorageAccess 'modules/storage-role-assignment.bicep' = if (deployParisVm) {
   scope: subscription()
   name: 'paris-storage-access'
   params: {

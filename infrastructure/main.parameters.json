@@ -26,6 +26,12 @@
     "containerRegistrySku": {
       "value": "Basic"
     },
+    "deployMadridVm": {
+      "value": true
+    },
+    "deployParisVm": {
+      "value": false
+    },
     "githubActionsPrincipalId": {
       "value": "49734d7a-0a91-4996-9a7f-df7939bdc8b3"
     }

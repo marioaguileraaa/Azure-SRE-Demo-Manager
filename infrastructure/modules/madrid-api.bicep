@@ -148,9 +148,12 @@ resource customScriptExtension 'Microsoft.Compute/virtualMachines/extensions@202
   }
 }
 
-// Outputs
+// Outputs - VM outputs are only valid when deployVM=true
+@suppress('BCP318')
 output vmName string = deployVM ? vm.name : ''
+@suppress('BCP318')
 output vmId string = deployVM ? vm.id : ''
+@suppress('BCP318')
 output vmPrincipalId string = deployVM ? vm.identity.principalId : ''
 output privateIpAddress string = nic.properties.ipConfigurations[0].properties.privateIPAddress
 output publicIpAddress string = (deployVM && createPublicIp) ? publicIp!.properties.ipAddress : ''

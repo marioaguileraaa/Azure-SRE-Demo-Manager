@@ -224,7 +224,7 @@ module parisApi 'modules/paris-api.bicep' = {
 // Storage Role Assignments for VMs
 // ========================================
 
-module madridStorageAccess 'modules/storage-role-assignment.bicep' = {
+module madridStorageAccess 'modules/storage-role-assignment.bicep' = if (!empty(githubActionsPrincipalId)) {
   scope: subscription()
   name: 'madrid-storage-access'
   params: {
@@ -232,7 +232,7 @@ module madridStorageAccess 'modules/storage-role-assignment.bicep' = {
   }
 }
 
-module parisStorageAccess 'modules/storage-role-assignment.bicep' = {
+module parisStorageAccess 'modules/storage-role-assignment.bicep' = if (!empty(githubActionsPrincipalId)) {
   scope: subscription()
   name: 'paris-storage-access'
   params: {

@@ -116,7 +116,7 @@ resource vm 'Microsoft.Compute/virtualMachines@2023-03-01' = if (deployVM) {
 }
 
 // VM Extension - Azure Monitor Agent
-resource azureMonitorWindowsAgent 'Microsoft.Compute/virtualMachines/extensions@2023-03-01' = {
+resource azureMonitorWindowsAgent 'Microsoft.Compute/virtualMachines/extensions@2023-03-01' = if (deployVM) {
   parent: vm
   name: 'AzureMonitorWindowsAgent'
   location: location
@@ -130,7 +130,7 @@ resource azureMonitorWindowsAgent 'Microsoft.Compute/virtualMachines/extensions@
 }
 
 // VM Extension - Custom Script to install Node.js and setup application
-resource customScriptExtension 'Microsoft.Compute/virtualMachines/extensions@2023-03-01' = {
+resource customScriptExtension 'Microsoft.Compute/virtualMachines/extensions@2023-03-01' = if (deployVM) {
   parent: vm
   name: 'CustomScriptExtension'
   location: location

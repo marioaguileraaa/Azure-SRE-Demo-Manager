@@ -2,7 +2,7 @@
 targetScope = 'subscription'
 
 @description('Primary location for all resources')
-param location string = 'westeurope'
+param location string = 'swedencentral'
 
 @description('Environment name (e.g., dev, test, prod)')
 @allowed([
@@ -199,7 +199,7 @@ module madridApi 'modules/madrid-api.bicep' = {
     adminUsername: adminUsername
     adminPassword: adminPassword
     createPublicIp: createPublicIps
-    deployVM: false // VMs already exist, this prevents disk update conflicts
+    deployVM: false // VM already exists; skip VM/ext redeploy to avoid conflicts
     tags: tags
   }
 }
@@ -217,7 +217,7 @@ module parisApi 'modules/paris-api.bicep' = {
     adminUsername: adminUsername
     adminPassword: adminPassword
     createPublicIp: createPublicIps
-    deployVM: false // VMs already exist, this prevents disk update conflicts
+    deployVM: true // VMs already exist, this prevents disk update conflicts
     tags: tags
   }
 }

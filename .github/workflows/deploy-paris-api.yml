@@ -19,9 +19,7 @@ env:
 
 jobs:
   deploy:
-    runs-on:
-      group: parking-hub-runner-group
-      labels: [ 'ubuntu-latest' ]
+    runs-on: parking-hub-runner-linux
     
     steps:
       - name: Checkout code

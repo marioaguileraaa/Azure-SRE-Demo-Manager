@@ -33,12 +33,11 @@ jobs:
       - name: Debug - Show current principal
         shell: pwsh
         run: |
-          $principal = az ad signed-in-user show --query id -o tsv 2>/dev/null
+          $principal = az ad signed-in-user show --query id -o tsv -ErrorAction SilentlyContinue
           if (-not $principal) {
             $principal = az account show --query user.name -o tsv
           }
           Write-Host "Current principal: $principal"
-          Write-Host "Saving to environment for reference..."
           "CURRENT_PRINCIPAL=$principal" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Create deployment package

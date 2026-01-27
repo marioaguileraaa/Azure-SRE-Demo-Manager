@@ -45,6 +45,7 @@ jobs:
             --container-name "deployments" `
             --file "madrid-api-${{ github.run_id }}.zip" `
             --name "madrid-api-${{ github.run_id }}.zip" `
+            --auth-mode login `
             --overwrite
           
           Write-Host "Generating SAS token (RBAC-based, valid 30 min)..."
@@ -54,6 +55,7 @@ jobs:
             --name "madrid-api-${{ github.run_id }}.zip" `
             --expiry (Get-Date).AddMinutes(30).ToString("yyyy-MM-ddTHH:mm:ssZ") `
             --permissions r `
+            --auth-mode login `
             --as-user `
             -o tsv
           
@@ -193,7 +195,8 @@ jobs:
           az storage blob delete `
             --account-name $env:STORAGE_ACCOUNT `
             --container-name "deployments" `
-            --name "madrid-api-${{ github.run_id }}.zip"
+            --name "madrid-api-${{ github.run_id }}.zip" `
+            --auth-mode login
 
       - name: Deployment summary
         run: |

@@ -19,7 +19,9 @@ env:
 
 jobs:
   deploy:
-    runs-on: windows-latest
+    runs-on:
+      group: parking-hub-runner-group
+      labels: [ 'windows-latest' ]
     
     steps:
       - name: Checkout code

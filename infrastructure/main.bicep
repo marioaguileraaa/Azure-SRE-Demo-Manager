@@ -46,6 +46,12 @@ param containerSubnetPrefix string = '10.0.2.0/23'
 @description('Allowed source IP address prefix for SSH/RDP access (use specific IPs in production)')
 param allowedSourceIpPrefix string = '*'
 
+@description('Subnet address prefix for GitHub-hosted runners')
+param runnerSubnetPrefix string = '10.0.3.0/24'
+
+@description('GitHub organization databaseId for runner networking (GraphQL)')
+param githubOrgDatabaseId string = ''
+
 @description('Create a private Azure Container Registry')
 param createContainerRegistry bool = true
 
@@ -126,6 +132,22 @@ module hub 'modules/hub.bicep' = {
 }
 
 // ========================================
+// GitHub-hosted Runners Private Networking
+// ========================================
+
+module githubRunners 'modules/github-runner-network.bicep' = if (!empty(githubOrgDatabaseId)) {
+  scope: hubRg
+  name: 'github-runners-network'
+  params: {
+    location: location
+    vnetName: hub.outputs.vnetName
+    runnerSubnetPrefix: runnerSubnetPrefix
+    githubOrgDatabaseId: githubOrgDatabaseId
+    tags: tags
+  }
+}
+
+// ========================================
 // Deployment Storage Account (for CI/CD)
 // ========================================
 
@@ -134,6 +156,19 @@ module deploymentStorage 'modules/deployment-storage.bicep' = {
   name: 'deployment-storage'
   params: {
     location: location
+    tags: tags
+  }
+}
+
+// Private endpoint for deployment storage (blob) and private DNS linking
+module storagePrivateEndpoint 'modules/storage-private-endpoint.bicep' = {
+  scope: hubRg
+  name: 'deployment-storage-private-endpoint'
+  params: {
+    location: location
+    vnetName: hub.outputs.vnetName
+    subnetName: 'snet-vms'
+    storageAccountId: deploymentStorage.outputs.storageAccountId
     tags: tags
   }
 }
@@ -284,6 +319,8 @@ output containerRegistryUrl string = createContainerRegistry ? acr!.outputs.regi
 
 output deploymentStorageAccountName string = deploymentStorage.outputs.storageAccountName
 output deploymentStorageBlobEndpoint string = deploymentStorage.outputs.blobEndpoint
+
+output githubRunnerNetworkSettingsId string = !empty(githubOrgDatabaseId) ? githubRunners.outputs.networkSettingsResourceId : ''
 
 output frontendUrl string = frontend.outputs.appServiceUrl
 output lisbonApiUrl string = lisbonApi.outputs.containerAppUrl

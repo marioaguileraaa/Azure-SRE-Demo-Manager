@@ -107,7 +107,45 @@ resource nsgVms 'Microsoft.Network/networkSecurityGroups@2023-05-01' = {
   }
 }
 
-// Create Virtual Network
+// Public IP for NAT Gateway (GitHub runners egress)
+resource pipRunnerEgress 'Microsoft.Network/publicIPAddresses@2023-05-01' = {
+  name: 'pip-github-runners-egress'
+  location: location
+  tags: tags
+  sku: {
+    name: 'Standard'
+  }
+  properties: {
+    publicIPAllocationMethod: 'Static'
+    publicIPAddressVersion: 'IPv4'
+    idleTimeoutInMinutes: 10
+  }
+  zones: [
+    '1'
+    '2'
+    '3'
+  ]
+}
+
+// NAT Gateway for GitHub-hosted runners subnet
+resource natGateway 'Microsoft.Network/natGateways@2023-05-01' = {
+  name: 'ngw-github-runners'
+  location: location
+  tags: tags
+  sku: {
+    name: 'Standard'
+  }
+  properties: {
+    publicIpAddresses: [
+      {
+        id: pipRunnerEgress.id
+      }
+    ]
+    idleTimeoutInMinutes: 10
+  }
+}
+
+// Create Virtual Network (with just VM and Container App subnets initially)
 resource vnet 'Microsoft.Network/virtualNetworks@2023-05-01' = {
   name: 'vnet-parking-hub'
   location: location
@@ -146,6 +184,18 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-05-01' = {
   }
 }
 
+// Add GitHub runners subnet with NAT Gateway
+resource runnerSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-05-01' = {
+  parent: vnet
+  name: 'snet-github-runners'
+  properties: {
+    addressPrefix: '10.0.4.0/24'
+    natGateway: {
+      id: natGateway.id
+    }
+  }
+}
+
 // Log Analytics Workspace
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
   name: 'law-parking-hub'
@@ -167,6 +217,8 @@ output vnetId string = vnet.id
 output vnetName string = vnet.name
 output vmSubnetId string = vnet.properties.subnets[0].id
 output containerSubnetId string = vnet.properties.subnets[1].id
+output runnerSubnetId string = runnerSubnet.id
 output logAnalyticsWorkspaceId string = logAnalytics.id
 output logAnalyticsWorkspaceName string = logAnalytics.name
 output logAnalyticsCustomerId string = logAnalytics.properties.customerId
+output natGatewayPublicIp string = pipRunnerEgress.properties.ipAddress

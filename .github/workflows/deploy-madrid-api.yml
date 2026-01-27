@@ -33,12 +33,16 @@ jobs:
       - name: Debug - Show current principal
         shell: pwsh
         run: |
-          $principal = az ad signed-in-user show --query id -o tsv -ErrorAction SilentlyContinue
-          if (-not $principal) {
-            $principal = az account show --query user.name -o tsv
+          try {
+            $principal = az ad signed-in-user show --query id -o tsv
+            Write-Host "Signed-in user ID: $principal"
+          } catch {
+            Write-Host "Could not get signed-in user, trying account info..."
           }
-          Write-Host "Current principal: $principal"
-          "CURRENT_PRINCIPAL=$principal" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          
+          $account = az account show --query user.name -o tsv
+          Write-Host "Account principal (servicePrincipalId): $account"
+          "CURRENT_PRINCIPAL=$account" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Create deployment package
         shell: pwsh

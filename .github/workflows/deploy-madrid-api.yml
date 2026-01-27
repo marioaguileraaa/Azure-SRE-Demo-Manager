@@ -30,6 +30,17 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      - name: Debug - Show current principal
+        shell: pwsh
+        run: |
+          $principal = az ad signed-in-user show --query id -o tsv 2>/dev/null
+          if (-not $principal) {
+            $principal = az account show --query user.name -o tsv
+          }
+          Write-Host "Current principal: $principal"
+          Write-Host "Saving to environment for reference..."
+          "CURRENT_PRINCIPAL=$principal" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
       - name: Create deployment package
         shell: pwsh
         run: |

@@ -268,18 +268,20 @@ module parisApi 'modules/paris-api.bicep' = {
 // ========================================
 
 module madridStorageAccess 'modules/storage-role-assignment.bicep' = if (deployMadridVm) {
-  scope: subscription()
+  scope: hubRg
   name: 'madrid-storage-access'
   params: {
     principalId: madridApi.outputs.vmPrincipalId
+    storageAccountId: deploymentStorage.outputs.storageAccountId
   }
 }
 
 module parisStorageAccess 'modules/storage-role-assignment.bicep' = if (deployParisVm) {
-  scope: subscription()
+  scope: hubRg
   name: 'paris-storage-access'
   params: {
     principalId: parisApi.outputs.vmPrincipalId
+    storageAccountId: deploymentStorage.outputs.storageAccountId
   }
 }
 

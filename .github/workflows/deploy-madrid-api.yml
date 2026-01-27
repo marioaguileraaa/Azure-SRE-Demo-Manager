@@ -36,74 +36,20 @@ jobs:
           # Create zip of Madrid API
           Write-Host "Creating deployment package..."
           Compress-Archive -Path "backend\madrid-parking-api\*" -DestinationPath "madrid-api-${{ github.run_id }}.zip" -Force
-
-      - name: Upload deployment package to storage
-        shell: pwsh
-        run: |
-          Write-Host "Uploading package to storage account (with retry for RBAC propagation)..."
           
-          $maxRetries = 5
-          $retryCount = 0
-          $uploaded = $false
+          # Convert to base64 for direct transfer to VM (no storage account needed)
+          Write-Host "Encoding package for transfer..."
+          $bytes = [System.IO.File]::ReadAllBytes("madrid-api-${{ github.run_id }}.zip")
+          $base64 = [System.Convert]::ToBase64String($bytes)
           
-          while ($retryCount -lt $maxRetries -and -not $uploaded) {
-            try {
-              az storage blob upload `
-                --account-name $env:STORAGE_ACCOUNT `
-                --container-name "deployments" `
-                --file "madrid-api-${{ github.run_id }}.zip" `
-                --name "madrid-api-deploy-${{ github.run_id }}.zip" `
-                --auth-mode login `
-                --overwrite
-              
-              $uploaded = $true
-              Write-Host "Package uploaded successfully"
-            } catch {
-              $retryCount++
-              if ($retryCount -lt $maxRetries) {
-                Write-Host "Upload failed, retrying in 10 seconds (attempt $retryCount/$maxRetries)..."
-                Start-Sleep -Seconds 10
-              } else {
-                throw "Failed to upload after $maxRetries attempts: $_"
-              }
-            }
-          }
-          
-          # Generate SAS URL (valid for 30 minutes) using RBAC, with retry (handles network/firewall transient errors)
-          $sasMaxRetries = 5
-          $sasRetry = 0
-          $sasCreated = $false
-          while (-not $sasCreated -and $sasRetry -lt $sasMaxRetries) {
-            try {
-              $blobUrl = az storage blob generate-sas `
-                --account-name $env:STORAGE_ACCOUNT `
-                --container-name "deployments" `
-                --name "madrid-api-deploy-${{ github.run_id }}.zip" `
-                --expiry (Get-Date).AddMinutes(30).ToString("yyyy-MM-ddTHH:mm:ssZ") `
-                --permissions r `
-                --auth-mode login `
-                --as-user `
-                -o tsv
-              $sasCreated = $true
-            }
-            catch {
-              $sasRetry++
-              if ($sasRetry -lt $sasMaxRetries) {
-                Write-Host "SAS generation failed, retrying in 10 seconds (attempt $sasRetry/$sasMaxRetries)..."
-                Start-Sleep -Seconds 10
-              } else {
-                throw "Failed to generate SAS after $sasMaxRetries attempts: $_"
-              }
-            }
-          }
-
-          $fullBlobUrl = "https://$($env:STORAGE_ACCOUNT).blob.core.windows.net/deployments/madrid-api-deploy-${{ github.run_id }}.zip?$blobUrl"
-          "BLOB_URL=$fullBlobUrl" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          # Save to environment for next step
+          "PACKAGE_BASE64=$base64" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "Package size: $($bytes.Length) bytes"
 
       - name: Deploy to Madrid VM via Run Command
         shell: pwsh
         run: |
-          # Create PowerShell deployment script
+          # Create PowerShell deployment script that receives base64 package
           $deployScript = @'
           # Stop existing service
           $serviceName = "${{ env.SERVICE_NAME }}"
@@ -122,25 +68,21 @@ jobs:
             New-Item -ItemType Directory -Path $appDir -Force | Out-Null
           }
           
-          # Download code from storage using SAS URL
-          Write-Host "Downloading deployment package..."
-          $blobUrl = "${{ env.BLOB_URL }}"
+          # Decode and extract package (received directly from runner - no storage needed!)
+          Write-Host "Receiving deployment package..."
           $tempZip = "$env:TEMP\madrid-api.zip"
           
           try {
-            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-            
-            # Download using SAS URL (no auth needed - URL is pre-signed)
-            Invoke-WebRequest -Uri $blobUrl `
-              -OutFile $tempZip `
-              -UseBasicParsing
-            
-            if (-not (Test-Path $tempZip)) {
-              throw "Download failed - file not created"
-            }
+            # Decode base64 package
+            $base64 = $env:PACKAGE_BASE64
+            $bytes = [System.Convert]::FromBase64String($base64)
+            [System.IO.File]::WriteAllBytes($tempZip, $bytes)
             
             Write-Host "Extracting package..."
             $tempExtract = "$env:TEMP\madrid-extract"
+            if (Test-Path $tempExtract) {
+              Remove-Item $tempExtract -Recurse -Force
+            }
             Expand-Archive -Path $tempZip -DestinationPath $tempExtract -Force
             
             # Copy files
@@ -213,34 +155,23 @@ jobs:
           }
           '@
           
-          # Save script to temp file
+          # Execute script on VM using Run Command with base64 package as environment variable
+          Write-Host "Deploying to VM ${{ env.VM_NAME }}..."
+          Write-Host "Transferring package directly from runner to VM (no storage account)..."
+          
+          # Create temporary script file
           $scriptPath = "$env:TEMP\deploy-madrid-${{ github.run_id }}.ps1"
           $deployScript | Out-File -FilePath $scriptPath -Encoding UTF8
           
-          # Execute script on VM using Run Command
-          Write-Host "Deploying to VM ${{ env.VM_NAME }}..."
+          # Execute via Run Command, passing base64 package as environment variable
           az vm run-command invoke `
             --name ${{ env.VM_NAME }} `
             --resource-group ${{ env.RESOURCE_GROUP }} `
             --command-id RunPowerShellScript `
-            --scripts @$scriptPath
+            --scripts "`$env:PACKAGE_BASE64 = '${{ env.PACKAGE_BASE64 }}'; $deployScript"
           
           # Clean up local script
           Remove-Item $scriptPath -Force
-
-      - name: Cleanup deployment package
-        if: always()
-        shell: pwsh
-        run: |
-          Write-Host "Cleaning up deployment package from storage..."
-          az storage blob delete `
-            --account-name $env:STORAGE_ACCOUNT `
-            --container-name "deployments" `
-            --name "madrid-api-deploy-${{ github.run_id }}.zip" `
-            --auth-mode login `
-            --only-show-errors 2>$null
-          
-          Write-Host "✅ Cleanup complete"
 
       - name: Deployment summary
         run: |
@@ -250,5 +181,4 @@ jobs:
           echo "- **Service**: ${{ env.SERVICE_NAME }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Resource Group**: ${{ env.RESOURCE_GROUP }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-
-          $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding UTF8
+          echo "- **Deployment Method**: Direct transfer from runner to VM (no storage account)" >> $GITHUB_STEP_SUMMARY

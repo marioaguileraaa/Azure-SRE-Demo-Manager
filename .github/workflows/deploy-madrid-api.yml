@@ -36,75 +36,81 @@ jobs:
           # Create zip of Madrid API
           Write-Host "Creating deployment package..."
           Compress-Archive -Path "backend\madrid-parking-api\*" -DestinationPath "madrid-api-${{ github.run_id }}.zip" -Force
-          
-          # Convert to base64 for direct transfer to VM (no storage account needed)
-          Write-Host "Encoding package for transfer..."
-          $bytes = [System.IO.File]::ReadAllBytes("madrid-api-${{ github.run_id }}.zip")
-          $base64 = [System.Convert]::ToBase64String($bytes)
-          
-          # Save to environment for next step
-          "PACKAGE_BASE64=$base64" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          Write-Host "Package size: $($bytes.Length) bytes"
 
       - name: Deploy to Madrid VM via Run Command
         shell: pwsh
         run: |
-          # Create PowerShell deployment script that receives base64 package
-          $deployScript = @'
-          # Stop existing service
-          $serviceName = "${{ env.SERVICE_NAME }}"
-          $appDir = "${{ env.APP_DIR }}"
+          # Get VM private IP for direct transfer
+          Write-Host "Getting VM private IP..."
+          $vmPrivateIp = az vm show `
+            --name ${{ env.VM_NAME }} `
+            --resource-group ${{ env.RESOURCE_GROUP }} `
+            --query "privateIps" `
+            -o tsv
+          
+          Write-Host "VM Private IP: $vmPrivateIp"
+          
+          # Start temporary HTTP server on runner to serve the package
+          Write-Host "Starting temporary web server on runner..."
+          $serverJob = Start-Job -ScriptBlock {
+            param($port, $zipPath)
+            Set-Location (Split-Path $zipPath)
+            python -m http.server $port
+          } -ArgumentList 8765, "$PWD\madrid-api-${{ github.run_id }}.zip"
+          
+          Start-Sleep -Seconds 3
+          
+          # Get runner's private IP (from subnet)
+          $runnerIp = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -like "10.0.4.*" }).IPAddress
+          Write-Host "Runner IP in VNet: $runnerIp"
+          
+          # Create deployment script that downloads from runner
+          $deployScript = @"
+          `$serviceName = '${{ env.SERVICE_NAME }}'
+          `$appDir = '${{ env.APP_DIR }}'
+          `$runnerUrl = 'http://${runnerIp}:8765/madrid-api-${{ github.run_id }}.zip'
           
           Write-Host "Stopping service if exists..."
-          $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
-          if ($service) {
-            Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
+          `$service = Get-Service -Name `$serviceName -ErrorAction SilentlyContinue
+          if (`$service) {
+            Stop-Service -Name `$serviceName -Force -ErrorAction SilentlyContinue
             Start-Sleep -Seconds 3
           }
           
-          # Create app directory
           Write-Host "Creating application directory..."
-          if (-not (Test-Path $appDir)) {
-            New-Item -ItemType Directory -Path $appDir -Force | Out-Null
+          if (-not (Test-Path `$appDir)) {
+            New-Item -ItemType Directory -Path `$appDir -Force | Out-Null
           }
           
-          # Decode and extract package (received directly from runner - no storage needed!)
-          Write-Host "Receiving deployment package..."
-          $tempZip = "$env:TEMP\madrid-api.zip"
+          Write-Host "Downloading package from runner at `$runnerUrl..."
+          `$tempZip = "`$env:TEMP\madrid-api.zip"
           
           try {
-            # Decode base64 package
-            $base64 = $env:PACKAGE_BASE64
-            $bytes = [System.Convert]::FromBase64String($base64)
-            [System.IO.File]::WriteAllBytes($tempZip, $bytes)
+            Invoke-WebRequest -Uri `$runnerUrl -OutFile `$tempZip -UseBasicParsing -TimeoutSec 60
             
             Write-Host "Extracting package..."
-            $tempExtract = "$env:TEMP\madrid-extract"
-            if (Test-Path $tempExtract) {
-              Remove-Item $tempExtract -Recurse -Force
+            `$tempExtract = "`$env:TEMP\madrid-extract"
+            if (Test-Path `$tempExtract) {
+              Remove-Item `$tempExtract -Recurse -Force
             }
-            Expand-Archive -Path $tempZip -DestinationPath $tempExtract -Force
+            Expand-Archive -Path `$tempZip -DestinationPath `$tempExtract -Force
             
-            # Copy files
             Write-Host "Copying application files..."
-            Copy-Item -Path "$tempExtract\*" -Destination $appDir -Recurse -Force
+            Copy-Item -Path "`$tempExtract\*" -Destination `$appDir -Recurse -Force
             
-            # Clean up
-            Remove-Item $tempZip -Force
-            Remove-Item $tempExtract -Recurse -Force
+            Remove-Item `$tempZip -Force
+            Remove-Item `$tempExtract -Recurse -Force
           } catch {
-            Write-Host "ERROR: $_"
+            Write-Host "ERROR: `$_"
             exit 1
           }
           
-          # Install dependencies
           Write-Host "Installing dependencies..."
-          cd $appDir
+          cd `$appDir
           npm ci --only=production
           
-          # Create .env file
           Write-Host "Creating .env file..."
-          @"
+          @'
           PORT=3002
           PARKING_NAME=Madrid Centro Parking
           PARKING_CITY=Madrid
@@ -112,66 +118,67 @@ jobs:
           EVENT_LOG_SOURCE=MadridParkingAPI
           EVENT_LOG_NAME=Application
           NODE_ENV=production
-          "@ | Out-File -FilePath "$appDir\.env" -Encoding UTF8
+          '@ | Out-File -FilePath "`$appDir\.env" -Encoding UTF8
           
-          # Install Windows Event Log source
           Write-Host "Installing Windows Event Log source..."
           npm run install-windows
           
-          # Install or update Windows service
-          $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
-          if (-not $service) {
+          `$service = Get-Service -Name `$serviceName -ErrorAction SilentlyContinue
+          if (-not `$service) {
             Write-Host "Installing Windows service..."
             npm install -g node-windows
             
-            $serviceScript = @"
+            `$serviceScript = @'
           const Service = require('node-windows').Service;
           const svc = new Service({
-            name: '$serviceName',
+            name: '${{ env.SERVICE_NAME }}',
             description: 'Madrid Parking API',
-            script: '$appDir\\server.js',
-            workingDirectory: '$appDir',
+            script: '${{ env.APP_DIR }}\\server.js',
+            workingDirectory: '${{ env.APP_DIR }}',
             env: [{ name: 'NODE_ENV', value: 'production' }, { name: 'PORT', value: '3002' }]
           });
           svc.on('install', () => { console.log('Installed'); svc.start(); });
           svc.install();
-          "@
-            $serviceScript | Out-File -FilePath "$appDir\install-service.js" -Encoding UTF8
-            node "$appDir\install-service.js"
+          '@
+            `$serviceScript | Out-File -FilePath "`$appDir\install-service.js" -Encoding UTF8
+            node "`$appDir\install-service.js"
             Start-Sleep -Seconds 10
           } else {
             Write-Host "Starting existing service..."
-            Start-Service -Name $serviceName
+            Start-Service -Name `$serviceName
           }
           
-          # Verify
           Start-Sleep -Seconds 5
-          $service = Get-Service -Name $serviceName
-          if ($service.Status -eq 'Running') {
+          `$service = Get-Service -Name `$serviceName
+          if (`$service.Status -eq 'Running') {
             Write-Host "✅ Service is running"
           } else {
             Write-Host "❌ Service failed to start"
             exit 1
           }
-          '@
+          "@
           
-          # Execute script on VM using Run Command with base64 package as environment variable
-          Write-Host "Deploying to VM ${{ env.VM_NAME }}..."
-          Write-Host "Transferring package directly from runner to VM (no storage account)..."
-          
-          # Create temporary script file
+          # Save deployment script to file
           $scriptPath = "$env:TEMP\deploy-madrid-${{ github.run_id }}.ps1"
           $deployScript | Out-File -FilePath $scriptPath -Encoding UTF8
           
-          # Execute via Run Command, passing base64 package as environment variable
-          az vm run-command invoke `
-            --name ${{ env.VM_NAME }} `
-            --resource-group ${{ env.RESOURCE_GROUP }} `
-            --command-id RunPowerShellScript `
-            --scripts "`$env:PACKAGE_BASE64 = '${{ env.PACKAGE_BASE64 }}'; $deployScript"
+          Write-Host "Deploying to VM ${{ env.VM_NAME }}..."
+          Write-Host "VM will download package directly from runner via private network..."
           
-          # Clean up local script
-          Remove-Item $scriptPath -Force
+          try {
+            # Execute script on VM
+            az vm run-command invoke `
+              --name ${{ env.VM_NAME }} `
+              --resource-group ${{ env.RESOURCE_GROUP }} `
+              --command-id RunPowerShellScript `
+              --scripts @$scriptPath
+          } finally {
+            # Stop web server and cleanup
+            Write-Host "Stopping web server..."
+            Stop-Job -Job $serverJob
+            Remove-Job -Job $serverJob
+            Remove-Item $scriptPath -Force -ErrorAction SilentlyContinue
+          }
 
       - name: Deployment summary
         run: |

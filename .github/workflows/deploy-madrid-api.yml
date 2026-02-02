@@ -70,33 +70,6 @@ jobs:
           
           $blobUrl = "https://$($env:STORAGE_ACCOUNT).blob.core.windows.net/deployments/madrid-api-${{ github.run_id }}.zip?$sasToken"
           "BLOB_URL=$blobUrl" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-
-          Write-Host "Downloading Node.js LTS installer on runner..."
-          $nodeMsiLocal = "$env:TEMP\node-v20.11.1-x64.msi"
-          Invoke-WebRequest -Uri "https://nodejs.org/dist/v20.11.1/node-v20.11.1-x64.msi" -OutFile $nodeMsiLocal -UseBasicParsing
-
-          Write-Host "Uploading Node.js installer to storage..."
-          az storage blob upload `
-            --account-name $env:STORAGE_ACCOUNT `
-            --container-name "deployments" `
-            --file $nodeMsiLocal `
-            --name "node-v20.11.1-x64.msi" `
-            --auth-mode login `
-            --overwrite
-
-          Write-Host "Generating SAS token for Node.js installer..."
-          $nodeSas = az storage blob generate-sas `
-            --account-name $env:STORAGE_ACCOUNT `
-            --container-name "deployments" `
-            --name "node-v20.11.1-x64.msi" `
-            --expiry (Get-Date).AddMinutes(30).ToString("yyyy-MM-ddTHH:mm:ssZ") `
-            --permissions r `
-            --auth-mode login `
-            --as-user `
-            -o tsv
-
-          $nodeUrl = "https://$($env:STORAGE_ACCOUNT).blob.core.windows.net/deployments/node-v20.11.1-x64.msi?$nodeSas"
-          "NODE_MSI_URL=$nodeUrl" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - name: Deploy to Madrid VM via Run Command
         shell: pwsh
         run: |
@@ -104,7 +77,6 @@ jobs:
           $serviceName = "${{ env.SERVICE_NAME }}"
           $appDir = "${{ env.APP_DIR }}"
           $blobUrl = "${{ env.BLOB_URL }}"
-          $nodeMsiUrl = "${{ env.NODE_MSI_URL }}"
           
           Write-Host "Stopping service if exists..."
           $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
@@ -142,15 +114,17 @@ jobs:
           Write-Host "Ensuring Node.js is installed..."
           $nodeCmd = Get-Command node -ErrorAction SilentlyContinue
           if (-not $nodeCmd) {
-            Write-Host "Node.js not found. Installing Node.js LTS from storage..."
+            Write-Host "Node.js not found. Installing Node.js LTS..."
             $nodeMsi = "$env:TEMP\node-lts.msi"
             [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
             try {
-              Invoke-WebRequest -Uri $nodeMsiUrl -OutFile $nodeMsi -UseBasicParsing
+              Write-Host "Downloading Node.js installer from internet..."
+              Invoke-WebRequest -Uri "https://nodejs.org/dist/v20.11.1/node-v20.11.1-x64.msi" -OutFile $nodeMsi -UseBasicParsing
             } catch {
               Write-Host "ERROR: Failed to download Node.js installer: $_"
               exit 1
             }
+            Write-Host "Installing Node.js..."
             Start-Process msiexec.exe -ArgumentList "/i `"$nodeMsi`" /qn /norestart" -Wait
             if (Test-Path $nodeMsi) { Remove-Item $nodeMsi -Force }
             $env:PATH = [System.Environment]::GetEnvironmentVariable('Path','Machine')
@@ -255,11 +229,6 @@ jobs:
             --account-name $env:STORAGE_ACCOUNT `
             --container-name "deployments" `
             --name "madrid-api-${{ github.run_id }}.zip" `
-            --auth-mode login
-          az storage blob delete `
-            --account-name $env:STORAGE_ACCOUNT `
-            --container-name "deployments" `
-            --name "node-v20.11.1-x64.msi" `
             --auth-mode login
 
       - name: Deployment summary

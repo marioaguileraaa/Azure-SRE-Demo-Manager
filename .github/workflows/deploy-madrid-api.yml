@@ -155,55 +155,33 @@ jobs:
           
           $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
           if (-not $service) {
-            Write-Host "Installing Windows service with NSSM..."
+            Write-Host "Creating Windows service with sc.exe..."
             
-            # Download NSSM
-            $nssmPath = "$env:TEMP\nssm.exe"
+            # Create wrapper script for the service
+            $wrapperScript = @"
+@echo off
+cd /d "$appDir"
+set NODE_ENV=production
+set PORT=3002
+set PARKING_NAME=Madrid Centro Parking
+set PARKING_CITY=Madrid
+set PARKING_LOCATION=Plaza Mayor, Madrid
+set EVENT_LOG_SOURCE=MadridParkingAPI
+set EVENT_LOG_NAME=Application
+"C:\Program Files\nodejs\node.exe" "$appDir\server.js"
+"@
+            $wrapperPath = "$appDir\service-wrapper.bat"
+            $wrapperScript | Out-File -FilePath $wrapperPath -Encoding ASCII
             
-            if (-not (Test-Path $nssmPath)) {
-              Write-Host "Downloading NSSM..."
-              try {
-                $nssmZip = "$env:TEMP\nssm.zip"
-                Invoke-WebRequest -Uri "https://nssm.cc/ci/nssm-2.24-101-g897c7ad.zip" -OutFile $nssmZip -UseBasicParsing
-                
-                Write-Host "Extracting NSSM..."
-                Expand-Archive -Path $nssmZip -DestinationPath "$env:TEMP\nssm-extract" -Force
-                
-                # Find the actual nssm.exe file (structure varies)
-                $nssmExe = Get-ChildItem -Path "$env:TEMP\nssm-extract" -Recurse -Filter "nssm.exe" | Where-Object { $_.Directory.Name -eq "win64" } | Select-Object -First 1
-                
-                if ($nssmExe) {
-                  Copy-Item $nssmExe.FullName -Destination $nssmPath -Force
-                  Write-Host "NSSM extracted to: $nssmPath"
-                } else {
-                  Write-Host "ERROR: Could not find nssm.exe in extracted files"
-                  exit 1
-                }
-                
-                Remove-Item "$env:TEMP\nssm-extract" -Recurse -Force -ErrorAction SilentlyContinue
-                Remove-Item $nssmZip -Force -ErrorAction SilentlyContinue
-              } catch {
-                Write-Host "ERROR: Failed to download/extract NSSM: $_"
-                exit 1
-              }
-            }
-            
-            if (-not (Test-Path $nssmPath)) {
-              Write-Host "ERROR: NSSM.exe not found at $nssmPath"
-              exit 1
-            }
-            
-            Write-Host "Creating service with NSSM..."
-            & $nssmPath install $serviceName "C:\Program Files\nodejs\node.exe" "$appDir\server.js"
-            & $nssmPath set $serviceName AppDirectory "$appDir"
-            & $nssmPath set $serviceName AppEnvironmentExtra "NODE_ENV=production" "PORT=3002"
-            & $nssmPath set $serviceName Start SERVICE_AUTO_START
+            Write-Host "Creating service..."
+            sc.exe create $serviceName binPath= "$wrapperPath" start= auto DisplayName= "Madrid Parking API"
+            sc.exe description $serviceName "Madrid Parking API Service"
             
             Write-Host "Starting service..."
             Start-Service -Name $serviceName
           } else {
-            Write-Host "Starting existing service..."
-            Start-Service -Name $serviceName
+            Write-Host "Restarting existing service..."
+            Restart-Service -Name $serviceName
           }
           
           Start-Sleep -Seconds 5

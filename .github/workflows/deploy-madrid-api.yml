@@ -168,7 +168,7 @@ jobs:
               'set PARKING_LOCATION=Plaza Mayor, Madrid',
               'set EVENT_LOG_SOURCE=MadridParkingAPI',
               'set EVENT_LOG_NAME=Application',
-              "\"C:\\Program Files\\nodejs\\node.exe\" \"$appDir\\server.js\""
+              'call "C:\Program Files\nodejs\node.exe" "%~dp0server.js"'
             ) -join "`r`n"
             $wrapperPath = "$appDir\service-wrapper.bat"
             $wrapperScript | Out-File -FilePath $wrapperPath -Encoding ASCII

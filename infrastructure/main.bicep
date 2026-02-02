@@ -298,6 +298,7 @@ module frontend 'modules/frontend.bicep' = {
     lisbonApiUrl: lisbonApi.outputs.containerAppUrl
     madridApiUrl: madridApi.outputs.apiUrl
     parisApiUrl: parisApi.outputs.apiUrl
+    appServiceSubnetId: hub.outputs.appServiceSubnetId
     tags: tags
   }
 }

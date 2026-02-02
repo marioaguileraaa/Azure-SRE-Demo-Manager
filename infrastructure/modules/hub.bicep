@@ -196,6 +196,23 @@ resource runnerSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-05-01' = {
   }
 }
 
+// Add App Service subnet with Web Server delegation
+resource appServiceSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-05-01' = {
+  parent: vnet
+  name: 'snet-app-service'
+  properties: {
+    addressPrefix: '10.0.5.0/24'
+    delegations: [
+      {
+        name: 'Microsoft.Web/serverFarms'
+        properties: {
+          serviceName: 'Microsoft.Web/serverFarms'
+        }
+      }
+    ]
+  }
+}
+
 // Log Analytics Workspace
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
   name: 'law-parking-hub'
@@ -218,6 +235,7 @@ output vnetName string = vnet.name
 output vmSubnetId string = vnet.properties.subnets[0].id
 output containerSubnetId string = vnet.properties.subnets[1].id
 output runnerSubnetId string = runnerSubnet.id
+output appServiceSubnetId string = appServiceSubnet.id
 output logAnalyticsWorkspaceId string = logAnalytics.id
 output logAnalyticsWorkspaceName string = logAnalytics.name
 output logAnalyticsCustomerId string = logAnalytics.properties.customerId

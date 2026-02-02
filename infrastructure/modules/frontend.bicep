@@ -10,6 +10,9 @@ param lisbonApiUrl string = ''
 param madridApiUrl string = ''
 param parisApiUrl string = ''
 
+@description('Subnet ID for VNet Integration (App Service subnet)')
+param appServiceSubnetId string
+
 @description('Tags to apply to resources')
 param tags object = {}
 
@@ -98,6 +101,17 @@ resource appService 'Microsoft.Web/sites@2023-01-01' = {
       ]
       appCommandLine: 'npx --yes serve -s build -l 8080'
     }
+    virtualNetworkSubnetId: appServiceSubnetId
+  }
+}
+
+// VNet Integration
+resource vnetConnection 'Microsoft.Web/sites/networkConfig@2023-01-01' = {
+  parent: appService
+  name: 'virtualNetwork'
+  properties: {
+    subnetResourceId: appServiceSubnetId
+    swiftSupported: true
   }
 }
 

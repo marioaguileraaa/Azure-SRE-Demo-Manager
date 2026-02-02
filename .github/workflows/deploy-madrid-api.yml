@@ -157,21 +157,21 @@ jobs:
           if (-not $service) {
             Write-Host "Creating Windows service with sc.exe..."
             
-            # Create wrapper script for the service
-            $wrapperScript = @(
-              '@echo off',
-              "cd /d `"$appDir`"",
-              'set NODE_ENV=production',
-              'set PORT=3002',
-              'set PARKING_NAME=Madrid Centro Parking',
-              'set PARKING_CITY=Madrid',
-              'set PARKING_LOCATION=Plaza Mayor, Madrid',
-              'set EVENT_LOG_SOURCE=MadridParkingAPI',
-              'set EVENT_LOG_NAME=Application',
-              'call "C:\Program Files\nodejs\node.exe" "%~dp0server.js"'
-            ) -join "`r`n"
-            $wrapperPath = "$appDir\service-wrapper.bat"
-            $wrapperScript | Out-File -FilePath $wrapperPath -Encoding ASCII
+            # Create wrapper batch script for the service
+            $wrapperPath = Join-Path $appDir "service-wrapper.bat"
+            $batchContent = @"
+@echo off
+cd /d "$appDir"
+set NODE_ENV=production
+set PORT=3002
+set PARKING_NAME=Madrid Centro Parking
+set PARKING_CITY=Madrid
+set PARKING_LOCATION=Plaza Mayor, Madrid
+set EVENT_LOG_SOURCE=MadridParkingAPI
+set EVENT_LOG_NAME=Application
+call "C:\Program Files\nodejs\node.exe" "%~dp0server.js"
+"@
+            $batchContent | Out-File -FilePath $wrapperPath -Encoding ASCII -NoNewline
             
             Write-Host "Creating service..."
             sc.exe create $serviceName binPath= "$wrapperPath" start= auto DisplayName= "Madrid Parking API"

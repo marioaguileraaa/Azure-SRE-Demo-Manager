@@ -1,49 +1,33 @@
 import { ParkingAPI, ParkingInfo, ParkingMetrics, LevelInfo } from '../types';
 
-interface AppConfig {
-  apis: {
-    lisbon: string;
-    madrid: string;
-    paris: string;
-  };
-}
-
 class ParkingService {
   private apis: ParkingAPI[] = [];
   private configLoaded = false;
 
   async initialize(): Promise<void> {
-      // Use environment variables (set at build time)
-          enabled: true
-        }
-      ];
-    } catch (error) {
-      console.error('Failed to load config.json, using defaults:', error);
-      // Fallback to defaults
-      this.apis = [
-        {
-          id: 'lisbon',
-          city: 'Lisbon',
-          apiUrl: process.env.REACT_APP_LISBON_API_URL || 'http://localhost:3001',
-          enabled: true
-        },
-        {
-          id: 'madrid',
-          city: 'Madrid',
-          apiUrl: process.env.REACT_APP_MADRID_API_URL || 'http://localhost:3002',
-          enabled: true
-        },
-        {
-    } catch (error) {
-      console.error('Error during initialization:', error);
-          id: 'paris',
-          city: 'Paris',
-          apiUrl: process.env.REACT_APP_PARIS_API_URL || 'http://localhost:3003',
-          enabled: true
-        }
-      ];
-    }
-    
+    if (this.configLoaded) return;
+
+    this.apis = [
+      {
+        id: 'lisbon',
+        city: 'Lisbon',
+        apiUrl: '/api/lisbon',
+        enabled: true
+      },
+      {
+        id: 'madrid',
+        city: 'Madrid',
+        apiUrl: '/api/madrid',
+        enabled: true
+      },
+      {
+        id: 'paris',
+        city: 'Paris',
+        apiUrl: '/api/paris',
+        enabled: true
+      }
+    ];
+
     this.configLoaded = true;
   }
 

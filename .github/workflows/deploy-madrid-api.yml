@@ -155,26 +155,33 @@ jobs:
           
           $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
           if (-not $service) {
-            Write-Host "Installing Windows service..."
-            npm install -g node-windows
+            Write-Host "Installing Windows service with NSSM..."
             
-            $serviceScript = @"
-          const Service = require('node-windows').Service;
-          const svc = new Service({
-            name: '${{ env.SERVICE_NAME }}',
-            description: 'Madrid Parking API',
-            script: '${{ env.APP_DIR }}\\server.js',
-            workingDirectory: '${{ env.APP_DIR }}',
-            env: [{ name: 'NODE_ENV', value: 'production' }, { name: 'PORT', value: '3002' }]
-          });
-          svc.on('install', () => { console.log('Installed'); svc.start(); });
-          svc.install();
-          "@
-            $serviceScript | Out-File -FilePath "$appDir\install-service.js" -Encoding UTF8
-            node "$appDir\install-service.js"
-            Start-Sleep -Seconds 10
-          } else {
+            # Download NSSM
+            $nssmPath = "$env:TEMP\nssm.exe"
+            $nssmZip = "$env:TEMP\nssm-2.24.zip"
+            
+            if (-not (Test-Path $nssmPath)) {
+              Write-Host "Downloading NSSM..."
+              Invoke-WebRequest -Uri "https://nssm.cc/download/nssm-2.24.zip" -OutFile $nssmZip -UseBasicParsing
+              
+              Write-Host "Extracting NSSM..."
+              Expand-Archive -Path $nssmZip -DestinationPath "$env:TEMP\nssm" -Force
+              Copy-Item "$env:TEMP\nssm\nssm-2.24\win64\nssm.exe" -Destination $nssmPath -Force
+              Remove-Item "$env:TEMP\nssm" -Recurse -Force
+              Remove-Item $nssmZip -Force
+            }
+            
+            Write-Host "Creating service with NSSM..."
+            & $nssmPath install $serviceName "C:\Program Files\nodejs\node.exe" "$appDir\server.js"
+            & $nssmPath set $serviceName AppDirectory "$appDir"
+            & $nssmPath set $serviceName AppEnvironmentExtra "NODE_ENV=production`nPORT=3002"
+            & $nssmPath set $serviceName Start SERVICE_AUTO_START
+            
             Write-Host "Starting service..."
+            Start-Service -Name $serviceName
+          } else {
+            Write-Host "Starting existing service..."
             Start-Service -Name $serviceName
           }
           

@@ -13,30 +13,7 @@ class ParkingService {
   private configLoaded = false;
 
   async initialize(): Promise<void> {
-    if (this.configLoaded) return;
-    
-    try {
-      // Load runtime configuration from public/config.json
-      const response = await fetch('/config.json');
-      const config: AppConfig = await response.json();
-      
-      this.apis = [
-        {
-          id: 'lisbon',
-          city: 'Lisbon',
-          apiUrl: config.apis.lisbon,
-          enabled: true
-        },
-        {
-          id: 'madrid',
-          city: 'Madrid',
-          apiUrl: config.apis.madrid,
-          enabled: true
-        },
-        {
-          id: 'paris',
-          city: 'Paris',
-          apiUrl: config.apis.paris,
+      // Use environment variables (set at build time)
           enabled: true
         }
       ];
@@ -57,6 +34,8 @@ class ParkingService {
           enabled: true
         },
         {
+    } catch (error) {
+      console.error('Error during initialization:', error);
           id: 'paris',
           city: 'Paris',
           apiUrl: process.env.REACT_APP_PARIS_API_URL || 'http://localhost:3003',

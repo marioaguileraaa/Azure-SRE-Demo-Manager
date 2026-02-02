@@ -51,6 +51,10 @@ jobs:
           cp server.js ../build-output/
           cp package.json ../build-output/
           cp package-lock.json ../build-output/
+          
+          # Install production dependencies for proxy server
+          cd ../build-output
+          npm install --production
 
       - name: Create deployment package
         working-directory: frontend

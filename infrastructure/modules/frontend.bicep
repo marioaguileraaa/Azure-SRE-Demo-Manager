@@ -89,10 +89,14 @@ resource appService 'Microsoft.Web/sites@2023-01-01' = {
         }
         {
           name: 'WEBSITE_NODE_DEFAULT_VERSION'
-          value: '18-lts'
+          value: '~20'
+        }
+        {
+          name: 'PM2_HOME'
+          value: '/home/site/.pm2'
         }
       ]
-      appCommandLine: 'pm2 serve /home/site/wwwroot/build --no-daemon --spa'
+      appCommandLine: 'npx --yes serve -s build -l 8080'
     }
   }
 }

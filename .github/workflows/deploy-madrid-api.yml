@@ -33,16 +33,11 @@ jobs:
       - name: Debug - Show current principal
         shell: pwsh
         run: |
-          try {
-            $principal = az ad signed-in-user show --query id -o tsv
-            Write-Host "Signed-in user ID: $principal"
-          } catch {
-            Write-Host "Could not get signed-in user, trying account info..."
-          }
-          
-          $account = az account show --query user.name -o tsv
-          Write-Host "Account principal (servicePrincipalId): $account"
-          "CURRENT_PRINCIPAL=$account" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $account = az account show -o json | ConvertFrom-Json
+          $principal = $account.user.name
+          Write-Host "Service Principal: $($principal.Substring(0, [Math]::Min(8, $principal.Length)))..."
+          Write-Host "Full details - user.name will be the service principal ID"
+          Write-Host "To see the actual ID: check GitHub secret AZURE_CREDENTIALS and look at clientId field"
 
       - name: Create deployment package
         shell: pwsh

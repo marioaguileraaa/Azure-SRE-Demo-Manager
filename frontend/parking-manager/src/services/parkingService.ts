@@ -1,32 +1,79 @@
 import { ParkingAPI, ParkingInfo, ParkingMetrics, LevelInfo } from '../types';
 
+interface AppConfig {
+  apis: {
+    lisbon: string;
+    madrid: string;
+    paris: string;
+  };
+}
+
 class ParkingService {
-  private apis: ParkingAPI[] = [
-    {
-      id: 'lisbon',
-      city: 'Lisbon',
-      apiUrl: process.env.REACT_APP_LISBON_API_URL || 'http://localhost:3001',
-      enabled: true
-    },
-    {
-      id: 'madrid',
-      city: 'Madrid',
-      apiUrl: process.env.REACT_APP_MADRID_API_URL || 'http://localhost:3002',
-      enabled: true
-    },
-    {
-      id: 'paris',
-      city: 'Paris',
-      apiUrl: process.env.REACT_APP_PARIS_API_URL || 'http://localhost:3003',
-      enabled: true
+  private apis: ParkingAPI[] = [];
+  private configLoaded = false;
+
+  async initialize(): Promise<void> {
+    if (this.configLoaded) return;
+    
+    try {
+      // Load runtime configuration from public/config.json
+      const response = await fetch('/config.json');
+      const config: AppConfig = await response.json();
+      
+      this.apis = [
+        {
+          id: 'lisbon',
+          city: 'Lisbon',
+          apiUrl: config.apis.lisbon,
+          enabled: true
+        },
+        {
+          id: 'madrid',
+          city: 'Madrid',
+          apiUrl: config.apis.madrid,
+          enabled: true
+        },
+        {
+          id: 'paris',
+          city: 'Paris',
+          apiUrl: config.apis.paris,
+          enabled: true
+        }
+      ];
+    } catch (error) {
+      console.error('Failed to load config.json, using defaults:', error);
+      // Fallback to defaults
+      this.apis = [
+        {
+          id: 'lisbon',
+          city: 'Lisbon',
+          apiUrl: process.env.REACT_APP_LISBON_API_URL || 'http://localhost:3001',
+          enabled: true
+        },
+        {
+          id: 'madrid',
+          city: 'Madrid',
+          apiUrl: process.env.REACT_APP_MADRID_API_URL || 'http://localhost:3002',
+          enabled: true
+        },
+        {
+          id: 'paris',
+          city: 'Paris',
+          apiUrl: process.env.REACT_APP_PARIS_API_URL || 'http://localhost:3003',
+          enabled: true
+        }
+      ];
     }
-  ];
+    
+    this.configLoaded = true;
+  }
 
   getConfiguredAPIs(): ParkingAPI[] {
     return this.apis.filter(api => api.enabled);
   }
 
   async getParkingInfo(apiUrl: string): Promise<ParkingInfo> {
+    await this.initialize();
     const response = await fetch(`${apiUrl}/api/parking`);
     if (!response.ok) {
       throw new Error(`Failed to fetch parking info from ${apiUrl}`);
@@ -36,6 +83,7 @@ class ParkingService {
   }
 
   async getParkingMetrics(apiUrl: string): Promise<ParkingMetrics> {
+    await this.initialize();
     const response = await fetch(`${apiUrl}/api/parking/metrics`);
     if (!response.ok) {
       throw new Error(`Failed to fetch parking metrics from ${apiUrl}`);
@@ -45,6 +93,7 @@ class ParkingService {
   }
 
   async getLevels(apiUrl: string): Promise<LevelInfo[]> {
+    await this.initialize();
     const response = await fetch(`${apiUrl}/api/parking/levels`);
     if (!response.ok) {
       throw new Error(`Failed to fetch levels from ${apiUrl}`);
@@ -54,6 +103,7 @@ class ParkingService {
   }
 
   async updateLevelSlots(apiUrl: string, levelNumber: number, availableSlots: number): Promise<ParkingInfo> {
+    await this.initialize();
     const response = await fetch(`${apiUrl}/api/parking/levels/${levelNumber}`, {
       method: 'PATCH',
       headers: {
@@ -69,6 +119,7 @@ class ParkingService {
   }
 
   async updateParkingConfig(apiUrl: string, config: Partial<Pick<ParkingInfo, 'workingHours' | 'availableWC' | 'availableElectricChargers'>>): Promise<ParkingInfo> {
+    await this.initialize();
     const response = await fetch(`${apiUrl}/api/parking/config`, {
       method: 'PUT',
       headers: {

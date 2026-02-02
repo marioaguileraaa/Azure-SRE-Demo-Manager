@@ -17,6 +17,16 @@ param allowedSourceIpPrefix string = '*'
 @description('Tags to apply to resources')
 param tags object = {}
 
+// Network Security Group for App Service
+resource nsgAppService 'Microsoft.Network/networkSecurityGroups@2023-05-01' = {
+  name: 'nsg-app-service'
+  location: location
+  tags: tags
+  properties: {
+    securityRules: []
+  }
+}
+
 // Network Security Group for VMs
 // Note: In production, restrict SSH/RDP access to specific IP ranges using allowedSourceIpPrefix parameter
 resource nsgVms 'Microsoft.Network/networkSecurityGroups@2023-05-01' = {
@@ -145,6 +155,41 @@ resource natGateway 'Microsoft.Network/natGateways@2023-05-01' = {
   }
 }
 
+// Route tables for proper traffic routing between subnets
+resource udrVms 'Microsoft.Network/routeTables@2023-05-01' = {
+  name: 'udr-vms'
+  location: location
+  tags: tags
+  properties: {
+    routes: [
+      {
+        name: 'route-to-app-service'
+        properties: {
+          addressPrefix: '10.0.5.0/24'
+          nextHopType: 'VnetLocal'
+        }
+      }
+    ]
+  }
+}
+
+resource udrAppService 'Microsoft.Network/routeTables@2023-05-01' = {
+  name: 'udr-app-service'
+  location: location
+  tags: tags
+  properties: {
+    routes: [
+      {
+        name: 'route-to-vms'
+        properties: {
+          addressPrefix: '10.0.1.0/24'
+          nextHopType: 'VnetLocal'
+        }
+      }
+    ]
+  }
+}
+
 // Create Virtual Network (with just VM and Container App subnets initially)
 resource vnet 'Microsoft.Network/virtualNetworks@2023-05-01' = {
   name: 'vnet-parking-hub'
@@ -163,6 +208,9 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-05-01' = {
           addressPrefix: vmSubnetPrefix
           networkSecurityGroup: {
             id: nsgVms.id
+          }
+          routeTable: {
+            id: udrVms.id
           }
         }
       }
@@ -202,6 +250,12 @@ resource appServiceSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-05-01'
   name: 'snet-app-service'
   properties: {
     addressPrefix: '10.0.5.0/24'
+    networkSecurityGroup: {
+      id: nsgAppService.id
+    }
+    routeTable: {
+      id: udrAppService.id
+    }
     delegations: [
       {
         name: 'Microsoft.Web/serverFarms'

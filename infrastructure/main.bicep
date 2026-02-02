@@ -272,7 +272,7 @@ module madridStorageAccess 'modules/storage-role-assignment.bicep' = if (deployM
   name: 'madrid-storage-access'
   params: {
     principalId: madridApi.outputs.vmPrincipalId
-    storageAccountId: deploymentStorage.outputs.storageAccountId
+    storageAccountName: deploymentStorage.outputs.storageAccountName
   }
 }
 
@@ -281,7 +281,7 @@ module parisStorageAccess 'modules/storage-role-assignment.bicep' = if (deployPa
   name: 'paris-storage-access'
   params: {
     principalId: parisApi.outputs.vmPrincipalId
-    storageAccountId: deploymentStorage.outputs.storageAccountId
+    storageAccountName: deploymentStorage.outputs.storageAccountName
   }
 }
 

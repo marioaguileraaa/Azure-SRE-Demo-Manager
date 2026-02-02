@@ -111,6 +111,23 @@ jobs:
             exit 1
           }
           
+          Write-Host "Ensuring Node.js is installed..."
+          $nodeCmd = Get-Command node -ErrorAction SilentlyContinue
+          if (-not $nodeCmd) {
+            Write-Host "Node.js not found. Installing Node.js LTS..."
+            $nodeMsi = "$env:TEMP\node-lts.msi"
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+            Invoke-WebRequest -Uri "https://nodejs.org/dist/v20.11.1/node-v20.11.1-x64.msi" -OutFile $nodeMsi -UseBasicParsing
+            Start-Process msiexec.exe -ArgumentList "/i `"$nodeMsi`" /qn /norestart" -Wait
+            Remove-Item $nodeMsi -Force
+            $env:PATH = [System.Environment]::GetEnvironmentVariable('Path','Machine')
+          }
+          $npmCmd = Get-Command npm -ErrorAction SilentlyContinue
+          if (-not $npmCmd) {
+            Write-Host "npm still not available after install. Aborting."
+            exit 1
+          }
+
           Write-Host "Installing dependencies..."
           cd $appDir
           npm ci --only=production

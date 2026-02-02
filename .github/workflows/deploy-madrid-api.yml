@@ -159,23 +159,44 @@ jobs:
             
             # Download NSSM
             $nssmPath = "$env:TEMP\nssm.exe"
-            $nssmZip = "$env:TEMP\nssm-2.24.zip"
             
             if (-not (Test-Path $nssmPath)) {
               Write-Host "Downloading NSSM..."
-              Invoke-WebRequest -Uri "https://nssm.cc/download/nssm-2.24.zip" -OutFile $nssmZip -UseBasicParsing
-              
-              Write-Host "Extracting NSSM..."
-              Expand-Archive -Path $nssmZip -DestinationPath "$env:TEMP\nssm" -Force
-              Copy-Item "$env:TEMP\nssm\nssm-2.24\win64\nssm.exe" -Destination $nssmPath -Force
-              Remove-Item "$env:TEMP\nssm" -Recurse -Force
-              Remove-Item $nssmZip -Force
+              try {
+                $nssmZip = "$env:TEMP\nssm.zip"
+                Invoke-WebRequest -Uri "https://nssm.cc/ci/nssm-2.24-101-g897c7ad.zip" -OutFile $nssmZip -UseBasicParsing
+                
+                Write-Host "Extracting NSSM..."
+                Expand-Archive -Path $nssmZip -DestinationPath "$env:TEMP\nssm-extract" -Force
+                
+                # Find the actual nssm.exe file (structure varies)
+                $nssmExe = Get-ChildItem -Path "$env:TEMP\nssm-extract" -Recurse -Filter "nssm.exe" | Where-Object { $_.Directory.Name -eq "win64" } | Select-Object -First 1
+                
+                if ($nssmExe) {
+                  Copy-Item $nssmExe.FullName -Destination $nssmPath -Force
+                  Write-Host "NSSM extracted to: $nssmPath"
+                } else {
+                  Write-Host "ERROR: Could not find nssm.exe in extracted files"
+                  exit 1
+                }
+                
+                Remove-Item "$env:TEMP\nssm-extract" -Recurse -Force -ErrorAction SilentlyContinue
+                Remove-Item $nssmZip -Force -ErrorAction SilentlyContinue
+              } catch {
+                Write-Host "ERROR: Failed to download/extract NSSM: $_"
+                exit 1
+              }
+            }
+            
+            if (-not (Test-Path $nssmPath)) {
+              Write-Host "ERROR: NSSM.exe not found at $nssmPath"
+              exit 1
             }
             
             Write-Host "Creating service with NSSM..."
             & $nssmPath install $serviceName "C:\Program Files\nodejs\node.exe" "$appDir\server.js"
             & $nssmPath set $serviceName AppDirectory "$appDir"
-            & $nssmPath set $serviceName AppEnvironmentExtra "NODE_ENV=production`nPORT=3002"
+            & $nssmPath set $serviceName AppEnvironmentExtra "NODE_ENV=production" "PORT=3002"
             & $nssmPath set $serviceName Start SERVICE_AUTO_START
             
             Write-Host "Starting service..."

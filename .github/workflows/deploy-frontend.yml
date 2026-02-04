@@ -60,12 +60,20 @@ jobs:
           cp package.json deployment-pkg/
           cp package-lock.json deployment-pkg/
           
+          # Create .deployment file to PREVENT Oryx from building
+          cat > deployment-pkg/.deployment << 'EOF'
+          [config]
+          SCM_DO_BUILD_DURING_DEPLOYMENT=false
+          ENABLE_ORYX_BUILD=false
+          EOF
+          
           # Verify critical files exist before packaging
           echo "=== Deployment package contents ==="
           ls -la deployment-pkg/
           test -f deployment-pkg/server.js || (echo "ERROR: server.js missing" && exit 1)
           test -f deployment-pkg/package.json || (echo "ERROR: package.json missing" && exit 1)
           test -d deployment-pkg/build || (echo "ERROR: build directory missing" && exit 1)
+          test -f deployment-pkg/.deployment || (echo "ERROR: .deployment file missing" && exit 1)
 
       - name: Create deployment package
         working-directory: frontend/parking-manager
@@ -120,7 +128,7 @@ jobs:
             sleep 10
 
       - name: Deploy to Azure App Service
-        timeout-minutes: 5
+        timeout-minutes: 10
         uses: azure/CLI@v1
         with:
           inlineScript: |

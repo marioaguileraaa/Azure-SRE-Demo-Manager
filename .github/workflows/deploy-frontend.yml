@@ -133,20 +133,26 @@ jobs:
 
       - name: Deploy to Azure App Service
         uses: azure/CLI@v1
-        timeout-minutes: 1
+        timeout-minutes: 3
         continue-on-error: true
         with:
           inlineScript: |
-            echo "Uploading deployment package..."
-            # Use timeout to prevent hang, but allow deployment to start
-            timeout 30 az webapp deployment source config-zip \
+            echo "Deploying package to App Service..."
+            az webapp deploy \
               --resource-group ${{ env.RESOURCE_GROUP }} \
               --name ${{ env.AZURE_WEBAPP_NAME }} \
-              --src frontend/parking-manager/deployment.zip || true
+              --src-path frontend/parking-manager/deployment.zip \
+              --type zip \
+              --async true
             
-            echo "✅ Deployment package sent to App Service"
-            echo "Check Azure Portal > Deployment Center for status"
-            sleep 5
+            echo "✅ Deployment initiated"
+      
+      - name: Post-deployment info
+        run: |
+          echo "⚠️  Note: Deployment may timeout in logs but succeeds in Azure"
+          echo "📋 Verify: Azure Portal > App Service > Deployment Center"
+          echo "🌐 URL: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net"
+          echo "⏱️  Wait ~30-60 seconds after workflow completes for app to start"
 
       - name: Configure App Service settings (post-deploy)
         uses: azure/CLI@v1

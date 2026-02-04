@@ -37,7 +37,7 @@ class ParkingService {
 
   async getParkingInfo(apiUrl: string): Promise<ParkingInfo> {
     await this.initialize();
-    const response = await fetch(`${apiUrl}/api/parking`);
+    const response = await fetch(`${apiUrl}/parking`);
     if (!response.ok) {
       throw new Error(`Failed to fetch parking info from ${apiUrl}`);
     }
@@ -47,7 +47,7 @@ class ParkingService {
 
   async getParkingMetrics(apiUrl: string): Promise<ParkingMetrics> {
     await this.initialize();
-    const response = await fetch(`${apiUrl}/api/parking/metrics`);
+    const response = await fetch(`${apiUrl}/parking/metrics`);
     if (!response.ok) {
       throw new Error(`Failed to fetch parking metrics from ${apiUrl}`);
     }
@@ -57,7 +57,7 @@ class ParkingService {
 
   async getLevels(apiUrl: string): Promise<LevelInfo[]> {
     await this.initialize();
-    const response = await fetch(`${apiUrl}/api/parking/levels`);
+    const response = await fetch(`${apiUrl}/parking/levels`);
     if (!response.ok) {
       throw new Error(`Failed to fetch levels from ${apiUrl}`);
     }
@@ -67,7 +67,7 @@ class ParkingService {
 
   async updateLevelSlots(apiUrl: string, levelNumber: number, availableSlots: number): Promise<ParkingInfo> {
     await this.initialize();
-    const response = await fetch(`${apiUrl}/api/parking/levels/${levelNumber}`, {
+    const response = await fetch(`${apiUrl}/parking/levels/${levelNumber}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -83,7 +83,7 @@ class ParkingService {
 
   async updateParkingConfig(apiUrl: string, config: Partial<Pick<ParkingInfo, 'workingHours' | 'availableWC' | 'availableElectricChargers'>>): Promise<ParkingInfo> {
     await this.initialize();
-    const response = await fetch(`${apiUrl}/api/parking/config`, {
+    const response = await fetch(`${apiUrl}/parking/config`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',

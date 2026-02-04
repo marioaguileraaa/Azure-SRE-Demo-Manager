@@ -128,23 +128,17 @@ jobs:
             sleep 10
 
       - name: Deploy to Azure App Service
-        timeout-minutes: 2
-        uses: azure/CLI@v1
+        uses: azure/webapps-deploy@v2
         with:
-          inlineScript: |
-            echo "Deploying package to App Service (async)..."
-            az webapp deploy \
-              --name ${{ env.AZURE_WEBAPP_NAME }} \
-              --resource-group ${{ env.RESOURCE_GROUP }} \
-              --src-path frontend/parking-manager/deployment.zip \
-              --type zip \
-              --async true
-            
-            echo "✅ Deployment initiated"
-            echo "Note: Deployment continues in background. Check Azure Portal if issues occur."
-            
-            # Wait for app to potentially start
-            sleep 10
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          resource-group-name: ${{ env.RESOURCE_GROUP }}
+          package: frontend/parking-manager/deployment.zip
+          
+      - name: Verify deployment
+        run: |
+          echo "✅ Deployment package uploaded"
+          echo "App Service is extracting and starting the app..."
+          sleep 15
 
       - name: Configure App Service settings (post-deploy)
         uses: azure/CLI@v1

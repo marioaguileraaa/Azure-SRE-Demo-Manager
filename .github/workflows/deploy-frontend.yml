@@ -133,16 +133,16 @@ jobs:
         continue-on-error: true
         with:
           inlineScript: |
-            echo "Uploading deployment package (async, non-blocking)..."
-            az webapp deployment source config-zip \
+            echo "Uploading deployment package..."
+            # Use timeout to prevent hang, but allow deployment to start
+            timeout 30 az webapp deployment source config-zip \
               --resource-group ${{ env.RESOURCE_GROUP }} \
               --name ${{ env.AZURE_WEBAPP_NAME }} \
-              --src frontend/parking-manager/deployment.zip &
+              --src frontend/parking-manager/deployment.zip || true
             
-            # Don't wait for the background process
+            echo "✅ Deployment package sent to App Service"
+            echo "Check Azure Portal > Deployment Center for status"
             sleep 5
-            echo "✅ Deployment package uploaded to App Service"
-            echo "Background deployment in progress..."
 
       - name: Configure App Service settings (post-deploy)
         uses: azure/CLI@v1

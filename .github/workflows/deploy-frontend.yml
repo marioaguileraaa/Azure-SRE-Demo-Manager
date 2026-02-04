@@ -97,7 +97,7 @@ jobs:
             sleep 10
 
       - name: Deploy to Azure App Service
-        timeout-minutes: 5
+        timeout-minutes: 2
         uses: azure/CLI@v1
         with:
           inlineScript: |
@@ -107,11 +107,9 @@ jobs:
               --resource-group ${{ env.RESOURCE_GROUP }} \
               --src-path frontend/deployment.zip \
               --type zip \
-              --async true
+              --async true &
             
-            echo "Deployment initiated..."
-            sleep 30
-            echo "✅ Deployment submitted successfully"
+            echo "✅ Deployment initiated (async)"
 
       - name: Configure App Service settings (post-deploy)
         uses: azure/CLI@v1

@@ -100,41 +100,6 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Configure App Service settings (pre-deploy)
-        uses: azure/CLI@v1
-        with:
-          inlineScript: |
-            # Set Node version
-            az webapp config set \
-              --name ${{ env.AZURE_WEBAPP_NAME }} \
-              --resource-group ${{ env.RESOURCE_GROUP }} \
-              --linux-fx-version "NODE|${{ env.NODE_VERSION }}"
-            
-            # Configure startup command for Express proxy server
-            az webapp config set \
-              --name ${{ env.AZURE_WEBAPP_NAME }} \
-              --resource-group ${{ env.RESOURCE_GROUP }} \
-              --startup-file "node server.js"
-            
-            # Set environment variables - DISABLE Oryx (we're bundling node_modules)
-            az webapp config appsettings set \
-              --name ${{ env.AZURE_WEBAPP_NAME }} \
-              --resource-group ${{ env.RESOURCE_GROUP }} \
-              --settings \
-                WEBSITE_NODE_DEFAULT_VERSION="${{ env.NODE_VERSION }}" \
-                NODE_ENV=production \
-                SCM_DO_BUILD_DURING_DEPLOYMENT=false \
-                ENABLE_ORYX_BUILD=false \
-                WEBSITE_RUN_FROM_PACKAGE=0
-            
-            # Restart to apply settings
-            az webapp restart \
-              --name ${{ env.AZURE_WEBAPP_NAME }} \
-              --resource-group ${{ env.RESOURCE_GROUP }}
-            
-            # Wait for restart
-            sleep 10
-
       - name: Deploy to Azure App Service
         uses: azure/CLI@v1
         timeout-minutes: 3

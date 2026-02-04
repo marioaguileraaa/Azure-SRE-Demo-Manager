@@ -60,15 +60,8 @@ jobs:
           cp package.json deployment-pkg/
           cp package-lock.json deployment-pkg/
           
-          # Copy node_modules (already installed by npm install step)
-          cp -r node_modules deployment-pkg/
-          
-          # Create .deployment file to PREVENT Oryx from building
-          cat > deployment-pkg/.deployment << 'EOF'
-          [config]
-          SCM_DO_BUILD_DURING_DEPLOYMENT=false
-          ENABLE_ORYX_BUILD=false
-          EOF
+          # DO NOT include node_modules (too large)
+          # DO NOT include .deployment file (let Oryx run npm install)
           
           # Verify critical files exist before packaging
           echo "=== Deployment package contents ==="
@@ -76,7 +69,6 @@ jobs:
           test -f deployment-pkg/server.js || (echo "ERROR: server.js missing" && exit 1)
           test -f deployment-pkg/package.json || (echo "ERROR: package.json missing" && exit 1)
           test -d deployment-pkg/build || (echo "ERROR: build directory missing" && exit 1)
-          test -d deployment-pkg/node_modules || (echo "ERROR: node_modules missing" && exit 1)
           echo "✅ All files present"
 
       - name: Create deployment package
@@ -114,14 +106,16 @@ jobs:
               --resource-group ${{ env.RESOURCE_GROUP }} \
               --startup-file "node server.js"
             
-            # Set environment variables and disable Oryx during zip deploy
+            # Set environment variables
+            # Let Oryx run npm install but skip React build (build/ already exists)
             az webapp config appsettings set \
               --name ${{ env.AZURE_WEBAPP_NAME }} \
               --resource-group ${{ env.RESOURCE_GROUP }} \
               --settings \
                 WEBSITE_NODE_DEFAULT_VERSION="${{ env.NODE_VERSION }}" \
-                SCM_DO_BUILD_DURING_DEPLOYMENT=false \
-                ENABLE_ORYX_BUILD=false
+                SCM_DO_BUILD_DURING_DEPLOYMENT=true \
+                ENABLE_ORYX_BUILD=true \
+                WEBSITE_RUN_FROM_PACKAGE=0
             
             # Restart to apply settings
             az webapp restart \
@@ -173,8 +167,8 @@ jobs:
               --resource-group ${{ env.RESOURCE_GROUP }} \
               --settings \
                 WEBSITE_NODE_DEFAULT_VERSION="${{ env.NODE_VERSION }}" \
-                SCM_DO_BUILD_DURING_DEPLOYMENT=false \
-                ENABLE_ORYX_BUILD=false \
+                SCM_DO_BUILD_DURING_DEPLOYMENT=true \
+                ENABLE_ORYX_BUILD=true \
                 WEBSITE_RUN_FROM_PACKAGE=0
 
       - name: Restart App Service

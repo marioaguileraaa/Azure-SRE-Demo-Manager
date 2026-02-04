@@ -49,26 +49,36 @@ jobs:
             exit 1
           fi
           
+          # Install ONLY production dependencies (express, http-proxy-middleware)
+          echo "Installing production dependencies only..."
+          npm ci --production --omit=dev
+          
           # Create and populate deployment directory
           mkdir -p deployment-pkg
           
-          # Copy React static files to deployment/build (Express serves from here)
+          # Copy React static files
           cp -r build deployment-pkg/
           
-          # Copy Express server and dependencies to deployment root
+          # Copy Express server and package files
           cp server.js deployment-pkg/
           cp package.json deployment-pkg/
           cp package-lock.json deployment-pkg/
           
-          # DO NOT include node_modules (too large)
-          # DO NOT include .deployment file (let Oryx run npm install)
+          # Copy production node_modules (small - only express and http-proxy-middleware)
+          cp -r node_modules deployment-pkg/
           
-          # Verify critical files exist before packaging
+          # Create .deployment file to skip Oryx build
+          cat > deployment-pkg/.deployment << 'EOF'
+          [config]
+          SCM_DO_BUILD_DURING_DEPLOYMENT=false
+          ENABLE_ORYX_BUILD=false
+          EOF
+          
+          # Verify
           echo "=== Deployment package contents ==="
-          ls -la deployment-pkg/
+          du -sh deployment-pkg/*
           test -f deployment-pkg/server.js || (echo "ERROR: server.js missing" && exit 1)
-          test -f deployment-pkg/package.json || (echo "ERROR: package.json missing" && exit 1)
-          test -d deployment-pkg/build || (echo "ERROR: build directory missing" && exit 1)
+          test -d deployment-pkg/node_modules || (echo "ERROR: node_modules missing" && exit 1)
           echo "✅ All files present"
 
       - name: Create deployment package
@@ -106,15 +116,15 @@ jobs:
               --resource-group ${{ env.RESOURCE_GROUP }} \
               --startup-file "node server.js"
             
-            # Set environment variables
-            # Let Oryx run npm install but skip React build (build/ already exists)
+            # Set environment variables - DISABLE Oryx (we're bundling node_modules)
             az webapp config appsettings set \
               --name ${{ env.AZURE_WEBAPP_NAME }} \
               --resource-group ${{ env.RESOURCE_GROUP }} \
               --settings \
                 WEBSITE_NODE_DEFAULT_VERSION="${{ env.NODE_VERSION }}" \
-                SCM_DO_BUILD_DURING_DEPLOYMENT=true \
-                ENABLE_ORYX_BUILD=true \
+                NODE_ENV=production \
+                SCM_DO_BUILD_DURING_DEPLOYMENT=false \
+                ENABLE_ORYX_BUILD=false \
                 WEBSITE_RUN_FROM_PACKAGE=0
             
             # Restart to apply settings

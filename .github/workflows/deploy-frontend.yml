@@ -43,9 +43,13 @@ jobs:
           # Create production build with API URLs
           npm run build
           
-          # Copy static files for Azure App Service (contents only, not the folder)
+          # Copy ONLY static files (no package.json, no node_modules)
           mkdir -p ../build-output
           cp -r build/* ../build-output/
+          
+          # Create .deployment file to prevent Oryx from building
+          echo "[config]" > ../build-output/.deployment
+          echo "SCM_DO_BUILD_DURING_DEPLOYMENT = false" >> ../build-output/.deployment
 
       - name: Create deployment package
         working-directory: frontend

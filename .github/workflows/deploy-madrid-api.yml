@@ -160,54 +160,78 @@ jobs:
           Write-Host "Installing Windows Event Log source..."
           npm run install-windows
           
-          # Install NSSM (Non-Sucking Service Manager) if not present
-          Write-Host "Checking for NSSM..."
-          $nssmPath = "C:\nssm\nssm.exe"
-          if (-not (Test-Path $nssmPath)) {
-            Write-Host "Installing NSSM..."
-            $nssmZip = "C:\nssm.zip"
-            Invoke-WebRequest -Uri "https://nssm.cc/ci/nssm-2.24-101-g897c7ad.zip" -OutFile $nssmZip
-            Expand-Archive -Path $nssmZip -DestinationPath "C:\" -Force
-            Move-Item "C:\nssm-2.24-101-g897c7ad\win64\nssm.exe" $nssmPath -Force
-            Remove-Item $nssmZip -Force
-            Remove-Item "C:\nssm-2.24-101-g897c7ad" -Recurse -Force
+          # Install Chocolatey if not present
+          Write-Host "Checking for Chocolatey..."
+          if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
+            Write-Host "Installing Chocolatey..."
+            [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+            Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+            $env:Path += ";C:\ProgramData\chocolatey\bin"
           }
+          
+          # Install NSSM via Chocolatey
+          Write-Host "Installing NSSM via Chocolatey..."
+          choco install nssm -y --no-progress
+          $env:Path = "C:\Program Files (x86)\NSSM\nssm\win64;" + $env:Path
           
           # Remove existing service if present
           Write-Host "Removing existing service if present..."
-          & $nssmPath stop $serviceName 2>$null
-          & $nssmPath remove $serviceName confirm 2>$null
-          Start-Sleep -Seconds 2
+          nssm stop $serviceName 2>$null
+          nssm remove $serviceName confirm 2>$null
+          Start-Sleep -Seconds 3
           
           Write-Host "Creating Windows service with NSSM..."
           $nodePath = "C:\Program Files\nodejs\node.exe"
           $serverPath = Join-Path $appDir "server.js"
           
           # Install service
-          & $nssmPath install $serviceName $nodePath $serverPath
+          nssm install $serviceName $nodePath $serverPath
           
           # Set service parameters
-          & $nssmPath set $serviceName AppDirectory $appDir
-          & $nssmPath set $serviceName DisplayName "Madrid Parking API"
-          & $nssmPath set $serviceName Description "Madrid Parking API Service"
-          & $nssmPath set $serviceName Start SERVICE_AUTO_START
+          nssm set $serviceName AppDirectory $appDir
+          nssm set $serviceName DisplayName "Madrid Parking API"
+          nssm set $serviceName Description "Madrid Parking API Service"
+          nssm set $serviceName Start SERVICE_AUTO_START
+          nssm set $serviceName Type SERVICE_WIN32_OWN_PROCESS
           
           # Set environment variables
-          & $nssmPath set $serviceName AppEnvironmentExtra NODE_ENV=production PORT=3002 "PARKING_NAME=Madrid Centro Parking" PARKING_CITY=Madrid "PARKING_LOCATION=Plaza Mayor, Madrid" EVENT_LOG_SOURCE=MadridParkingAPI EVENT_LOG_NAME=Application CERT_PATH=$appDir\madrid.crt KEY_PATH=$appDir\madrid.key
+          nssm set $serviceName AppEnvironmentExtra NODE_ENV=production
+          nssm set $serviceName AppEnvironmentExtra PORT=3002
+          nssm set $serviceName AppEnvironmentExtra "PARKING_NAME=Madrid Centro Parking"
+          nssm set $serviceName AppEnvironmentExtra PARKING_CITY=Madrid
+          nssm set $serviceName AppEnvironmentExtra "PARKING_LOCATION=Plaza Mayor, Madrid"
+          nssm set $serviceName AppEnvironmentExtra EVENT_LOG_SOURCE=MadridParkingAPI
+          nssm set $serviceName AppEnvironmentExtra EVENT_LOG_NAME=Application
+          nssm set $serviceName AppEnvironmentExtra "CERT_PATH=$appDir\madrid.crt"
+          nssm set $serviceName AppEnvironmentExtra "KEY_PATH=$appDir\madrid.key"
           
-          # Configure stdout/stderr logging
+          # Configure logging
           $logDir = Join-Path $appDir "logs"
-          if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force }
-          & $nssmPath set $serviceName AppStdout (Join-Path $logDir "service-stdout.log")
-          & $nssmPath set $serviceName AppStderr (Join-Path $logDir "service-stderr.log")
+          if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }
+          nssm set $serviceName AppStdout (Join-Path $logDir "service-stdout.log")
+          nssm set $serviceName AppStderr (Join-Path $logDir "service-stderr.log")
+          nssm set $serviceName AppRotateFiles 1
+          nssm set $serviceName AppRotateOnline 1
+          nssm set $serviceName AppRotateBytes 1048576
+          
+          # Set restart policy
+          nssm set $serviceName AppRestartDelay 5000
           
           Write-Host "Starting service..."
-          & $nssmPath start $serviceName
-          Start-Sleep -Seconds 3
+          nssm start $serviceName
+          Start-Sleep -Seconds 5
           
           # Verify service is running
           $serviceStatus = Get-Service -Name $serviceName
           Write-Host "Service status: $($serviceStatus.Status)"
+          
+          if ($serviceStatus.Status -ne "Running") {
+            Write-Host "ERROR: Service failed to start"
+            Write-Host "=== Service Output ==="
+            Get-Content (Join-Path $logDir "service-stdout.log") -ErrorAction SilentlyContinue
+            Get-Content (Join-Path $logDir "service-stderr.log") -ErrorAction SilentlyContinue
+            Exit 1
+          }
           
           Start-Sleep -Seconds 5
           $service = Get-Service -Name $serviceName

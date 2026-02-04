@@ -160,38 +160,40 @@ jobs:
           Write-Host "Installing Windows Event Log source..."
           npm run install-windows
           
+          # Always delete and recreate service with updated wrapper
+          Write-Host "Removing existing service if present..."
           $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
-          if (-not $service) {
-            Write-Host "Creating Windows service with sc.exe..."
-            
-            # Create wrapper batch script for the service
-            $wrapperPath = Join-Path $appDir "service-wrapper.bat"
-            $batchLines = @(
-              '@echo off',
-              "cd /d `"$appDir`"",
-              'set NODE_ENV=production',
-              'set PORT=3002',
-              'set PARKING_NAME=Madrid Centro Parking',
-              'set PARKING_CITY=Madrid',
-              'set PARKING_LOCATION=Plaza Mayor, Madrid',
-              'set EVENT_LOG_SOURCE=MadridParkingAPI',
-              'set EVENT_LOG_NAME=Application',
-              "set CERT_PATH=$appDir\madrid.crt",
-              "set KEY_PATH=$appDir\madrid.key",
-              'call "C:\Program Files\nodejs\node.exe" "%~dp0server.js"'
-            )
-            $batchLines -join "`r`n" | Out-File -FilePath $wrapperPath -Encoding ASCII
-            
-            Write-Host "Creating service..."
-            sc.exe create $serviceName binPath= "$wrapperPath" start= auto DisplayName= "Madrid Parking API"
-            sc.exe description $serviceName "Madrid Parking API Service"
-            
-            Write-Host "Starting service..."
-            Start-Service -Name $serviceName
-          } else {
-            Write-Host "Restarting existing service..."
-            Restart-Service -Name $serviceName
+          if ($service) {
+            sc.exe delete $serviceName
+            Start-Sleep -Seconds 2
           }
+          
+          Write-Host "Creating Windows service with sc.exe..."
+          
+          # Create wrapper batch script for the service
+          $wrapperPath = Join-Path $appDir "service-wrapper.bat"
+          $batchLines = @(
+            '@echo off',
+            "cd /d `"$appDir`"",
+            'set NODE_ENV=production',
+            'set PORT=3002',
+            'set PARKING_NAME=Madrid Centro Parking',
+            'set PARKING_CITY=Madrid',
+            'set PARKING_LOCATION=Plaza Mayor, Madrid',
+            'set EVENT_LOG_SOURCE=MadridParkingAPI',
+            'set EVENT_LOG_NAME=Application',
+            "set CERT_PATH=$appDir\madrid.crt",
+            "set KEY_PATH=$appDir\madrid.key",
+            'call "C:\Program Files\nodejs\node.exe" "%~dp0server.js"'
+          )
+          $batchLines -join "`r`n" | Out-File -FilePath $wrapperPath -Encoding ASCII
+          
+          Write-Host "Creating service..."
+          sc.exe create $serviceName binPath= "$wrapperPath" start= auto DisplayName= "Madrid Parking API"
+          sc.exe description $serviceName "Madrid Parking API Service"
+          
+          Write-Host "Starting service..."
+          Start-Service -Name $serviceName
           
           Start-Sleep -Seconds 5
           $service = Get-Service -Name $serviceName

@@ -139,45 +139,15 @@ jobs:
               --type zip \
               --async true
             
-            echo "✅ Deployment initiated"
+            echo "✅ Deployment initiated - Oryx will build and install dependencies"
       
       - name: Post-deployment info
         run: |
-          echo "⚠️  Note: Deployment may timeout in logs but succeeds in Azure"
-          echo "📋 Verify: Azure Portal > App Service > Deployment Center"
+          echo "⏱️  Oryx is building the app (npm install + setup)"
+          echo "📋 Monitor: Azure Portal > App Service > Deployment Center"
           echo "🌐 URL: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net"
-          echo "⏱️  Wait ~30-60 seconds after workflow completes for app to start"
-
-      - name: Configure App Service settings (post-deploy)
-        uses: azure/CLI@v1
-        with:
-          inlineScript: |
-            # Re-apply settings post deploy (idempotent safety)
-            az webapp config set \
-              --name ${{ env.AZURE_WEBAPP_NAME }} \
-              --resource-group ${{ env.RESOURCE_GROUP }} \
-              --linux-fx-version "NODE|${{ env.NODE_VERSION }}"
-            # IMPORTANT: Use Express proxy server, NOT static file server
-            az webapp config set \
-              --name ${{ env.AZURE_WEBAPP_NAME }} \
-              --resource-group ${{ env.RESOURCE_GROUP }} \
-              --startup-file "node server.js"
-            az webapp config appsettings set \
-              --name ${{ env.AZURE_WEBAPP_NAME }} \
-              --resource-group ${{ env.RESOURCE_GROUP }} \
-              --settings \
-                WEBSITE_NODE_DEFAULT_VERSION="${{ env.NODE_VERSION }}" \
-                SCM_DO_BUILD_DURING_DEPLOYMENT=true \
-                ENABLE_ORYX_BUILD=true \
-                WEBSITE_RUN_FROM_PACKAGE=0
-
-      - name: Restart App Service
-        uses: azure/CLI@v1
-        with:
-          inlineScript: |
-            az webapp restart \
-              --name ${{ env.AZURE_WEBAPP_NAME }} \
-              --resource-group ${{ env.RESOURCE_GROUP }}
+          echo "⏱️  Wait 2-3 minutes for Oryx build to complete and app to start"
+          echo "🔍 App will auto-restart when build completes - DO NOT manually restart"
 
       - name: Verify deployment
         run: |

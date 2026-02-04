@@ -128,22 +128,23 @@ jobs:
             sleep 10
 
       - name: Deploy to Azure App Service
-        timeout-minutes: 10
+        timeout-minutes: 2
         uses: azure/CLI@v1
         with:
           inlineScript: |
-            echo "Deploying package to App Service..."
+            echo "Deploying package to App Service (async)..."
             az webapp deploy \
               --name ${{ env.AZURE_WEBAPP_NAME }} \
               --resource-group ${{ env.RESOURCE_GROUP }} \
               --src-path frontend/parking-manager/deployment.zip \
-              --type zip
+              --type zip \
+              --async true
             
-            echo "✅ Deployment completed"
+            echo "✅ Deployment initiated"
+            echo "Note: Deployment continues in background. Check Azure Portal if issues occur."
             
-            # Wait for app to start
-            echo "Waiting for App Service to restart..."
-            sleep 15
+            # Wait for app to potentially start
+            sleep 10
 
       - name: Configure App Service settings (post-deploy)
         uses: azure/CLI@v1

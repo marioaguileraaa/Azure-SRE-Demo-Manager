@@ -95,8 +95,12 @@ resource appService 'Microsoft.Web/sites@2023-01-01' = {
           name: 'WEBSITES_PORT'
           value: '8080'
         }
+        {
+          name: 'PM2_HOME'
+          value: '/home/site/.pm2'
+        }
       ]
-      appCommandLine: 'npx --yes serve -s build -l 8080'
+      appCommandLine: 'pm2 serve /home/site/wwwroot --no-daemon --spa'
     }
     httpsOnly: true
   }

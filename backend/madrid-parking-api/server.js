@@ -1,10 +1,21 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const https = require('https');
+const fs = require('fs');
+const path = require('path');
 const WindowsEventLogger = require('./windowsEventLogger');
 
 const app = express();
 const PORT = process.env.PORT || 3002;
+
+// HTTPS Configuration
+let server;
+const certPath = process.env.CERT_PATH || path.join(__dirname, 'madrid.crt');
+const keyPath = process.env.KEY_PATH || path.join(__dirname, 'madrid.key');
+
+// Check if HTTPS certificates exist
+const useHttps = fs.existsSync(certPath) && fs.existsSync(keyPath);
 
 // Middleware
 app.use(cors());
@@ -208,36 +219,74 @@ app.put('/api/parking/config', async (req, res) => {
 });
 
 // Start server
-app.listen(PORT, () => {
-  console.log(`🚗 ${parkingState.city} Parking API running on port ${PORT}`);
-  console.log(`📍 Location: ${parkingState.location}`);
-  console.log(`🪟 Platform: ${process.platform}`);
-  console.log(`📝 Windows Event Viewer: ${logger.isAvailable() ? 'Enabled' : 'Not available (using console logging)'}`);
-  
-  // Log server start
-  logger.logOperation('SERVER_START', parkingState.id, { 
-    port: PORT,
-    city: parkingState.city,
-    platform: process.platform,
-    environment: process.env.NODE_ENV || 'development'
+if (useHttps) {
+  const options = {
+    key: fs.readFileSync(keyPath),
+    cert: fs.readFileSync(certPath)
+  };
+  server = https.createServer(options, app);
+  server.listen(PORT, () => {
+    console.log(`🚗 ${parkingState.city} Parking API running on HTTPS port ${PORT}`);
+    console.log(`📍 Location: ${parkingState.location}`);
+    console.log(`🔒 Using HTTPS with self-signed certificate`);
+    console.log(`🪟 Platform: ${process.platform}`);
+    console.log(`📝 Windows Event Viewer: ${logger.isAvailable() ? 'Enabled' : 'Not available (using console logging)'}`);
+    
+    // Log server start
+    logger.logOperation('SERVER_START', parkingState.id, { 
+      port: PORT,
+      city: parkingState.city,
+      protocol: 'HTTPS',
+      platform: process.platform,
+      environment: process.env.NODE_ENV || 'development'
+    });
   });
-});
+} else {
+  server = app.listen(PORT, () => {
+    console.log(`🚗 ${parkingState.city} Parking API running on HTTP port ${PORT}`);
+    console.log(`📍 Location: ${parkingState.location}`);
+    console.log(`⚠️ Running without HTTPS (no certificate files found)`);
+    console.log(`🪟 Platform: ${process.platform}`);
+    console.log(`📝 Windows Event Viewer: ${logger.isAvailable() ? 'Enabled' : 'Not available (using console logging)'}`);
+    
+    // Log server start
+    logger.logOperation('SERVER_START', parkingState.id, { 
+      port: PORT,
+      city: parkingState.city,
+      protocol: 'HTTP',
+      platform: process.platform,
+      environment: process.env.NODE_ENV || 'development'
+    });
+  });
+}
 
 // Graceful shutdown
 process.on('SIGTERM', async () => {
-  console.log('SIGTERM signal received: closing HTTP server');
+  console.log('SIGTERM signal received: closing server');
   logger.logOperation('SERVER_SHUTDOWN', parkingState.id, { 
     city: parkingState.city,
     reason: 'SIGTERM' 
   });
-  process.exit(0);
+  if (server) {
+    server.close(() => {
+      process.exit(0);
+    });
+  } else {
+    process.exit(0);
+  }
 });
 
 process.on('SIGINT', async () => {
-  console.log('SIGINT signal received: closing HTTP server');
+  console.log('SIGINT signal received: closing server');
   logger.logOperation('SERVER_SHUTDOWN', parkingState.id, { 
     city: parkingState.city,
     reason: 'SIGINT' 
   });
-  process.exit(0);
+  if (server) {
+    server.close(() => {
+      process.exit(0);
+    });
+  } else {
+    process.exit(0);
+  }
 });

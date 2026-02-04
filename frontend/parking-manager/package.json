@@ -11,8 +11,6 @@
     "@types/node": "^16.18.126",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
-    "express": "^4.19.2",
-    "http-proxy-middleware": "^2.0.6",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-scripts": "5.0.1",
@@ -22,7 +20,6 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
-    "start:server": "node server.js",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },

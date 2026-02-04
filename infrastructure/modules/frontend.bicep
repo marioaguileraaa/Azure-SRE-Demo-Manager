@@ -10,9 +10,6 @@ param lisbonApiUrl string = ''
 param madridApiUrl string = ''
 param parisApiUrl string = ''
 
-@description('Subnet ID for VNet Integration (App Service subnet)')
-param appServiceSubnetId string
-
 @description('Tags to apply to resources')
 param tags object = {}
 
@@ -61,7 +58,6 @@ resource appService 'Microsoft.Web/sites@2023-01-01' = {
       alwaysOn: true
       minTlsVersion: '1.2'
       ftpsState: 'Disabled'
-      vnetRouteAllEnabled: true
       appSettings: [
         {
           name: 'APPINSIGHTS_INSTRUMENTATIONKEY'
@@ -88,18 +84,6 @@ resource appService 'Microsoft.Web/sites@2023-01-01' = {
           value: parisApiUrl
         }
         {
-          name: 'BACKEND_LISBON_URL'
-          value: lisbonApiUrl
-        }
-        {
-          name: 'BACKEND_MADRID_URL'
-          value: madridApiUrl
-        }
-        {
-          name: 'BACKEND_PARIS_URL'
-          value: parisApiUrl
-        }
-        {
           name: 'SCM_DO_BUILD_DURING_DEPLOYMENT'
           value: 'true'
         }
@@ -111,28 +95,10 @@ resource appService 'Microsoft.Web/sites@2023-01-01' = {
           name: 'WEBSITES_PORT'
           value: '8080'
         }
-        {
-          name: 'PORT'
-          value: '8080'
-        }
-        {
-          name: 'PM2_HOME'
-          value: '/home/site/.pm2'
-        }
       ]
-      appCommandLine: 'node server.js'
+      appCommandLine: 'npx --yes serve -s build -l 8080'
     }
-    virtualNetworkSubnetId: appServiceSubnetId
-  }
-}
-
-// VNet Integration
-resource vnetConnection 'Microsoft.Web/sites/networkConfig@2023-01-01' = {
-  parent: appService
-  name: 'virtualNetwork'
-  properties: {
-    subnetResourceId: appServiceSubnetId
-    swiftSupported: true
+    httpsOnly: true
   }
 }
 

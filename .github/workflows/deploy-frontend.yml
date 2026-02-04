@@ -43,23 +43,43 @@ jobs:
           # Create production build with API URLs
           npm run build
           
-          # Copy ONLY static files + server.js + package files for runtime
-          mkdir -p ../build-output
-          cp -r build/* ../build-output/
-          cp server.js ../build-output/
-          cp package.json ../build-output/
-          cp package-lock.json ../build-output/
+          # Verify React build completed
+          if [ ! -d "build" ]; then
+            echo "ERROR: React build failed - no build directory found"
+            exit 1
+          fi
           
-          # Create .deployment file to prevent Oryx from building
-          echo "[config]" > ../build-output/.deployment
-          echo "SCM_DO_BUILD_DURING_DEPLOYMENT = false" >> ../build-output/.deployment
+          # Create and populate deployment directory
+          mkdir -p deployment-pkg
+          
+          # Copy React static files to deployment/build (Express serves from here)
+          cp -r build deployment-pkg/
+          
+          # Copy Express server and dependencies to deployment root
+          cp server.js deployment-pkg/
+          cp package.json deployment-pkg/
+          cp package-lock.json deployment-pkg/
+          
+          # Verify critical files exist before packaging
+          echo "=== Deployment package contents ==="
+          ls -la deployment-pkg/
+          test -f deployment-pkg/server.js || (echo "ERROR: server.js missing" && exit 1)
+          test -f deployment-pkg/package.json || (echo "ERROR: package.json missing" && exit 1)
+          test -d deployment-pkg/build || (echo "ERROR: build directory missing" && exit 1)
 
       - name: Create deployment package
-        working-directory: frontend
+        working-directory: frontend/parking-manager
         run: |
-          # Create a zip file for deployment
-          cd build-output
-          zip -r ../deployment.zip .
+          # Create zip from deployment-pkg directory
+          cd deployment-pkg
+          zip -r ../deployment.zip . -x "*.git*"
+          echo "=== Deployment zip created ==="
+          cd ..
+          ls -lh deployment.zip
+          
+          # Verify zip contents
+          echo "=== Zip contents preview ==="
+          unzip -l deployment.zip | head -20
 
       - name: Log in to Azure
         uses: azure/login@v1
@@ -108,7 +128,7 @@ jobs:
             az webapp deploy \
               --name ${{ env.AZURE_WEBAPP_NAME }} \
               --resource-group ${{ env.RESOURCE_GROUP }} \
-              --src-path frontend/deployment.zip \
+              --src-path frontend/parking-manager/deployment.zip \
               --type zip \
               --async true &
             

@@ -160,40 +160,54 @@ jobs:
           Write-Host "Installing Windows Event Log source..."
           npm run install-windows
           
-          # Always delete and recreate service with updated wrapper
-          Write-Host "Removing existing service if present..."
-          $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
-          if ($service) {
-            sc.exe delete $serviceName
-            Start-Sleep -Seconds 2
+          # Install NSSM (Non-Sucking Service Manager) if not present
+          Write-Host "Checking for NSSM..."
+          $nssmPath = "C:\nssm\nssm.exe"
+          if (-not (Test-Path $nssmPath)) {
+            Write-Host "Installing NSSM..."
+            $nssmZip = "C:\nssm.zip"
+            Invoke-WebRequest -Uri "https://nssm.cc/ci/nssm-2.24-101-g897c7ad.zip" -OutFile $nssmZip
+            Expand-Archive -Path $nssmZip -DestinationPath "C:\" -Force
+            Move-Item "C:\nssm-2.24-101-g897c7ad\win64\nssm.exe" $nssmPath -Force
+            Remove-Item $nssmZip -Force
+            Remove-Item "C:\nssm-2.24-101-g897c7ad" -Recurse -Force
           }
           
-          Write-Host "Creating Windows service with sc.exe..."
+          # Remove existing service if present
+          Write-Host "Removing existing service if present..."
+          & $nssmPath stop $serviceName 2>$null
+          & $nssmPath remove $serviceName confirm 2>$null
+          Start-Sleep -Seconds 2
           
-          # Create wrapper batch script for the service
-          $wrapperPath = Join-Path $appDir "service-wrapper.bat"
-          $batchLines = @(
-            '@echo off',
-            "cd /d `"$appDir`"",
-            'set NODE_ENV=production',
-            'set PORT=3002',
-            'set PARKING_NAME=Madrid Centro Parking',
-            'set PARKING_CITY=Madrid',
-            'set PARKING_LOCATION=Plaza Mayor, Madrid',
-            'set EVENT_LOG_SOURCE=MadridParkingAPI',
-            'set EVENT_LOG_NAME=Application',
-            "set CERT_PATH=$appDir\madrid.crt",
-            "set KEY_PATH=$appDir\madrid.key",
-            'call "C:\Program Files\nodejs\node.exe" "%~dp0server.js"'
-          )
-          $batchLines -join "`r`n" | Out-File -FilePath $wrapperPath -Encoding ASCII
+          Write-Host "Creating Windows service with NSSM..."
+          $nodePath = "C:\Program Files\nodejs\node.exe"
+          $serverPath = Join-Path $appDir "server.js"
           
-          Write-Host "Creating service..."
-          sc.exe create $serviceName binPath= "$wrapperPath" start= auto DisplayName= "Madrid Parking API"
-          sc.exe description $serviceName "Madrid Parking API Service"
+          # Install service
+          & $nssmPath install $serviceName $nodePath $serverPath
+          
+          # Set service parameters
+          & $nssmPath set $serviceName AppDirectory $appDir
+          & $nssmPath set $serviceName DisplayName "Madrid Parking API"
+          & $nssmPath set $serviceName Description "Madrid Parking API Service"
+          & $nssmPath set $serviceName Start SERVICE_AUTO_START
+          
+          # Set environment variables
+          & $nssmPath set $serviceName AppEnvironmentExtra NODE_ENV=production PORT=3002 "PARKING_NAME=Madrid Centro Parking" PARKING_CITY=Madrid "PARKING_LOCATION=Plaza Mayor, Madrid" EVENT_LOG_SOURCE=MadridParkingAPI EVENT_LOG_NAME=Application CERT_PATH=$appDir\madrid.crt KEY_PATH=$appDir\madrid.key
+          
+          # Configure stdout/stderr logging
+          $logDir = Join-Path $appDir "logs"
+          if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force }
+          & $nssmPath set $serviceName AppStdout (Join-Path $logDir "service-stdout.log")
+          & $nssmPath set $serviceName AppStderr (Join-Path $logDir "service-stderr.log")
           
           Write-Host "Starting service..."
-          Start-Service -Name $serviceName
+          & $nssmPath start $serviceName
+          Start-Sleep -Seconds 3
+          
+          # Verify service is running
+          $serviceStatus = Get-Service -Name $serviceName
+          Write-Host "Service status: $($serviceStatus.Status)"
           
           Start-Sleep -Seconds 5
           $service = Get-Service -Name $serviceName

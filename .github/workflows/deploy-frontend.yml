@@ -76,11 +76,11 @@ jobs:
               --resource-group ${{ env.RESOURCE_GROUP }} \
               --linux-fx-version "NODE|${{ env.NODE_VERSION }}"
             
-            # Configure startup command for static site
+            # Configure startup command for Express proxy server
             az webapp config set \
               --name ${{ env.AZURE_WEBAPP_NAME }} \
               --resource-group ${{ env.RESOURCE_GROUP }} \
-              --startup-file "pm2 serve /home/site/wwwroot --no-daemon --spa"
+              --startup-file "node server.js"
             
             # Set environment variables and disable Oryx during zip deploy
             az webapp config appsettings set \

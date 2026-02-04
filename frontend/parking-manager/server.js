@@ -15,6 +15,7 @@ const backendConfig = {
   paris: process.env.REACT_APP_PARIS_API_URL || 'https://10.0.1.6:3003'
 };
 
+console.log('Frontend server with proxy running on port', PORT);
 console.log('Backend Configuration:', backendConfig);
 
 // Create proxy middleware

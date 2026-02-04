@@ -128,17 +128,38 @@ jobs:
             sleep 10
 
       - name: Deploy to Azure App Service
-        uses: azure/webapps-deploy@v2
+        uses: azure/CLI@v1
         with:
-          app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          resource-group-name: ${{ env.RESOURCE_GROUP }}
-          package: frontend/parking-manager/deployment.zip
-          
-      - name: Verify deployment
-        run: |
-          echo "✅ Deployment package uploaded"
-          echo "App Service is extracting and starting the app..."
-          sleep 15
+          inlineScript: |
+            echo "Getting publish profile..."
+            PUBLISH_PROFILE=$(az webapp deployment list-publishing-profiles \
+              --resource-group ${{ env.RESOURCE_GROUP }} \
+              --name ${{ env.AZURE_WEBAPP_NAME }} \
+              --query "[?publishMethod=='MSDeploy'].publishUrl" -o tsv)
+            
+            USERNAME=$(az webapp deployment list-publishing-profiles \
+              --resource-group ${{ env.RESOURCE_GROUP }} \
+              --name ${{ env.AZURE_WEBAPP_NAME }} \
+              --query "[?publishMethod=='MSDeploy'].userName" -o tsv)
+            
+            PASSWORD=$(az webapp deployment list-publishing-profiles \
+              --resource-group ${{ env.RESOURCE_GROUP }} \
+              --name ${{ env.AZURE_WEBAPP_NAME }} \
+              --query "[?publishMethod=='MSDeploy'].userPWD" -o tsv)
+            
+            echo "Uploading deployment package..."
+            curl -X POST \
+              -u "$USERNAME:$PASSWORD" \
+              --data-binary @frontend/parking-manager/deployment.zip \
+              "${PUBLISH_PROFILE}/api/zipdeploy?isAsync=true" \
+              -H "Content-Type: application/zip" \
+              -w "\nHTTP Status: %{http_code}\n" \
+              --connect-timeout 10 \
+              --max-time 30
+            
+            echo "✅ Deployment initiated (async)"
+            echo "Waiting for extraction to begin..."
+            sleep 20
 
       - name: Configure App Service settings (post-deploy)
         uses: azure/CLI@v1

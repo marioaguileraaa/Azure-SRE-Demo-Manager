@@ -11,19 +11,19 @@ class ParkingService {
       {
         id: 'lisbon',
         city: 'Lisbon',
-        apiUrl: process.env.REACT_APP_LISBON_API_URL || 'http://localhost:3001',
+        apiUrl: '/api/lisbon',
         enabled: true
       },
       {
         id: 'madrid',
         city: 'Madrid',
-        apiUrl: process.env.REACT_APP_MADRID_API_URL || 'https://10.0.1.5:3002',
+        apiUrl: '/api/madrid',
         enabled: true
       },
       {
         id: 'paris',
         city: 'Paris',
-        apiUrl: process.env.REACT_APP_PARIS_API_URL || 'https://10.0.1.6:3003',
+        apiUrl: '/api/paris',
         enabled: true
       }
     ];

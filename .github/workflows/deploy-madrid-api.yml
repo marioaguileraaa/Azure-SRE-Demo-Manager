@@ -85,6 +85,13 @@ jobs:
             Start-Sleep -Seconds 3
           }
           
+          Write-Host "Killing any processes on port 3002..."
+          $process = Get-NetTCPConnection -LocalPort 3002 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess
+          if ($process) {
+            Stop-Process -Id $process -Force -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 2
+          }
+          
           Write-Host "Creating application directory..."
           if (-not (Test-Path $appDir)) {
             New-Item -ItemType Directory -Path $appDir -Force | Out-Null

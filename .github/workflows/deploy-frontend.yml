@@ -60,6 +60,9 @@ jobs:
           cp package.json deployment-pkg/
           cp package-lock.json deployment-pkg/
           
+          # Copy node_modules (already installed by npm install step)
+          cp -r node_modules deployment-pkg/
+          
           # Create .deployment file to PREVENT Oryx from building
           cat > deployment-pkg/.deployment << 'EOF'
           [config]
@@ -73,7 +76,8 @@ jobs:
           test -f deployment-pkg/server.js || (echo "ERROR: server.js missing" && exit 1)
           test -f deployment-pkg/package.json || (echo "ERROR: package.json missing" && exit 1)
           test -d deployment-pkg/build || (echo "ERROR: build directory missing" && exit 1)
-          test -f deployment-pkg/.deployment || (echo "ERROR: .deployment file missing" && exit 1)
+          test -d deployment-pkg/node_modules || (echo "ERROR: node_modules missing" && exit 1)
+          echo "✅ All files present"
 
       - name: Create deployment package
         working-directory: frontend/parking-manager

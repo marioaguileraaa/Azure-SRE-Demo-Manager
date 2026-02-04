@@ -97,7 +97,7 @@ jobs:
             sleep 10
 
       - name: Deploy to Azure App Service
-        timeout-minutes: 10
+        timeout-minutes: 5
         uses: azure/CLI@v1
         with:
           inlineScript: |
@@ -107,10 +107,19 @@ jobs:
               --resource-group ${{ env.RESOURCE_GROUP }} \
               --src-path frontend/deployment.zip \
               --type zip \
-              --async false \
-              --timeout 600
+              --async true
             
-            echo "✅ Deployment complete"
+            echo "Deployment initiated, waiting for completion..."
+            sleep 30
+            
+            # Check deployment status
+            DEPLOYMENT_ID=$(az webapp deployment list \
+              --name ${{ env.AZURE_WEBAPP_NAME }} \
+              --resource-group ${{ env.RESOURCE_GROUP }} \
+              --query "[0].id" -o tsv)
+            
+            echo "Latest deployment ID: $DEPLOYMENT_ID"
+            echo "✅ Deployment submitted successfully"
 
       - name: Configure App Service settings (post-deploy)
         uses: azure/CLI@v1

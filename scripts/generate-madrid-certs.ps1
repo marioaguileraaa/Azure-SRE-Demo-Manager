@@ -3,7 +3,7 @@
 # This script creates self-signed certificates and configures environment variables
 
 param(
-    [string]$ApiDirectory = "C:\Users\azureuser\backend\madrid-parking-api",
+    [string]$ApiDirectory = "C:\Apps\madrid-parking-api",
     [string]$CertDays = "365"
 )
 
@@ -30,12 +30,22 @@ Write-Host ""
 # Step 1: Check OpenSSL availability
 Write-Host "Step 1: Checking OpenSSL availability..." -ForegroundColor Yellow
 $opensslPath = Get-Command openssl -ErrorAction SilentlyContinue
-if ($null -eq $opensslPath) {
+$opensslExe = $null
+if ($null -ne $opensslPath) {
+    $opensslExe = $opensslPath.Source
+} else {
+    $gitOpenSsl = "C:\Program Files\Git\usr\bin\openssl.exe"
+    if (Test-Path $gitOpenSsl) {
+        $opensslExe = $gitOpenSsl
+    }
+}
+
+if (-not $opensslExe) {
     Write-Host "ERROR: OpenSSL not found in PATH" -ForegroundColor Red
-    Write-Host "Install OpenSSL or Git Bash with OpenSSL support" -ForegroundColor Yellow
+    Write-Host "Install OpenSSL or Git for Windows (includes OpenSSL)" -ForegroundColor Yellow
     Exit 1
 }
-Write-Host "✓ OpenSSL found: $($opensslPath.Source)" -ForegroundColor Green
+Write-Host "✓ OpenSSL found: $opensslExe" -ForegroundColor Green
 Write-Host ""
 
 # Step 2: Generate private key
@@ -48,7 +58,7 @@ try {
         Write-Host "  Removed existing madrid.key"
     }
     
-    openssl genrsa -out madrid.key 2048
+    & $opensslExe genrsa -out madrid.key 2048
     if ($LASTEXITCODE -ne 0) {
         throw "Failed to generate private key"
     }
@@ -70,7 +80,7 @@ try {
         Write-Host "  Removed existing madrid.crt"
     }
     
-    openssl req -new -x509 -key madrid.key -out madrid.crt -days $CertDays `
+    & $opensslExe req -new -x509 -key madrid.key -out madrid.crt -days $CertDays `
         -subj "/C=ES/ST=Madrid/L=Madrid/O=Parking/OU=API/CN=10.0.1.5"
     
     if ($LASTEXITCODE -ne 0) {
@@ -109,11 +119,11 @@ Write-Host ""
 # Step 5: Display certificate information
 Write-Host "Step 5: Certificate Information" -ForegroundColor Yellow
 Write-Host "Subject:" -ForegroundColor Cyan
-openssl x509 -in madrid.crt -noout -subject
+& $opensslExe x509 -in madrid.crt -noout -subject
 Write-Host "Issuer:" -ForegroundColor Cyan
-openssl x509 -in madrid.crt -noout -issuer
+& $opensslExe x509 -in madrid.crt -noout -issuer
 Write-Host "Validity:" -ForegroundColor Cyan
-openssl x509 -in madrid.crt -noout -dates
+& $opensslExe x509 -in madrid.crt -noout -dates
 Write-Host ""
 
 # Step 6: Create environment variable configuration

@@ -93,11 +93,20 @@ jobs:
             sleep 10
 
       - name: Deploy to Azure App Service
-        uses: azure/webapps-deploy@v2
+        timeout-minutes: 10
+        uses: azure/CLI@v1
         with:
-          app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          resource-group-name: ${{ env.RESOURCE_GROUP }}
-          package: frontend/deployment.zip
+          inlineScript: |
+            echo "Deploying package to App Service..."
+            az webapp deploy \
+              --name ${{ env.AZURE_WEBAPP_NAME }} \
+              --resource-group ${{ env.RESOURCE_GROUP }} \
+              --src-path frontend/deployment.zip \
+              --type zip \
+              --async false \
+              --timeout 600
+            
+            echo "✅ Deployment complete"
 
       - name: Configure App Service settings (post-deploy)
         uses: azure/CLI@v1

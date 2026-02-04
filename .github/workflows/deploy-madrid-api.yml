@@ -169,6 +169,8 @@ jobs:
               'set PARKING_LOCATION=Plaza Mayor, Madrid',
               'set EVENT_LOG_SOURCE=MadridParkingAPI',
               'set EVENT_LOG_NAME=Application',
+              "set CERT_PATH=$appDir\madrid.crt",
+              "set KEY_PATH=$appDir\madrid.key",
               'call "C:\Program Files\nodejs\node.exe" "%~dp0server.js"'
             )
             $batchLines -join "`r`n" | Out-File -FilePath $wrapperPath -Encoding ASCII

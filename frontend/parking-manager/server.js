@@ -1,6 +1,9 @@
 const express = require('express');
 const path = require('path');
 
+// Allow self-signed certificates (development only)
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
 const app = express();
 const PORT = process.env.PORT || 8080;
 

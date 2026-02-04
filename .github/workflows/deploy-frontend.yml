@@ -123,16 +123,19 @@ jobs:
               --name ${{ env.AZURE_WEBAPP_NAME }} \
               --resource-group ${{ env.RESOURCE_GROUP }} \
               --linux-fx-version "NODE|${{ env.NODE_VERSION }}"
+            # IMPORTANT: Use Express proxy server, NOT static file server
             az webapp config set \
               --name ${{ env.AZURE_WEBAPP_NAME }} \
               --resource-group ${{ env.RESOURCE_GROUP }} \
-              --startup-file "pm2 serve /home/site/wwwroot --no-daemon --spa"
+              --startup-file "node server.js"
             az webapp config appsettings set \
               --name ${{ env.AZURE_WEBAPP_NAME }} \
               --resource-group ${{ env.RESOURCE_GROUP }} \
               --settings \
                 WEBSITE_NODE_DEFAULT_VERSION="${{ env.NODE_VERSION }}" \
-                SCM_DO_BUILD_DURING_DEPLOYMENT=false
+                SCM_DO_BUILD_DURING_DEPLOYMENT=false \
+                ENABLE_ORYX_BUILD=false \
+                WEBSITE_RUN_FROM_PACKAGE=0
 
       - name: Restart App Service
         uses: azure/CLI@v1

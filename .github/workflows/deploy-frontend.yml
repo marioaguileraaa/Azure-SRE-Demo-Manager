@@ -43,9 +43,12 @@ jobs:
           # Create production build with API URLs
           npm run build
           
-          # Copy ONLY static files (no package.json, no node_modules)
+          # Copy ONLY static files + server.js + package files for runtime
           mkdir -p ../build-output
           cp -r build/* ../build-output/
+          cp server.js ../build-output/
+          cp package.json ../build-output/
+          cp package-lock.json ../build-output/
           
           # Create .deployment file to prevent Oryx from building
           echo "[config]" > ../build-output/.deployment

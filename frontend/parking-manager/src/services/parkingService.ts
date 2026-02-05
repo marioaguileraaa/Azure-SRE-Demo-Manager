@@ -31,7 +31,8 @@ class ParkingService {
     this.configLoaded = true;
   }
 
-  getConfiguredAPIs(): ParkingAPI[] {
+  async getConfiguredAPIs(): Promise<ParkingAPI[]> {
+    await this.initialize();
     return this.apis.filter(api => api.enabled);
   }
 

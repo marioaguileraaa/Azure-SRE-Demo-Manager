@@ -21,7 +21,7 @@ function App() {
   const [refreshing, setRefreshing] = useState(false);
 
   const loadParkingData = async () => {
-    const apis = parkingService.getConfiguredAPIs();
+    const apis = await parkingService.getConfiguredAPIs();
     const dataPromises = apis.map(async (api) => {
       try {
         const [metrics, info] = await Promise.all([

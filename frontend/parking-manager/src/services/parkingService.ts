@@ -3,10 +3,18 @@ import { ParkingAPI, ParkingInfo, ParkingMetrics, LevelInfo } from '../types';
 class ParkingService {
   private apis: ParkingAPI[] = [];
   private configLoaded = false;
+  private initPromise: Promise<void> | null = null;
 
   async initialize(): Promise<void> {
     if (this.configLoaded) return;
+    if (this.initPromise) return this.initPromise;
 
+    this.initPromise = this._doInitialize();
+    await this.initPromise;
+    this.initPromise = null;
+  }
+
+  private async _doInitialize(): Promise<void> {
     this.apis = [
       {
         id: 'lisbon',
@@ -31,7 +39,8 @@ class ParkingService {
     this.configLoaded = true;
   }
 
-  getConfiguredAPIs(): ParkingAPI[] {
+  async getConfiguredAPIs(): Promise<ParkingAPI[]> {
+    await this.initialize();
     return this.apis.filter(api => api.enabled);
   }
 

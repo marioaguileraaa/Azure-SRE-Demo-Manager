@@ -88,8 +88,8 @@ function App() {
 
   useEffect(() => {
     loadParkingData();
-    // Auto-refresh every 30 seconds
-    const interval = setInterval(loadParkingData, 30000);
+    // Auto-refresh every 3 seconds
+    const interval = setInterval(loadParkingData, 3000);
     return () => clearInterval(interval);
   }, []);
 
@@ -157,7 +157,7 @@ function App() {
       )}
 
       <footer className="App-footer">
-        <p>Azure SRE Demo - Parking Manager © 2025</p>
+        <p>Azure SRE Demo - Parking Manager © 2026</p>
       </footer>
     </div>
   );

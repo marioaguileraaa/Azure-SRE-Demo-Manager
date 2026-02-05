@@ -218,6 +218,25 @@ app.put('/api/parking/config', async (req, res) => {
   }
 });
 
+// Simulate parking activity (cars entering/leaving)
+const simulateParkingActivity = () => {
+  // Randomly change availability for each level (simulate 1-3 cars per level)
+  parkingState.availableSlotsPerLevel = parkingState.availableSlotsPerLevel.map((current, index) => {
+    const change = Math.floor(Math.random() * 7) - 3; // Random change between -3 and +3
+    let newValue = current + change;
+    
+    // Keep within valid range [0, parkingSlotsPerLevel]
+    newValue = Math.max(0, Math.min(parkingState.parkingSlotsPerLevel, newValue));
+    
+    return newValue;
+  });
+  
+  parkingState.lastUpdated = new Date().toISOString();
+};
+
+// Start parking simulation (update every 5 seconds)
+setInterval(simulateParkingActivity, 5000);
+
 // Start server
 if (useHttps) {
   const options = {
@@ -231,6 +250,7 @@ if (useHttps) {
     console.log(`🔒 Using HTTPS with self-signed certificate`);
     console.log(`🪟 Platform: ${process.platform}`);
     console.log(`📝 Windows Event Viewer: ${logger.isAvailable() ? 'Enabled' : 'Not available (using console logging)'}`);
+    console.log(`🎲 Parking activity simulation: Enabled (updates every 5 seconds)`);
     
     // Log server start
     logger.logOperation('SERVER_START', parkingState.id, { 
@@ -248,6 +268,7 @@ if (useHttps) {
     console.log(`⚠️ Running without HTTPS (no certificate files found)`);
     console.log(`🪟 Platform: ${process.platform}`);
     console.log(`📝 Windows Event Viewer: ${logger.isAvailable() ? 'Enabled' : 'Not available (using console logging)'}`);
+    console.log(`🎲 Parking activity simulation: Enabled (updates every 5 seconds)`);
     
     // Log server start
     logger.logOperation('SERVER_START', parkingState.id, { 

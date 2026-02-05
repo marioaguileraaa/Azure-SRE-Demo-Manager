@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { LevelInfo } from '../types';
 import './ParkingDetails.css';
 
@@ -7,11 +7,21 @@ interface ParkingDetailsProps {
   levels: LevelInfo[];
   onClose: () => void;
   onUpdateLevel: (levelNumber: number, availableSlots: number) => void;
+  onRefresh: () => void;
 }
 
-const ParkingDetails: React.FC<ParkingDetailsProps> = ({ city, levels, onClose, onUpdateLevel }) => {
+const ParkingDetails: React.FC<ParkingDetailsProps> = ({ city, levels, onClose, onUpdateLevel, onRefresh }) => {
   const [editingLevel, setEditingLevel] = React.useState<number | null>(null);
   const [editValue, setEditValue] = React.useState<string>('');
+
+  // Auto-refresh level details every 3 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      onRefresh();
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [onRefresh]);
 
   const handleEdit = (level: number, currentValue: number) => {
     setEditingLevel(level);

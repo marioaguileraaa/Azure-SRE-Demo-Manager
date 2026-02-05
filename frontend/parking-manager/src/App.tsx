@@ -153,6 +153,7 @@ function App() {
           levels={levels}
           onClose={() => setSelectedParking(null)}
           onUpdateLevel={handleUpdateLevel}
+          onRefresh={() => loadLevels(selectedParking.apiUrl)}
         />
       )}
 

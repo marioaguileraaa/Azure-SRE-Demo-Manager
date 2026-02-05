@@ -18,19 +18,59 @@ const backendConfig = {
 console.log('Frontend server with proxy running on port', PORT);
 console.log('Backend Configuration:', backendConfig);
 
-// Create proxy middleware
-const createProxy = (target) => createProxyMiddleware({
+// Create proxy middleware with timeout handling
+const createProxy = (target, city) => createProxyMiddleware({
   target,
   changeOrigin: true,
   secure: false, // Accept self-signed certificates
   logLevel: 'warn',
-  pathRewrite: (pathReq) => pathReq.replace(/^\/api\/(lisbon|madrid|paris)/, '/api')
+  pathRewrite: (pathReq) => pathReq.replace(/^\/api\/(lisbon|madrid|paris)/, '/api'),
+  
+  // Timeout configuration (5 seconds for same Azure region)
+  proxyTimeout: 5000, // Timeout for the proxy request to backend
+  timeout: 5000,      // Timeout for incoming request
+  
+  // Error handling for timeouts and failures
+  onError: (err, req, res) => {
+    console.error(`[${city}] Proxy error:`, err.code || err.message);
+    
+    if (!res.headersSent) {
+      if (err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT' || err.message.includes('timeout')) {
+        res.status(504).json({
+          success: false,
+          error: `${city} API timeout - service may be unavailable`,
+          code: 'TIMEOUT',
+          city: city
+        });
+      } else if (err.code === 'ECONNREFUSED') {
+        res.status(503).json({
+          success: false,
+          error: `${city} API unreachable - service may be down`,
+          code: 'CONNECTION_REFUSED',
+          city: city
+        });
+      } else {
+        res.status(502).json({
+          success: false,
+          error: `${city} API error - ${err.message}`,
+          code: 'PROXY_ERROR',
+          city: city
+        });
+      }
+    }
+  },
+  
+  // Log proxy responses
+  onProxyRes: (proxyRes, req, res) => {
+    const city = req.path.split('/')[2]; // Extract city from path
+    console.log(`[${city}] ${req.method} ${req.path} -> ${proxyRes.statusCode}`);
+  }
 });
 
 // Proxy endpoints
-app.use('/api/lisbon', createProxy(backendConfig.lisbon));
-app.use('/api/madrid', createProxy(backendConfig.madrid));
-app.use('/api/paris', createProxy(backendConfig.paris));
+app.use('/api/lisbon', createProxy(backendConfig.lisbon, 'Lisbon'));
+app.use('/api/madrid', createProxy(backendConfig.madrid, 'Madrid'));
+app.use('/api/paris', createProxy(backendConfig.paris, 'Paris'));
 
 // Disable CSP entirely (allow all sources)
 app.use((req, res, next) => {

@@ -130,6 +130,20 @@ jobs:
           cd $APP_DIR
           npm ci --only=production
           
+          echo "Checking for HTTPS certificates..."
+          if [ ! -f "$APP_DIR/paris.crt" ] || [ ! -f "$APP_DIR/paris.key" ]; then
+            echo "Generating self-signed certificates..."
+            openssl genrsa -out "$APP_DIR/paris.key" 2048
+            openssl req -new -x509 -key "$APP_DIR/paris.key" -out "$APP_DIR/paris.crt" \
+              -days 365 \
+              -subj "/C=FR/ST=Paris/L=Paris/O=Parking/OU=API/CN=10.0.1.6"
+            chmod 600 "$APP_DIR/paris.key"
+            chmod 644 "$APP_DIR/paris.crt"
+            echo "✅ Certificates generated"
+          else
+            echo "✅ Certificates already exist"
+          fi
+          
           echo "Creating .env file..."
           cat > "$APP_DIR/.env" << EOF
           PORT=3003
@@ -139,6 +153,8 @@ jobs:
           SYSLOG_FACILITY=local0
           SYSLOG_TAG=ParisParkingAPI
           NODE_ENV=production
+          CERT_PATH=$APP_DIR/paris.crt
+          KEY_PATH=$APP_DIR/paris.key
           EOF
           
           echo "Creating systemd service file..."

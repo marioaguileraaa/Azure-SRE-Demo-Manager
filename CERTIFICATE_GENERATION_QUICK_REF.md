@@ -112,7 +112,7 @@ curl --insecure https://localhost:3003/api/parking
 | Name | Value |
 |------|-------|
 | `REACT_APP_MADRID_API_URL` | `https://10.0.1.5:3002` |
-| `REACT_APP_PARIS_API_URL` | `https://10.0.1.6:3003` |
+| `REACT_APP_PARIS_API_URL` | `https://10.0.1.4:3003` |
 | `REACT_APP_LISBON_API_URL` | `<your-container-app-url>` |
 | `NODE_TLS_REJECT_UNAUTHORIZED` | `0` |
 
@@ -125,7 +125,7 @@ az webapp config appsettings set \
   --name <app-service-name> \
   --settings \
     REACT_APP_MADRID_API_URL="https://10.0.1.5:3002" \
-    REACT_APP_PARIS_API_URL="https://10.0.1.6:3003" \
+    REACT_APP_PARIS_API_URL="https://10.0.1.4:3003" \
     REACT_APP_LISBON_API_URL="<url>" \
     NODE_TLS_REJECT_UNAUTHORIZED="0"
 ```

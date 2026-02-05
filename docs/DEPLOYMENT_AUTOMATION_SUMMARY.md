@@ -54,7 +54,7 @@ I updated the workflow to **automatically generate HTTPS certificates** during d
 if [ ! -f "$APP_DIR/paris.crt" ] || [ ! -f "$APP_DIR/paris.key" ]; then
   openssl genrsa -out "$APP_DIR/paris.key" 2048
   openssl req -new -x509 -key "$APP_DIR/paris.key" -out "$APP_DIR/paris.crt" \
-    -days 365 -subj "/C=FR/ST=Paris/L=Paris/O=Parking/OU=API/CN=10.0.1.6"
+    -days 365 -subj "/C=FR/ST=Paris/L=Paris/O=Parking/OU=API/CN=10.0.1.4"
   chmod 600 "$APP_DIR/paris.key"
   chmod 644 "$APP_DIR/paris.crt"
 fi

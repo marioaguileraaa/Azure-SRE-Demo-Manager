@@ -87,7 +87,7 @@ fi
 
 openssl req -new -x509 -key "${CERT_NAME}.key" -out "${CERT_NAME}.crt" \
     -days "$CERT_DAYS" \
-    -subj "/C=FR/ST=Paris/L=Paris/O=Parking/OU=API/CN=10.0.1.6" || \
+    -subj "/C=FR/ST=Paris/L=Paris/O=Parking/OU=API/CN=10.0.1.4" || \
     error_exit "Failed to generate certificate"
 
 print_success "Self-signed certificate generated successfully (valid for $CERT_DAYS days)"

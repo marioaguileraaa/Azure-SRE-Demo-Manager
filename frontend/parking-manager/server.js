@@ -24,7 +24,7 @@ const createProxy = (target) => createProxyMiddleware({
   changeOrigin: true,
   secure: false, // Accept self-signed certificates
   logLevel: 'warn',
-  pathRewrite: (pathReq) => pathReq.replace(/^\/api\/(lisbon|madrid|paris)/, '')
+  pathRewrite: (pathReq) => pathReq.replace(/^\/api\/(lisbon|madrid|paris)/, '/api')
 });
 
 // Proxy endpoints

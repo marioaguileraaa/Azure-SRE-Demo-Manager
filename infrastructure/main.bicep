@@ -246,7 +246,6 @@ module berlinApi 'modules/berlin-api.bicep' = {
   name: 'berlin-api-deployment'
   params: {
     location: location
-    containerSubnetId: hub.outputs.containerSubnetId
     containerAppEnvironmentId: lisbonApi.outputs.containerAppEnvironmentId
     containerImage: berlinContainerImage
     containerRegistry: createContainerRegistry ? acr!.outputs.loginServer : containerRegistry

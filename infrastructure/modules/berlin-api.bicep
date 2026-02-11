@@ -4,9 +4,6 @@
 @description('Location for all Berlin API resources')
 param location string
 
-@description('Container subnet ID from hub VNet')
-param containerSubnetId string
-
 @description('Container App Environment ID from Lisbon (reuse existing environment)')
 param containerAppEnvironmentId string
 

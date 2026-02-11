@@ -1,17 +1,14 @@
-// Lisbon API module - Container App for Docker-based API
-// NOTE: For production, consider using Azure Container Registry with Managed Identity
-// instead of username/password authentication for improved security
-@description('Location for all Lisbon API resources')
+// Berlin API module - Container App for Docker-based API
+// NOTE: This module REUSES the existing Container App Environment from Lisbon
+// and does NOT send logs to Log Analytics (console/stdout only)
+@description('Location for all Berlin API resources')
 param location string
 
 @description('Container subnet ID from hub VNet')
 param containerSubnetId string
 
-@description('Log Analytics Workspace ID')
-param logAnalyticsWorkspaceId string
-
-@description('Log Analytics Customer ID (Workspace ID for the API)')
-param logAnalyticsCustomerId string
+@description('Container App Environment ID from Lisbon (reuse existing environment)')
+param containerAppEnvironmentId string
 
 @description('Container image name')
 param containerImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
@@ -22,45 +19,20 @@ param containerRegistry string = ''
 @description('Tags to apply to resources')
 param tags object = {}
 
-// Container App Environment
-resource containerAppEnvironment 'Microsoft.App/managedEnvironments@2023-05-01' = {
-  name: 'cae-parking-lisbon'
-  location: location
-  tags: tags
-  properties: {
-    appLogsConfiguration: {
-      destination: 'log-analytics'
-      logAnalyticsConfiguration: {
-        customerId: logAnalyticsCustomerId
-        sharedKey: listKeys(logAnalyticsWorkspaceId, '2022-10-01').primarySharedKey
-      }
-    }
-    vnetConfiguration: {
-      infrastructureSubnetId: containerSubnetId
-    }
-    workloadProfiles: [
-      {
-        name: 'Consumption'
-        workloadProfileType: 'Consumption'
-      }
-    ]
-  }
-}
-
-// Container App
+// Container App (NO Log Analytics integration)
 resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
-  name: 'ca-parking-lisbon'
+  name: 'ca-parking-berlin'
   location: location
   tags: tags
   identity: {
     type: 'SystemAssigned'
   }
   properties: {
-    environmentId: containerAppEnvironment.id
+    environmentId: containerAppEnvironmentId
     configuration: {
       ingress: {
         external: true
-        targetPort: 3001
+        targetPort: 3004
         transport: 'auto'
         allowInsecure: false
       }
@@ -74,7 +46,7 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
     template: {
       containers: [
         {
-          name: 'lisbon-parking-api'
+          name: 'berlin-parking-api'
           image: containerImage
           resources: {
             cpu: json('0.25')
@@ -83,23 +55,23 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
           env: [
             {
               name: 'PARKING_CITY'
-              value: 'Lisbon'
+              value: 'Berlin'
             }
             {
               name: 'PARKING_NAME'
-              value: 'Lisbon Central Parking'
+              value: 'Berlin Central Parking'
             }
             {
               name: 'PARKING_LOCATION'
-              value: 'Lisbon, Portugal'
+              value: 'Alexanderplatz, Berlin, Germany'
             }
             {
-              name: 'WORKSPACE_ID'
-              value: logAnalyticsCustomerId
+              name: 'PORT'
+              value: '3004'
             }
             {
-              name: 'LOG_TYPE'
-              value: 'LisbonParkingLogs'
+              name: 'NODE_ENV'
+              value: 'production'
             }
           ]
           probes: [
@@ -107,7 +79,7 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
               type: 'liveness'
               httpGet: {
                 path: '/health'
-                port: 3001
+                port: 3004
               }
               initialDelaySeconds: 10
               periodSeconds: 30
@@ -116,7 +88,7 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
               type: 'readiness'
               httpGet: {
                 path: '/health'
-                port: 3001
+                port: 3004
               }
               initialDelaySeconds: 5
               periodSeconds: 10
@@ -146,6 +118,4 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
 output containerAppName string = containerApp.name
 output containerAppFqdn string = containerApp.properties.configuration.ingress.fqdn
 output containerAppUrl string = 'https://${containerApp.properties.configuration.ingress.fqdn}'
-output containerAppEnvironmentName string = containerAppEnvironment.name
-output containerAppEnvironmentId string = containerAppEnvironment.id
 output containerAppPrincipalId string = containerApp.identity.principalId

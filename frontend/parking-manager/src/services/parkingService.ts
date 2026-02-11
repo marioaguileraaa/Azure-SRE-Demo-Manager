@@ -33,6 +33,12 @@ class ParkingService {
         city: 'Paris',
         apiUrl: '/api/paris',
         enabled: true
+      },
+      {
+        id: 'berlin',
+        city: 'Berlin',
+        apiUrl: '/api/berlin',
+        enabled: true
       }
     ];
 

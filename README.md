@@ -44,6 +44,7 @@ Azure-SRE-Demo-Manager/
 │   │   ├── hub.bicep           # Hub VNet and Log Analytics
 │   │   ├── frontend.bicep      # React frontend App Service
 │   │   ├── lisbon-api.bicep    # Container App for Lisbon API
+│   │   ├── berlin-api.bicep    # Container App for Berlin API
 │   │   ├── madrid-api.bicep    # Windows VM for Madrid API
 │   │   └── paris-api.bicep     # Ubuntu VM for Paris API
 │   ├── main.bicep              # Main orchestration template
@@ -53,6 +54,11 @@ Azure-SRE-Demo-Manager/
 │   ├── lisbon-parking-api/       # Lisbon parking API (Docker + Azure Log Analytics)
 │   │   ├── server.js             # Express server
 │   │   ├── azureLogger.js        # Azure Log Analytics integration
+│   │   ├── Dockerfile            # Container configuration
+│   │   └── README.md
+│   ├── berlin-parking-api/       # Berlin parking API (Docker + OpenTelemetry)
+│   │   ├── server.js             # Express server
+│   │   ├── metricsTracker.js     # OpenTelemetry metrics tracker
 │   │   ├── Dockerfile            # Container configuration
 │   │   └── README.md
 │   ├── madrid-parking-api/       # Madrid parking API (Windows Server + Event Viewer)
@@ -83,10 +89,11 @@ Azure-SRE-Demo-Manager/
 - **Lisbon API**: Containerized NodeJS with Azure Log Analytics integration
 - **Madrid API**: NodeJS for Windows Server with Windows Event Viewer logging
 - **Paris API**: NodeJS for Linux with Syslog logging
+- **Berlin API**: Containerized NodeJS with OpenTelemetry metrics (no Azure Log Analytics)
 - **RESTful API Design** - Standard HTTP methods for all operations
 - **Real-time Parking Data** - Track availability across multiple levels
 - **Metrics & Statistics** - Occupancy rates, available slots, facilities
-- **Flexible Logging** - Azure Log Analytics, Windows Event Viewer, or Syslog based on deployment
+- **Flexible Logging** - Azure Log Analytics, Windows Event Viewer, Syslog, or OpenTelemetry based on deployment
 
 ### Frontend (Parking Manager)
 - **Multi-City Dashboard** - Manage multiple parking facilities from one interface
@@ -174,7 +181,27 @@ The API will run on `http://localhost:3003`
 
 > **Note**: Paris API uses Syslog for logging on Linux. On non-Linux systems, it falls back to console logging.
 
-### 4. Start the Frontend
+### 4. Start the Berlin Parking API (Docker/Linux)
+
+```bash
+cd backend/berlin-parking-api
+
+# Install dependencies
+npm install
+
+# Configure environment (optional)
+cp .env.example .env
+# Edit .env with your configuration
+
+# Start the API
+npm start
+```
+
+The API will run on `http://localhost:3004`
+
+> **Note**: Berlin API uses console logging only and exposes metrics in OpenTelemetry format at `/metrics/opentelemetry`. No Azure Log Analytics integration.
+
+### 5. Start the Frontend
 
 ```bash
 cd frontend/parking-manager

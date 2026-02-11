@@ -9,6 +9,7 @@ param logAnalyticsWorkspaceId string
 param lisbonApiUrl string = ''
 param madridApiUrl string = ''
 param parisApiUrl string = ''
+param berlinApiUrl string = ''
 
 @description('Tags to apply to resources')
 param tags object = {}
@@ -82,6 +83,10 @@ resource appService 'Microsoft.Web/sites@2023-01-01' = {
         {
           name: 'REACT_APP_PARIS_API_URL'
           value: parisApiUrl
+        }
+        {
+          name: 'REACT_APP_BERLIN_API_URL'
+          value: berlinApiUrl
         }
         {
           name: 'SCM_DO_BUILD_DURING_DEPLOYMENT'

@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.40.2.10011",
-      "templateHash": "11615814726845320054"
+      "templateHash": "15024004320797561171"
     }
   },
   "parameters": {
@@ -244,7 +244,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.40.2.10011",
-              "templateHash": "12863170763337842357"
+              "templateHash": "8957104004049146813"
             }
           },
           "parameters": {
@@ -516,21 +516,6 @@
             {
               "type": "Microsoft.Network/virtualNetworks/subnets",
               "apiVersion": "2023-05-01",
-              "name": "[format('{0}/{1}', 'vnet-parking-hub', 'snet-github-runners')]",
-              "properties": {
-                "addressPrefix": "10.0.4.0/24",
-                "natGateway": {
-                  "id": "[resourceId('Microsoft.Network/natGateways', 'ngw-github-runners')]"
-                }
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.Network/natGateways', 'ngw-github-runners')]",
-                "[resourceId('Microsoft.Network/virtualNetworks', 'vnet-parking-hub')]"
-              ]
-            },
-            {
-              "type": "Microsoft.Network/virtualNetworks/subnets",
-              "apiVersion": "2023-05-01",
               "name": "[format('{0}/{1}', 'vnet-parking-hub', 'snet-app-service')]",
               "properties": {
                 "addressPrefix": "10.0.5.0/24",
@@ -589,10 +574,6 @@
               "type": "string",
               "value": "[reference(resourceId('Microsoft.Network/virtualNetworks', 'vnet-parking-hub'), '2023-05-01').subnets[1].id]"
             },
-            "runnerSubnetId": {
-              "type": "string",
-              "value": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'vnet-parking-hub', 'snet-github-runners')]"
-            },
             "appServiceSubnetId": {
               "type": "string",
               "value": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'vnet-parking-hub', 'snet-app-service')]"
@@ -608,6 +589,10 @@
             "logAnalyticsCustomerId": {
               "type": "string",
               "value": "[reference(resourceId('Microsoft.OperationalInsights/workspaces', 'law-parking-hub'), '2022-10-01').customerId]"
+            },
+            "natGatewayId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/natGateways', 'ngw-github-runners')]"
             },
             "natGatewayPublicIp": {
               "type": "string",
@@ -644,6 +629,9 @@
           "githubOrgDatabaseId": {
             "value": "[parameters('githubOrgDatabaseId')]"
           },
+          "natGatewayId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'hub-deployment'), '2025-04-01').outputs.natGatewayId.value]"
+          },
           "tags": {
             "value": "[variables('tags')]"
           }
@@ -655,7 +643,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.40.2.10011",
-              "templateHash": "8096853390672850957"
+              "templateHash": "4662753585367315612"
             }
           },
           "parameters": {
@@ -681,6 +669,12 @@
               "type": "string",
               "metadata": {
                 "description": "GitHub organization databaseId (GraphQL) used as businessId"
+              }
+            },
+            "natGatewayId": {
+              "type": "string",
+              "metadata": {
+                "description": "NAT Gateway ID for outbound connectivity"
               }
             },
             "tags": {
@@ -758,6 +752,9 @@
                 ],
                 "networkSecurityGroup": {
                   "id": "[resourceId('Microsoft.Network/networkSecurityGroups', 'nsg-github-actions')]"
+                },
+                "natGateway": {
+                  "id": "[parameters('natGatewayId')]"
                 }
               },
               "dependsOn": [

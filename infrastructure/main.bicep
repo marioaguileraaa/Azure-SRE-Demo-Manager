@@ -153,6 +153,7 @@ module githubRunners 'modules/github-runner-network.bicep' = if (!empty(githubOr
     vnetName: hub.outputs.vnetName
     runnerSubnetPrefix: runnerSubnetPrefix
     githubOrgDatabaseId: githubOrgDatabaseId
+    natGatewayId: hub.outputs.natGatewayId
     tags: tags
   }
 }

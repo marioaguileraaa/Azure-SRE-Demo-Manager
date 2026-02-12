@@ -22,6 +22,9 @@ param adminPassword string
 @description('Container image for Lisbon API')
 param lisbonContainerImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
 
+@description('Container image for Berlin API')
+param berlinContainerImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
+
 @description('Container registry server (if using private registry)')
 param containerRegistry string = ''
 
@@ -79,6 +82,7 @@ var frontendRgName = 'rg-parking-frontend-${environment}'
 var lisbonRgName = 'rg-parking-lisbon-${environment}'
 var madridRgName = 'rg-parking-madrid-${environment}'
 var parisRgName = 'rg-parking-paris-${environment}'
+var berlinRgName = 'rg-parking-berlin-${environment}'
 
 // ========================================
 // Resource Groups
@@ -110,6 +114,12 @@ resource madridRg 'Microsoft.Resources/resourceGroups@2023-07-01' = {
 
 resource parisRg 'Microsoft.Resources/resourceGroups@2023-07-01' = {
   name: parisRgName
+  location: location
+  tags: tags
+}
+
+resource berlinRg 'Microsoft.Resources/resourceGroups@2023-07-01' = {
+  name: berlinRgName
   location: location
   tags: tags
 }
@@ -228,6 +238,32 @@ module lisbonAcrAccess 'modules/acr-role-assignment.bicep' = if (createContainer
 }
 
 // ========================================
+// Berlin API (Container App)
+// ========================================
+
+module berlinApi 'modules/berlin-api.bicep' = {
+  scope: berlinRg
+  name: 'berlin-api-deployment'
+  params: {
+    location: location
+    containerAppEnvironmentId: lisbonApi.outputs.containerAppEnvironmentId
+    containerImage: berlinContainerImage
+    containerRegistry: createContainerRegistry ? acr!.outputs.loginServer : containerRegistry
+    tags: tags
+  }
+}
+
+// Grant Container App access to ACR
+module berlinAcrAccess 'modules/acr-role-assignment.bicep' = if (createContainerRegistry) {
+  scope: hubRg
+  name: 'berlin-acr-access'
+  params: {
+    principalId: berlinApi.outputs.containerAppPrincipalId
+    acrName: acr!.outputs.registryName
+  }
+}
+
+// ========================================
 // Madrid API (Windows Server VM)
 // ========================================
 
@@ -298,7 +334,7 @@ module frontend 'modules/frontend.bicep' = {
     lisbonApiUrl: lisbonApi.outputs.containerAppUrl
     madridApiUrl: madridApi.outputs.apiUrl
     parisApiUrl: parisApi.outputs.apiUrl
-    appServiceSubnetId: hub.outputs.appServiceSubnetId
+    berlinApiUrl: berlinApi.outputs.containerAppUrl
     tags: tags
   }
 }
@@ -312,6 +348,7 @@ output frontendResourceGroup string = frontendRg.name
 output lisbonResourceGroup string = lisbonRg.name
 output madridResourceGroup string = madridRg.name
 output parisResourceGroup string = parisRg.name
+output berlinResourceGroup string = berlinRg.name
 
 output vnetName string = hub.outputs.vnetName
 output logAnalyticsWorkspaceName string = hub.outputs.logAnalyticsWorkspaceName
@@ -329,6 +366,7 @@ output frontendUrl string = frontend.outputs.appServiceUrl
 output lisbonApiUrl string = lisbonApi.outputs.containerAppUrl
 output madridApiUrl string = madridApi.outputs.apiUrl
 output parisApiUrl string = parisApi.outputs.apiUrl
+output berlinApiUrl string = berlinApi.outputs.containerAppUrl
 
 output madridVmName string = madridApi.outputs.vmName
 output madridPublicIp string = madridApi.outputs.publicIpAddress

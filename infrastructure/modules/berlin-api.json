@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.40.2.10011",
-      "templateHash": "2540426481589860395"
+      "templateHash": "6025811491089791001"
     }
   },
   "parameters": {
@@ -15,10 +15,10 @@
         "description": "Location for all Berlin API resources"
       }
     },
-    "containerAppEnvironmentId": {
+    "containerSubnetId": {
       "type": "string",
       "metadata": {
-        "description": "Container App Environment ID from Lisbon (reuse existing environment)"
+        "description": "Container subnet ID from hub VNet"
       }
     },
     "containerImage": {
@@ -45,6 +45,24 @@
   },
   "resources": [
     {
+      "type": "Microsoft.App/managedEnvironments",
+      "apiVersion": "2023-05-01",
+      "name": "cae-parking-berlin",
+      "location": "[parameters('location')]",
+      "tags": "[parameters('tags')]",
+      "properties": {
+        "vnetConfiguration": {
+          "infrastructureSubnetId": "[parameters('containerSubnetId')]"
+        },
+        "workloadProfiles": [
+          {
+            "name": "Consumption",
+            "workloadProfileType": "Consumption"
+          }
+        ]
+      }
+    },
+    {
       "type": "Microsoft.App/containerApps",
       "apiVersion": "2023-05-01",
       "name": "ca-parking-berlin",
@@ -54,7 +72,7 @@
         "type": "SystemAssigned"
       },
       "properties": {
-        "environmentId": "[parameters('containerAppEnvironmentId')]",
+        "environmentId": "[resourceId('Microsoft.App/managedEnvironments', 'cae-parking-berlin')]",
         "configuration": {
           "ingress": {
             "external": true,
@@ -132,7 +150,10 @@
             ]
           }
         }
-      }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.App/managedEnvironments', 'cae-parking-berlin')]"
+      ]
     }
   ],
   "outputs": {
@@ -147,6 +168,14 @@
     "containerAppUrl": {
       "type": "string",
       "value": "[format('https://{0}', reference(resourceId('Microsoft.App/containerApps', 'ca-parking-berlin'), '2023-05-01').configuration.ingress.fqdn)]"
+    },
+    "containerAppEnvironmentName": {
+      "type": "string",
+      "value": "cae-parking-berlin"
+    },
+    "containerAppEnvironmentId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.App/managedEnvironments', 'cae-parking-berlin')]"
     },
     "containerAppPrincipalId": {
       "type": "string",

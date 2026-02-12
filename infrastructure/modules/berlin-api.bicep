@@ -1,11 +1,11 @@
 // Berlin API module - Container App for Docker-based API
-// NOTE: This module REUSES the existing Container App Environment from Lisbon
+// NOTE: This module creates its own standalone Container App Environment
 // and does NOT send logs to Log Analytics (console/stdout only)
 @description('Location for all Berlin API resources')
 param location string
 
-@description('Container App Environment ID from Lisbon (reuse existing environment)')
-param containerAppEnvironmentId string
+@description('Container subnet ID from hub VNet')
+param containerSubnetId string
 
 @description('Container image name')
 param containerImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
@@ -16,6 +16,24 @@ param containerRegistry string = ''
 @description('Tags to apply to resources')
 param tags object = {}
 
+// Container App Environment (NO Log Analytics integration)
+resource containerAppEnvironment 'Microsoft.App/managedEnvironments@2023-05-01' = {
+  name: 'cae-parking-berlin'
+  location: location
+  tags: tags
+  properties: {
+    vnetConfiguration: {
+      infrastructureSubnetId: containerSubnetId
+    }
+    workloadProfiles: [
+      {
+        name: 'Consumption'
+        workloadProfileType: 'Consumption'
+      }
+    ]
+  }
+}
+
 // Container App (NO Log Analytics integration)
 resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
   name: 'ca-parking-berlin'
@@ -25,7 +43,7 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
     type: 'SystemAssigned'
   }
   properties: {
-    environmentId: containerAppEnvironmentId
+    environmentId: containerAppEnvironment.id
     configuration: {
       ingress: {
         external: true
@@ -115,4 +133,6 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
 output containerAppName string = containerApp.name
 output containerAppFqdn string = containerApp.properties.configuration.ingress.fqdn
 output containerAppUrl string = 'https://${containerApp.properties.configuration.ingress.fqdn}'
+output containerAppEnvironmentName string = containerAppEnvironment.name
+output containerAppEnvironmentId string = containerAppEnvironment.id
 output containerAppPrincipalId string = containerApp.identity.principalId

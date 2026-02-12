@@ -4,14 +4,14 @@
   "metadata": {
     "_generator": {
       "name": "bicep",
-      "version": "0.38.33.27573",
-      "templateHash": "16755719759376702311"
+      "version": "0.40.2.10011",
+      "templateHash": "11615814726845320054"
     }
   },
   "parameters": {
     "location": {
       "type": "string",
-      "defaultValue": "westeurope",
+      "defaultValue": "swedencentral",
       "metadata": {
         "description": "Primary location for all resources"
       }
@@ -47,6 +47,13 @@
         "description": "Container image for Lisbon API"
       }
     },
+    "berlinContainerImage": {
+      "type": "string",
+      "defaultValue": "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest",
+      "metadata": {
+        "description": "Container image for Berlin API"
+      }
+    },
     "containerRegistry": {
       "type": "string",
       "defaultValue": "",
@@ -54,25 +61,25 @@
         "description": "Container registry server (if using private registry)"
       }
     },
-    "containerRegistryUsername": {
-      "type": "securestring",
-      "defaultValue": "",
-      "metadata": {
-        "description": "Container registry username"
-      }
-    },
-    "containerRegistryPassword": {
-      "type": "securestring",
-      "defaultValue": "",
-      "metadata": {
-        "description": "Container registry password"
-      }
-    },
     "createPublicIps": {
       "type": "bool",
       "defaultValue": true,
       "metadata": {
         "description": "Create public IPs for VMs"
+      }
+    },
+    "deployMadridVm": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Deploy or skip the Madrid VM and its extensions"
+      }
+    },
+    "deployParisVm": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Deploy or skip the Paris VM and its extensions"
       }
     },
     "vnetAddressPrefix": {
@@ -103,6 +110,20 @@
         "description": "Allowed source IP address prefix for SSH/RDP access (use specific IPs in production)"
       }
     },
+    "runnerSubnetPrefix": {
+      "type": "string",
+      "defaultValue": "10.0.3.0/24",
+      "metadata": {
+        "description": "Subnet address prefix for GitHub-hosted runners"
+      }
+    },
+    "githubOrgDatabaseId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "GitHub organization databaseId for runner networking (GraphQL)"
+      }
+    },
     "createContainerRegistry": {
       "type": "bool",
       "defaultValue": true,
@@ -121,6 +142,13 @@
       "metadata": {
         "description": "Container Registry SKU"
       }
+    },
+    "githubActionsPrincipalId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "GitHub Actions Service Principal Object ID (for deployment storage access)"
+      }
     }
   },
   "variables": {
@@ -133,7 +161,8 @@
     "frontendRgName": "[format('rg-parking-frontend-{0}', parameters('environment'))]",
     "lisbonRgName": "[format('rg-parking-lisbon-{0}', parameters('environment'))]",
     "madridRgName": "[format('rg-parking-madrid-{0}', parameters('environment'))]",
-    "parisRgName": "[format('rg-parking-paris-{0}', parameters('environment'))]"
+    "parisRgName": "[format('rg-parking-paris-{0}', parameters('environment'))]",
+    "berlinRgName": "[format('rg-parking-berlin-{0}', parameters('environment'))]"
   },
   "resources": [
     {
@@ -168,6 +197,13 @@
       "type": "Microsoft.Resources/resourceGroups",
       "apiVersion": "2023-07-01",
       "name": "[variables('parisRgName')]",
+      "location": "[parameters('location')]",
+      "tags": "[variables('tags')]"
+    },
+    {
+      "type": "Microsoft.Resources/resourceGroups",
+      "apiVersion": "2023-07-01",
+      "name": "[variables('berlinRgName')]",
       "location": "[parameters('location')]",
       "tags": "[variables('tags')]"
     },
@@ -207,8 +243,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.38.33.27573",
-              "templateHash": "18288599283190255669"
+              "version": "0.40.2.10011",
+              "templateHash": "12863170763337842357"
             }
           },
           "parameters": {
@@ -255,6 +291,16 @@
             }
           },
           "resources": [
+            {
+              "type": "Microsoft.Network/networkSecurityGroups",
+              "apiVersion": "2023-05-01",
+              "name": "nsg-app-service",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "securityRules": []
+              }
+            },
             {
               "type": "Microsoft.Network/networkSecurityGroups",
               "apiVersion": "2023-05-01",
@@ -345,6 +391,83 @@
               }
             },
             {
+              "type": "Microsoft.Network/publicIPAddresses",
+              "apiVersion": "2023-05-01",
+              "name": "pip-github-runners-egress",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "Standard"
+              },
+              "properties": {
+                "publicIPAllocationMethod": "Static",
+                "publicIPAddressVersion": "IPv4",
+                "idleTimeoutInMinutes": 10
+              },
+              "zones": [
+                "1",
+                "2",
+                "3"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/natGateways",
+              "apiVersion": "2023-05-01",
+              "name": "ngw-github-runners",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "Standard"
+              },
+              "properties": {
+                "publicIpAddresses": [
+                  {
+                    "id": "[resourceId('Microsoft.Network/publicIPAddresses', 'pip-github-runners-egress')]"
+                  }
+                ],
+                "idleTimeoutInMinutes": 10
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/publicIPAddresses', 'pip-github-runners-egress')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/routeTables",
+              "apiVersion": "2023-05-01",
+              "name": "udr-vms",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "routes": [
+                  {
+                    "name": "route-to-app-service",
+                    "properties": {
+                      "addressPrefix": "10.0.5.0/24",
+                      "nextHopType": "VnetLocal"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.Network/routeTables",
+              "apiVersion": "2023-05-01",
+              "name": "udr-app-service",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "routes": [
+                  {
+                    "name": "route-to-vms",
+                    "properties": {
+                      "addressPrefix": "10.0.1.0/24",
+                      "nextHopType": "VnetLocal"
+                    }
+                  }
+                ]
+              }
+            },
+            {
               "type": "Microsoft.Network/virtualNetworks",
               "apiVersion": "2023-05-01",
               "name": "vnet-parking-hub",
@@ -363,6 +486,9 @@
                       "addressPrefix": "[parameters('vmSubnetPrefix')]",
                       "networkSecurityGroup": {
                         "id": "[resourceId('Microsoft.Network/networkSecurityGroups', 'nsg-vms')]"
+                      },
+                      "routeTable": {
+                        "id": "[resourceId('Microsoft.Network/routeTables', 'udr-vms')]"
                       }
                     }
                   },
@@ -383,7 +509,50 @@
                 ]
               },
               "dependsOn": [
-                "[resourceId('Microsoft.Network/networkSecurityGroups', 'nsg-vms')]"
+                "[resourceId('Microsoft.Network/networkSecurityGroups', 'nsg-vms')]",
+                "[resourceId('Microsoft.Network/routeTables', 'udr-vms')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/virtualNetworks/subnets",
+              "apiVersion": "2023-05-01",
+              "name": "[format('{0}/{1}', 'vnet-parking-hub', 'snet-github-runners')]",
+              "properties": {
+                "addressPrefix": "10.0.4.0/24",
+                "natGateway": {
+                  "id": "[resourceId('Microsoft.Network/natGateways', 'ngw-github-runners')]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/natGateways', 'ngw-github-runners')]",
+                "[resourceId('Microsoft.Network/virtualNetworks', 'vnet-parking-hub')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/virtualNetworks/subnets",
+              "apiVersion": "2023-05-01",
+              "name": "[format('{0}/{1}', 'vnet-parking-hub', 'snet-app-service')]",
+              "properties": {
+                "addressPrefix": "10.0.5.0/24",
+                "networkSecurityGroup": {
+                  "id": "[resourceId('Microsoft.Network/networkSecurityGroups', 'nsg-app-service')]"
+                },
+                "routeTable": {
+                  "id": "[resourceId('Microsoft.Network/routeTables', 'udr-app-service')]"
+                },
+                "delegations": [
+                  {
+                    "name": "Microsoft.Web/serverFarms",
+                    "properties": {
+                      "serviceName": "Microsoft.Web/serverFarms"
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/networkSecurityGroups', 'nsg-app-service')]",
+                "[resourceId('Microsoft.Network/routeTables', 'udr-app-service')]",
+                "[resourceId('Microsoft.Network/virtualNetworks', 'vnet-parking-hub')]"
               ]
             },
             {
@@ -420,6 +589,14 @@
               "type": "string",
               "value": "[reference(resourceId('Microsoft.Network/virtualNetworks', 'vnet-parking-hub'), '2023-05-01').subnets[1].id]"
             },
+            "runnerSubnetId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'vnet-parking-hub', 'snet-github-runners')]"
+            },
+            "appServiceSubnetId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'vnet-parking-hub', 'snet-app-service')]"
+            },
             "logAnalyticsWorkspaceId": {
               "type": "string",
               "value": "[resourceId('Microsoft.OperationalInsights/workspaces', 'law-parking-hub')]"
@@ -431,11 +608,531 @@
             "logAnalyticsCustomerId": {
               "type": "string",
               "value": "[reference(resourceId('Microsoft.OperationalInsights/workspaces', 'law-parking-hub'), '2022-10-01').customerId]"
+            },
+            "natGatewayPublicIp": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Network/publicIPAddresses', 'pip-github-runners-egress'), '2023-05-01').ipAddress]"
             }
           }
         }
       },
       "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('hubRgName'))]"
+      ]
+    },
+    {
+      "condition": "[not(empty(parameters('githubOrgDatabaseId')))]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "github-runners-network",
+      "resourceGroup": "[variables('hubRgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "vnetName": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'hub-deployment'), '2025-04-01').outputs.vnetName.value]"
+          },
+          "runnerSubnetPrefix": {
+            "value": "[parameters('runnerSubnetPrefix')]"
+          },
+          "githubOrgDatabaseId": {
+            "value": "[parameters('githubOrgDatabaseId')]"
+          },
+          "tags": {
+            "value": "[variables('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.40.2.10011",
+              "templateHash": "8096853390672850957"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Location for network resources"
+              }
+            },
+            "vnetName": {
+              "type": "string",
+              "metadata": {
+                "description": "Existing VNet name where runner subnet will be created"
+              }
+            },
+            "runnerSubnetPrefix": {
+              "type": "string",
+              "metadata": {
+                "description": "Subnet CIDR for GitHub runners (recommended: /24)"
+              }
+            },
+            "githubOrgDatabaseId": {
+              "type": "string",
+              "metadata": {
+                "description": "GitHub organization databaseId (GraphQL) used as businessId"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Tags to apply to resources"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/networkSecurityGroups",
+              "apiVersion": "2023-05-01",
+              "name": "nsg-github-actions",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "securityRules": [
+                  {
+                    "name": "AllowVnetOutBound443",
+                    "properties": {
+                      "protocol": "Tcp",
+                      "sourcePortRange": "*",
+                      "destinationPortRange": "443",
+                      "sourceAddressPrefix": "*",
+                      "destinationAddressPrefix": "VirtualNetwork",
+                      "access": "Allow",
+                      "priority": 200,
+                      "direction": "Outbound"
+                    }
+                  },
+                  {
+                    "name": "AllowStorageOutbound443",
+                    "properties": {
+                      "protocol": "*",
+                      "sourcePortRange": "*",
+                      "destinationPortRange": "443",
+                      "sourceAddressPrefix": "*",
+                      "destinationAddressPrefix": "Storage",
+                      "access": "Allow",
+                      "priority": 230,
+                      "direction": "Outbound"
+                    }
+                  },
+                  {
+                    "name": "AllowGitHubOutbound443",
+                    "properties": {
+                      "protocol": "*",
+                      "sourcePortRange": "*",
+                      "destinationPortRange": "443",
+                      "sourceAddressPrefix": "*",
+                      "access": "Allow",
+                      "priority": 220,
+                      "direction": "Outbound",
+                      "destinationAddressPrefix": "*"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.Network/virtualNetworks/subnets",
+              "apiVersion": "2023-05-01",
+              "name": "[format('{0}/{1}', parameters('vnetName'), 'snet-github-runners')]",
+              "properties": {
+                "addressPrefix": "[parameters('runnerSubnetPrefix')]",
+                "delegations": [
+                  {
+                    "name": "GitHub.Network/networkSettings",
+                    "properties": {
+                      "serviceName": "GitHub.Network/networkSettings"
+                    }
+                  }
+                ],
+                "networkSecurityGroup": {
+                  "id": "[resourceId('Microsoft.Network/networkSecurityGroups', 'nsg-github-actions')]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/networkSecurityGroups', 'nsg-github-actions')]"
+              ]
+            },
+            {
+              "type": "GitHub.Network/networkSettings",
+              "apiVersion": "2024-04-02",
+              "name": "github-actions-network-settings",
+              "location": "[parameters('location')]",
+              "properties": {
+                "subnetId": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), 'snet-github-runners')]",
+                "businessId": "[parameters('githubOrgDatabaseId')]"
+              },
+              "tags": {
+                "GitHubId": "[parameters('githubOrgDatabaseId')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), 'snet-github-runners')]"
+              ]
+            }
+          ],
+          "outputs": {
+            "runnerSubnetId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), 'snet-github-runners')]"
+            },
+            "networkSettingsResourceId": {
+              "type": "string",
+              "value": "[resourceId('GitHub.Network/networkSettings', 'github-actions-network-settings')]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'hub-deployment')]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('hubRgName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "deployment-storage",
+      "resourceGroup": "[variables('hubRgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "tags": {
+            "value": "[variables('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.40.2.10011",
+              "templateHash": "10512169515366197914"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Location for storage account"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Tags to apply to resources"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Storage/storageAccounts",
+              "apiVersion": "2023-01-01",
+              "name": "[format('stpkdep{0}', uniqueString(resourceGroup().id))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "Standard_LRS"
+              },
+              "kind": "StorageV2",
+              "properties": {
+                "accessTier": "Hot",
+                "allowBlobPublicAccess": false,
+                "allowCrossTenantReplication": false,
+                "allowSharedKeyAccess": false,
+                "supportsHttpsTrafficOnly": true,
+                "minimumTlsVersion": "TLS1_2",
+                "publicNetworkAccess": "Enabled",
+                "networkAcls": {
+                  "bypass": "AzureServices",
+                  "defaultAction": "Allow"
+                }
+              }
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/blobServices",
+              "apiVersion": "2023-01-01",
+              "name": "[format('{0}/{1}', format('stpkdep{0}', uniqueString(resourceGroup().id)), 'default')]",
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', format('stpkdep{0}', uniqueString(resourceGroup().id)))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+              "apiVersion": "2023-01-01",
+              "name": "[format('{0}/{1}/{2}', format('stpkdep{0}', uniqueString(resourceGroup().id)), 'default', 'deployments')]",
+              "properties": {
+                "publicAccess": "None"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts/blobServices', format('stpkdep{0}', uniqueString(resourceGroup().id)), 'default')]"
+              ]
+            }
+          ],
+          "outputs": {
+            "storageAccountId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Storage/storageAccounts', format('stpkdep{0}', uniqueString(resourceGroup().id)))]"
+            },
+            "storageAccountName": {
+              "type": "string",
+              "value": "[format('stpkdep{0}', uniqueString(resourceGroup().id))]"
+            },
+            "blobEndpoint": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Storage/storageAccounts', format('stpkdep{0}', uniqueString(resourceGroup().id))), '2023-01-01').primaryEndpoints.blob]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('hubRgName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "deployment-storage-private-endpoint",
+      "resourceGroup": "[variables('hubRgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "vnetName": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'hub-deployment'), '2025-04-01').outputs.vnetName.value]"
+          },
+          "subnetName": {
+            "value": "snet-vms"
+          },
+          "storageAccountId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'deployment-storage'), '2025-04-01').outputs.storageAccountId.value]"
+          },
+          "tags": {
+            "value": "[variables('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.40.2.10011",
+              "templateHash": "6698487359939356526"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Location for network resources"
+              }
+            },
+            "vnetName": {
+              "type": "string",
+              "metadata": {
+                "description": "Existing VNet name where private endpoint will be placed"
+              }
+            },
+            "subnetName": {
+              "type": "string",
+              "defaultValue": "snet-vms",
+              "metadata": {
+                "description": "Subnet name to host the private endpoint (e.g., snet-vms)"
+              }
+            },
+            "storageAccountId": {
+              "type": "string",
+              "metadata": {
+                "description": "Target Storage Account resource ID"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Tags to apply to resources"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/privateDnsZones",
+              "apiVersion": "2020-06-01",
+              "name": "privatelink.blob.core.windows.net",
+              "location": "global",
+              "tags": "[parameters('tags')]"
+            },
+            {
+              "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+              "apiVersion": "2020-06-01",
+              "name": "[format('{0}/{1}', 'privatelink.blob.core.windows.net', format('link-{0}', parameters('vnetName')))]",
+              "location": "global",
+              "properties": {
+                "virtualNetwork": {
+                  "id": "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
+                },
+                "registrationEnabled": false
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.blob.core.windows.net')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/privateEndpoints",
+              "apiVersion": "2023-05-01",
+              "name": "pe-deployment-storage-blob",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "subnet": {
+                  "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('subnetName'))]"
+                },
+                "privateLinkServiceConnections": [
+                  {
+                    "name": "pls-deployment-storage-blob",
+                    "properties": {
+                      "privateLinkServiceId": "[parameters('storageAccountId')]",
+                      "groupIds": [
+                        "blob"
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+              "apiVersion": "2023-05-01",
+              "name": "[format('{0}/{1}', 'pe-deployment-storage-blob', 'zonegroup-blob')]",
+              "properties": {
+                "privateDnsZoneConfigs": [
+                  {
+                    "name": "blob-zone-config",
+                    "properties": {
+                      "privateDnsZoneId": "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.blob.core.windows.net')]"
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.blob.core.windows.net')]",
+                "[resourceId('Microsoft.Network/privateEndpoints', 'pe-deployment-storage-blob')]"
+              ]
+            }
+          ],
+          "outputs": {
+            "privateEndpointId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/privateEndpoints', 'pe-deployment-storage-blob')]"
+            },
+            "privateDnsZoneId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.blob.core.windows.net')]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'deployment-storage')]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'hub-deployment')]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('hubRgName'))]"
+      ]
+    },
+    {
+      "condition": "[not(empty(parameters('githubActionsPrincipalId')))]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "sp-storage-access",
+      "resourceGroup": "[variables('hubRgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "principalId": {
+            "value": "[parameters('githubActionsPrincipalId')]"
+          },
+          "storageAccountId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'deployment-storage'), '2025-04-01').outputs.storageAccountId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.40.2.10011",
+              "templateHash": "9399521860001630483"
+            }
+          },
+          "parameters": {
+            "principalId": {
+              "type": "string",
+              "metadata": {
+                "description": "Principal ID of the service principal (e.g., GitHub Actions SP)"
+              }
+            },
+            "storageAccountId": {
+              "type": "string",
+              "metadata": {
+                "description": "Storage account ID"
+              }
+            },
+            "subscriptionId": {
+              "type": "string",
+              "defaultValue": "[subscription().subscriptionId]",
+              "metadata": {
+                "description": "Subscription ID"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "name": "[guid(parameters('storageAccountId'), parameters('principalId'), 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]",
+              "properties": {
+                "roleDefinitionId": "[format('/subscriptions/{0}/providers/Microsoft.Authorization/roleDefinitions/ba92f5b4-2d11-453d-a403-e96b0029c9fe', parameters('subscriptionId'))]",
+                "principalId": "[parameters('principalId')]",
+                "principalType": "ServicePrincipal"
+              }
+            }
+          ],
+          "outputs": {
+            "roleAssignmentId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Authorization/roleAssignments', guid(parameters('storageAccountId'), parameters('principalId'), 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'deployment-storage')]",
         "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('hubRgName'))]"
       ]
     },
@@ -473,8 +1170,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.38.33.27573",
-              "templateHash": "7580079684313953900"
+              "version": "0.40.2.10011",
+              "templateHash": "15542309609651875845"
             }
           },
           "parameters": {
@@ -601,15 +1298,7 @@
           "containerImage": {
             "value": "[parameters('lisbonContainerImage')]"
           },
-          "containerRegistry": {
-            "value": "[parameters('containerRegistry')]"
-          },
-          "containerRegistryUsername": {
-            "value": "[parameters('containerRegistryUsername')]"
-          },
-          "containerRegistryPassword": {
-            "value": "[parameters('containerRegistryPassword')]"
-          },
+          "containerRegistry": "[if(parameters('createContainerRegistry'), createObject('value', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'container-registry-deployment'), '2025-04-01').outputs.loginServer.value), createObject('value', parameters('containerRegistry')))]",
           "tags": {
             "value": "[variables('tags')]"
           }
@@ -620,8 +1309,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.38.33.27573",
-              "templateHash": "17772424314120925408"
+              "version": "0.40.2.10011",
+              "templateHash": "949156612619927437"
             }
           },
           "parameters": {
@@ -661,20 +1350,6 @@
               "defaultValue": "",
               "metadata": {
                 "description": "Container registry server (leave empty for public registries)"
-              }
-            },
-            "containerRegistryUsername": {
-              "type": "securestring",
-              "defaultValue": "",
-              "metadata": {
-                "description": "Container registry username (not needed for public registries or managed identity)"
-              }
-            },
-            "containerRegistryPassword": {
-              "type": "securestring",
-              "defaultValue": "",
-              "metadata": {
-                "description": "Container registry password (not needed for public registries or managed identity)"
               }
             },
             "tags": {
@@ -717,6 +1392,9 @@
               "name": "ca-parking-lisbon",
               "location": "[parameters('location')]",
               "tags": "[parameters('tags')]",
+              "identity": {
+                "type": "SystemAssigned"
+              },
               "properties": {
                 "environmentId": "[resourceId('Microsoft.App/managedEnvironments', 'cae-parking-lisbon')]",
                 "configuration": {
@@ -726,8 +1404,7 @@
                     "transport": "auto",
                     "allowInsecure": false
                   },
-                  "registries": "[if(empty(parameters('containerRegistry')), createArray(), createArray(createObject('server', parameters('containerRegistry'), 'username', parameters('containerRegistryUsername'), 'passwordSecretRef', 'registry-password')))]",
-                  "secrets": "[if(empty(parameters('containerRegistry')), createArray(), createArray(createObject('name', 'registry-password', 'value', parameters('containerRegistryPassword'))))]"
+                  "registries": "[if(empty(parameters('containerRegistry')), createArray(), createArray(createObject('server', parameters('containerRegistry'), 'identity', 'system')))]"
                 },
                 "template": {
                   "containers": [
@@ -819,13 +1496,350 @@
             "containerAppEnvironmentName": {
               "type": "string",
               "value": "cae-parking-lisbon"
+            },
+            "containerAppEnvironmentId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.App/managedEnvironments', 'cae-parking-lisbon')]"
+            },
+            "containerAppPrincipalId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.App/containerApps', 'ca-parking-lisbon'), '2023-05-01', 'full').identity.principalId]"
             }
           }
         }
       },
       "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'container-registry-deployment')]",
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'hub-deployment')]",
         "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('lisbonRgName'))]"
+      ]
+    },
+    {
+      "condition": "[parameters('createContainerRegistry')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "lisbon-acr-access",
+      "resourceGroup": "[variables('hubRgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "principalId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('lisbonRgName')), 'Microsoft.Resources/deployments', 'lisbon-api-deployment'), '2025-04-01').outputs.containerAppPrincipalId.value]"
+          },
+          "acrName": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'container-registry-deployment'), '2025-04-01').outputs.registryName.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.40.2.10011",
+              "templateHash": "10110345623886929941"
+            }
+          },
+          "parameters": {
+            "principalId": {
+              "type": "string",
+              "metadata": {
+                "description": "Principal ID of the managed identity"
+              }
+            },
+            "acrName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the Azure Container Registry"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]",
+              "name": "[guid(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), 'AcrPull')]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')]",
+                "principalId": "[parameters('principalId')]",
+                "principalType": "ServicePrincipal"
+              }
+            }
+          ],
+          "outputs": {
+            "roleAssignmentId": {
+              "type": "string",
+              "value": "[extensionResourceId(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), 'AcrPull'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'container-registry-deployment')]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('hubRgName'))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('lisbonRgName')), 'Microsoft.Resources/deployments', 'lisbon-api-deployment')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "berlin-api-deployment",
+      "resourceGroup": "[variables('berlinRgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "containerAppEnvironmentId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('lisbonRgName')), 'Microsoft.Resources/deployments', 'lisbon-api-deployment'), '2025-04-01').outputs.containerAppEnvironmentId.value]"
+          },
+          "containerImage": {
+            "value": "[parameters('berlinContainerImage')]"
+          },
+          "containerRegistry": "[if(parameters('createContainerRegistry'), createObject('value', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'container-registry-deployment'), '2025-04-01').outputs.loginServer.value), createObject('value', parameters('containerRegistry')))]",
+          "tags": {
+            "value": "[variables('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.40.2.10011",
+              "templateHash": "2540426481589860395"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Location for all Berlin API resources"
+              }
+            },
+            "containerAppEnvironmentId": {
+              "type": "string",
+              "metadata": {
+                "description": "Container App Environment ID from Lisbon (reuse existing environment)"
+              }
+            },
+            "containerImage": {
+              "type": "string",
+              "defaultValue": "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest",
+              "metadata": {
+                "description": "Container image name"
+              }
+            },
+            "containerRegistry": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Container registry server (leave empty for public registries)"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Tags to apply to resources"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.App/containerApps",
+              "apiVersion": "2023-05-01",
+              "name": "ca-parking-berlin",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "properties": {
+                "environmentId": "[parameters('containerAppEnvironmentId')]",
+                "configuration": {
+                  "ingress": {
+                    "external": true,
+                    "targetPort": 3004,
+                    "transport": "auto",
+                    "allowInsecure": false
+                  },
+                  "registries": "[if(empty(parameters('containerRegistry')), createArray(), createArray(createObject('server', parameters('containerRegistry'), 'identity', 'system')))]"
+                },
+                "template": {
+                  "containers": [
+                    {
+                      "name": "berlin-parking-api",
+                      "image": "[parameters('containerImage')]",
+                      "resources": {
+                        "cpu": "[json('0.25')]",
+                        "memory": "0.5Gi"
+                      },
+                      "env": [
+                        {
+                          "name": "PARKING_CITY",
+                          "value": "Berlin"
+                        },
+                        {
+                          "name": "PARKING_NAME",
+                          "value": "Berlin Central Parking"
+                        },
+                        {
+                          "name": "PARKING_LOCATION",
+                          "value": "Alexanderplatz, Berlin, Germany"
+                        },
+                        {
+                          "name": "PORT",
+                          "value": "3004"
+                        },
+                        {
+                          "name": "NODE_ENV",
+                          "value": "production"
+                        }
+                      ],
+                      "probes": [
+                        {
+                          "type": "liveness",
+                          "httpGet": {
+                            "path": "/health",
+                            "port": 3004
+                          },
+                          "initialDelaySeconds": 10,
+                          "periodSeconds": 30
+                        },
+                        {
+                          "type": "readiness",
+                          "httpGet": {
+                            "path": "/health",
+                            "port": 3004
+                          },
+                          "initialDelaySeconds": 5,
+                          "periodSeconds": 10
+                        }
+                      ]
+                    }
+                  ],
+                  "scale": {
+                    "minReplicas": 1,
+                    "maxReplicas": 3,
+                    "rules": [
+                      {
+                        "name": "http-scaling",
+                        "http": {
+                          "metadata": {
+                            "concurrentRequests": "10"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ],
+          "outputs": {
+            "containerAppName": {
+              "type": "string",
+              "value": "ca-parking-berlin"
+            },
+            "containerAppFqdn": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.App/containerApps', 'ca-parking-berlin'), '2023-05-01').configuration.ingress.fqdn]"
+            },
+            "containerAppUrl": {
+              "type": "string",
+              "value": "[format('https://{0}', reference(resourceId('Microsoft.App/containerApps', 'ca-parking-berlin'), '2023-05-01').configuration.ingress.fqdn)]"
+            },
+            "containerAppPrincipalId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.App/containerApps', 'ca-parking-berlin'), '2023-05-01', 'full').identity.principalId]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'container-registry-deployment')]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('berlinRgName'))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('lisbonRgName')), 'Microsoft.Resources/deployments', 'lisbon-api-deployment')]"
+      ]
+    },
+    {
+      "condition": "[parameters('createContainerRegistry')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "berlin-acr-access",
+      "resourceGroup": "[variables('hubRgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "principalId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('berlinRgName')), 'Microsoft.Resources/deployments', 'berlin-api-deployment'), '2025-04-01').outputs.containerAppPrincipalId.value]"
+          },
+          "acrName": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'container-registry-deployment'), '2025-04-01').outputs.registryName.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.40.2.10011",
+              "templateHash": "10110345623886929941"
+            }
+          },
+          "parameters": {
+            "principalId": {
+              "type": "string",
+              "metadata": {
+                "description": "Principal ID of the managed identity"
+              }
+            },
+            "acrName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the Azure Container Registry"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]",
+              "name": "[guid(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), 'AcrPull')]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')]",
+                "principalId": "[parameters('principalId')]",
+                "principalType": "ServicePrincipal"
+              }
+            }
+          ],
+          "outputs": {
+            "roleAssignmentId": {
+              "type": "string",
+              "value": "[extensionResourceId(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), 'AcrPull'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'container-registry-deployment')]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('berlinRgName')), 'Microsoft.Resources/deployments', 'berlin-api-deployment')]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('hubRgName'))]"
       ]
     },
     {
@@ -854,6 +1868,9 @@
           "createPublicIp": {
             "value": "[parameters('createPublicIps')]"
           },
+          "deployVM": {
+            "value": "[parameters('deployMadridVm')]"
+          },
           "tags": {
             "value": "[variables('tags')]"
           }
@@ -864,8 +1881,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.38.33.27573",
-              "templateHash": "1670780867740228337"
+              "version": "0.40.2.10011",
+              "templateHash": "1876282321700861213"
             }
           },
           "parameters": {
@@ -898,6 +1915,13 @@
               "defaultValue": true,
               "metadata": {
                 "description": "Create public IP for the VM"
+              }
+            },
+            "deployVM": {
+              "type": "bool",
+              "defaultValue": true,
+              "metadata": {
+                "description": "Deploy VM resources (set to false if VM already exists to avoid disk update conflicts)"
               }
             },
             "tags": {
@@ -951,11 +1975,15 @@
               ]
             },
             {
+              "condition": "[parameters('deployVM')]",
               "type": "Microsoft.Compute/virtualMachines",
               "apiVersion": "2023-03-01",
               "name": "vm-madrid-api",
               "location": "[parameters('location')]",
               "tags": "[parameters('tags')]",
+              "identity": {
+                "type": "SystemAssigned"
+              },
               "properties": {
                 "hardwareProfile": {
                   "vmSize": "Standard_B2s"
@@ -1006,6 +2034,7 @@
               ]
             },
             {
+              "condition": "[parameters('deployVM')]",
               "type": "Microsoft.Compute/virtualMachines/extensions",
               "apiVersion": "2023-03-01",
               "name": "[format('{0}/{1}', 'vm-madrid-api', 'AzureMonitorWindowsAgent')]",
@@ -1022,6 +2051,7 @@
               ]
             },
             {
+              "condition": "[and(parameters('deployVM'), false())]",
               "type": "Microsoft.Compute/virtualMachines/extensions",
               "apiVersion": "2023-03-01",
               "name": "[format('{0}/{1}', 'vm-madrid-api', 'CustomScriptExtension')]",
@@ -1032,7 +2062,7 @@
                 "typeHandlerVersion": "1.10",
                 "autoUpgradeMinorVersion": true,
                 "settings": {
-                  "commandToExecute": "powershell -ExecutionPolicy Bypass -Command \"Invoke-WebRequest -Uri https://nodejs.org/dist/v18.19.0/node-v18.19.0-x64.msi -OutFile node.msi; Start-Process msiexec.exe -Wait -ArgumentList '/i', 'node.msi', '/quiet', '/norestart'; Remove-Item node.msi\""
+                  "commandToExecute": "echo VM provisioned - Node.js will be installed during GitHub Actions deployment"
                 }
               },
               "dependsOn": [
@@ -1044,11 +2074,15 @@
           "outputs": {
             "vmName": {
               "type": "string",
-              "value": "vm-madrid-api"
+              "value": "[if(parameters('deployVM'), 'vm-madrid-api', '')]"
             },
             "vmId": {
               "type": "string",
-              "value": "[resourceId('Microsoft.Compute/virtualMachines', 'vm-madrid-api')]"
+              "value": "[if(parameters('deployVM'), resourceId('Microsoft.Compute/virtualMachines', 'vm-madrid-api'), '')]"
+            },
+            "vmPrincipalId": {
+              "type": "string",
+              "value": "[if(parameters('deployVM'), reference(resourceId('Microsoft.Compute/virtualMachines', 'vm-madrid-api'), '2023-03-01', 'full').identity.principalId, '')]"
             },
             "privateIpAddress": {
               "type": "string",
@@ -1056,15 +2090,15 @@
             },
             "publicIpAddress": {
               "type": "string",
-              "value": "[if(parameters('createPublicIp'), reference(resourceId('Microsoft.Network/publicIPAddresses', 'pip-madrid-vm'), '2023-05-01').ipAddress, '')]"
+              "value": "[if(and(parameters('deployVM'), parameters('createPublicIp')), reference(resourceId('Microsoft.Network/publicIPAddresses', 'pip-madrid-vm'), '2023-05-01').ipAddress, '')]"
             },
             "fqdn": {
               "type": "string",
-              "value": "[if(parameters('createPublicIp'), reference(resourceId('Microsoft.Network/publicIPAddresses', 'pip-madrid-vm'), '2023-05-01').dnsSettings.fqdn, '')]"
+              "value": "[if(and(parameters('deployVM'), parameters('createPublicIp')), reference(resourceId('Microsoft.Network/publicIPAddresses', 'pip-madrid-vm'), '2023-05-01').dnsSettings.fqdn, '')]"
             },
             "apiUrl": {
               "type": "string",
-              "value": "[if(parameters('createPublicIp'), format('http://{0}:3002', reference(resourceId('Microsoft.Network/publicIPAddresses', 'pip-madrid-vm'), '2023-05-01').dnsSettings.fqdn), format('http://{0}:3002', reference(resourceId('Microsoft.Network/networkInterfaces', 'nic-madrid-vm'), '2023-05-01').ipConfigurations[0].properties.privateIPAddress))]"
+              "value": "[if(and(parameters('deployVM'), parameters('createPublicIp')), format('http://{0}:3002', reference(resourceId('Microsoft.Network/publicIPAddresses', 'pip-madrid-vm'), '2023-05-01').dnsSettings.fqdn), format('http://{0}:3002', reference(resourceId('Microsoft.Network/networkInterfaces', 'nic-madrid-vm'), '2023-05-01').ipConfigurations[0].properties.privateIPAddress))]"
             }
           }
         }
@@ -1100,6 +2134,9 @@
           "createPublicIp": {
             "value": "[parameters('createPublicIps')]"
           },
+          "deployVM": {
+            "value": "[parameters('deployParisVm')]"
+          },
           "tags": {
             "value": "[variables('tags')]"
           }
@@ -1110,8 +2147,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.38.33.27573",
-              "templateHash": "13466301716891118815"
+              "version": "0.40.2.10011",
+              "templateHash": "4922745226047476224"
             }
           },
           "parameters": {
@@ -1144,6 +2181,13 @@
               "defaultValue": true,
               "metadata": {
                 "description": "Create public IP for the VM"
+              }
+            },
+            "deployVM": {
+              "type": "bool",
+              "defaultValue": true,
+              "metadata": {
+                "description": "Deploy VM resources (set to false if VM already exists to avoid disk update conflicts)"
               }
             },
             "tags": {
@@ -1197,11 +2241,15 @@
               ]
             },
             {
+              "condition": "[parameters('deployVM')]",
               "type": "Microsoft.Compute/virtualMachines",
               "apiVersion": "2023-03-01",
               "name": "vm-paris-api",
               "location": "[parameters('location')]",
               "tags": "[parameters('tags')]",
+              "identity": {
+                "type": "SystemAssigned"
+              },
               "properties": {
                 "hardwareProfile": {
                   "vmSize": "Standard_B2s"
@@ -1252,6 +2300,7 @@
               ]
             },
             {
+              "condition": "[parameters('deployVM')]",
               "type": "Microsoft.Compute/virtualMachines/extensions",
               "apiVersion": "2023-03-01",
               "name": "[format('{0}/{1}', 'vm-paris-api', 'AzureMonitorLinuxAgent')]",
@@ -1268,6 +2317,7 @@
               ]
             },
             {
+              "condition": "[parameters('deployVM')]",
               "type": "Microsoft.Compute/virtualMachines/extensions",
               "apiVersion": "2023-03-01",
               "name": "[format('{0}/{1}', 'vm-paris-api', 'CustomScriptExtension')]",
@@ -1278,7 +2328,7 @@
                 "typeHandlerVersion": "2.1",
                 "autoUpgradeMinorVersion": true,
                 "settings": {
-                  "script": "[base64('#!/bin/bash\nset -e\n\n# Update package lists\napt-get update\n\n# Install required packages\napt-get install -y ca-certificates curl gnupg rsyslog\n\n# Setup NodeSource repository for Node.js 18.x\nmkdir -p /etc/apt/keyrings\ncurl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg\necho \"deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_18.x nodistro main\" | tee /etc/apt/sources.list.d/nodesource.list\n\n# Install Node.js\napt-get update\napt-get install -y nodejs\n\n# Verify installation\nnode --version\nnpm --version\n')]"
+                  "script": "[base64('#!/bin/bash\nset -e\n\n# Update package lists\napt-get update\n\n# Install required packages\napt-get install -y ca-certificates curl gnupg rsyslog\n\n# Setup NodeSource repository for Node.js 18.x\nmkdir -p /etc/apt/keyrings\ncurl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor --batch --yes -o /etc/apt/keyrings/nodesource.gpg 2>/dev/null || true\necho \"deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_18.x nodistro main\" | tee /etc/apt/sources.list.d/nodesource.list\n\n# Install Node.js\napt-get update\napt-get install -y nodejs\n\n# Verify installation\nnode --version\nnpm --version\n')]"
                 }
               },
               "dependsOn": [
@@ -1290,11 +2340,15 @@
           "outputs": {
             "vmName": {
               "type": "string",
-              "value": "vm-paris-api"
+              "value": "[if(parameters('deployVM'), 'vm-paris-api', '')]"
             },
             "vmId": {
               "type": "string",
-              "value": "[resourceId('Microsoft.Compute/virtualMachines', 'vm-paris-api')]"
+              "value": "[if(parameters('deployVM'), resourceId('Microsoft.Compute/virtualMachines', 'vm-paris-api'), '')]"
+            },
+            "vmPrincipalId": {
+              "type": "string",
+              "value": "[if(parameters('deployVM'), reference(resourceId('Microsoft.Compute/virtualMachines', 'vm-paris-api'), '2023-03-01', 'full').identity.principalId, '')]"
             },
             "privateIpAddress": {
               "type": "string",
@@ -1302,15 +2356,15 @@
             },
             "publicIpAddress": {
               "type": "string",
-              "value": "[if(parameters('createPublicIp'), reference(resourceId('Microsoft.Network/publicIPAddresses', 'pip-paris-vm'), '2023-05-01').ipAddress, '')]"
+              "value": "[if(and(parameters('deployVM'), parameters('createPublicIp')), reference(resourceId('Microsoft.Network/publicIPAddresses', 'pip-paris-vm'), '2023-05-01').ipAddress, '')]"
             },
             "fqdn": {
               "type": "string",
-              "value": "[if(parameters('createPublicIp'), reference(resourceId('Microsoft.Network/publicIPAddresses', 'pip-paris-vm'), '2023-05-01').dnsSettings.fqdn, '')]"
+              "value": "[if(and(parameters('deployVM'), parameters('createPublicIp')), reference(resourceId('Microsoft.Network/publicIPAddresses', 'pip-paris-vm'), '2023-05-01').dnsSettings.fqdn, '')]"
             },
             "apiUrl": {
               "type": "string",
-              "value": "[if(parameters('createPublicIp'), format('http://{0}:3003', reference(resourceId('Microsoft.Network/publicIPAddresses', 'pip-paris-vm'), '2023-05-01').dnsSettings.fqdn), format('http://{0}:3003', reference(resourceId('Microsoft.Network/networkInterfaces', 'nic-paris-vm'), '2023-05-01').ipConfigurations[0].properties.privateIPAddress))]"
+              "value": "[if(and(parameters('deployVM'), parameters('createPublicIp')), format('http://{0}:3003', reference(resourceId('Microsoft.Network/publicIPAddresses', 'pip-paris-vm'), '2023-05-01').dnsSettings.fqdn), format('http://{0}:3003', reference(resourceId('Microsoft.Network/networkInterfaces', 'nic-paris-vm'), '2023-05-01').ipConfigurations[0].properties.privateIPAddress))]"
             }
           }
         }
@@ -1318,6 +2372,160 @@
       "dependsOn": [
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'hub-deployment')]",
         "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('parisRgName'))]"
+      ]
+    },
+    {
+      "condition": "[parameters('deployMadridVm')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "madrid-storage-access",
+      "resourceGroup": "[variables('hubRgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "principalId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('madridRgName')), 'Microsoft.Resources/deployments', 'madrid-api-deployment'), '2025-04-01').outputs.vmPrincipalId.value]"
+          },
+          "storageAccountName": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'deployment-storage'), '2025-04-01').outputs.storageAccountName.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.40.2.10011",
+              "templateHash": "11130854200255065170"
+            }
+          },
+          "parameters": {
+            "principalId": {
+              "type": "string",
+              "metadata": {
+                "description": "Principal ID of the managed identity"
+              }
+            },
+            "storageAccountName": {
+              "type": "string",
+              "metadata": {
+                "description": "Storage account name to grant access to"
+              }
+            },
+            "roleDefinitionId": {
+              "type": "string",
+              "defaultValue": "2a2b9908-6ea1-4ae2-8e65-a410df84e7d1",
+              "metadata": {
+                "description": "Role to assign (Storage Blob Data Reader or Storage Blob Data Contributor)"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]",
+              "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), parameters('principalId'), parameters('roleDefinitionId'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', parameters('roleDefinitionId'))]",
+                "principalId": "[parameters('principalId')]",
+                "principalType": "ServicePrincipal"
+              }
+            }
+          ],
+          "outputs": {
+            "roleAssignmentId": {
+              "type": "string",
+              "value": "[extensionResourceId(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), parameters('principalId'), parameters('roleDefinitionId')))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'deployment-storage')]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('hubRgName'))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('madridRgName')), 'Microsoft.Resources/deployments', 'madrid-api-deployment')]"
+      ]
+    },
+    {
+      "condition": "[parameters('deployParisVm')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "paris-storage-access",
+      "resourceGroup": "[variables('hubRgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "principalId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('parisRgName')), 'Microsoft.Resources/deployments', 'paris-api-deployment'), '2025-04-01').outputs.vmPrincipalId.value]"
+          },
+          "storageAccountName": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'deployment-storage'), '2025-04-01').outputs.storageAccountName.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.40.2.10011",
+              "templateHash": "11130854200255065170"
+            }
+          },
+          "parameters": {
+            "principalId": {
+              "type": "string",
+              "metadata": {
+                "description": "Principal ID of the managed identity"
+              }
+            },
+            "storageAccountName": {
+              "type": "string",
+              "metadata": {
+                "description": "Storage account name to grant access to"
+              }
+            },
+            "roleDefinitionId": {
+              "type": "string",
+              "defaultValue": "2a2b9908-6ea1-4ae2-8e65-a410df84e7d1",
+              "metadata": {
+                "description": "Role to assign (Storage Blob Data Reader or Storage Blob Data Contributor)"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]",
+              "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), parameters('principalId'), parameters('roleDefinitionId'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', parameters('roleDefinitionId'))]",
+                "principalId": "[parameters('principalId')]",
+                "principalType": "ServicePrincipal"
+              }
+            }
+          ],
+          "outputs": {
+            "roleAssignmentId": {
+              "type": "string",
+              "value": "[extensionResourceId(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), parameters('principalId'), parameters('roleDefinitionId')))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'deployment-storage')]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('hubRgName'))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('parisRgName')), 'Microsoft.Resources/deployments', 'paris-api-deployment')]"
       ]
     },
     {
@@ -1346,6 +2554,9 @@
           "parisApiUrl": {
             "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('parisRgName')), 'Microsoft.Resources/deployments', 'paris-api-deployment'), '2025-04-01').outputs.apiUrl.value]"
           },
+          "berlinApiUrl": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('berlinRgName')), 'Microsoft.Resources/deployments', 'berlin-api-deployment'), '2025-04-01').outputs.containerAppUrl.value]"
+          },
           "tags": {
             "value": "[variables('tags')]"
           }
@@ -1356,8 +2567,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.38.33.27573",
-              "templateHash": "8145095969393173906"
+              "version": "0.40.2.10011",
+              "templateHash": "14505130141564022684"
             }
           },
           "parameters": {
@@ -1385,6 +2596,10 @@
               "defaultValue": ""
             },
             "parisApiUrl": {
+              "type": "string",
+              "defaultValue": ""
+            },
+            "berlinApiUrl": {
               "type": "string",
               "defaultValue": ""
             },
@@ -1469,15 +2684,23 @@
                       "value": "[parameters('parisApiUrl')]"
                     },
                     {
+                      "name": "REACT_APP_BERLIN_API_URL",
+                      "value": "[parameters('berlinApiUrl')]"
+                    },
+                    {
                       "name": "SCM_DO_BUILD_DURING_DEPLOYMENT",
                       "value": "true"
                     },
                     {
                       "name": "WEBSITE_NODE_DEFAULT_VERSION",
-                      "value": "18-lts"
+                      "value": "~20"
+                    },
+                    {
+                      "name": "WEBSITES_PORT",
+                      "value": "8080"
                     }
                   ],
-                  "appCommandLine": "pm2 serve /home/site/wwwroot/build --no-daemon --spa"
+                  "appCommandLine": "node server.js"
                 }
               },
               "dependsOn": [
@@ -1511,6 +2734,7 @@
         }
       },
       "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('berlinRgName')), 'Microsoft.Resources/deployments', 'berlin-api-deployment')]",
         "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('frontendRgName'))]",
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'hub-deployment')]",
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('lisbonRgName')), 'Microsoft.Resources/deployments', 'lisbon-api-deployment')]",
@@ -1540,6 +2764,10 @@
       "type": "string",
       "value": "[variables('parisRgName')]"
     },
+    "berlinResourceGroup": {
+      "type": "string",
+      "value": "[variables('berlinRgName')]"
+    },
     "vnetName": {
       "type": "string",
       "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'hub-deployment'), '2025-04-01').outputs.vnetName.value]"
@@ -1560,6 +2788,18 @@
       "type": "string",
       "value": "[if(parameters('createContainerRegistry'), reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'container-registry-deployment'), '2025-04-01').outputs.registryUrl.value, '')]"
     },
+    "deploymentStorageAccountName": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'deployment-storage'), '2025-04-01').outputs.storageAccountName.value]"
+    },
+    "deploymentStorageBlobEndpoint": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'deployment-storage'), '2025-04-01').outputs.blobEndpoint.value]"
+    },
+    "githubRunnerNetworkSettingsId": {
+      "type": "string",
+      "value": "[if(not(empty(parameters('githubOrgDatabaseId'))), reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'github-runners-network'), '2025-04-01').outputs.networkSettingsResourceId.value, '')]"
+    },
     "frontendUrl": {
       "type": "string",
       "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('frontendRgName')), 'Microsoft.Resources/deployments', 'frontend-deployment'), '2025-04-01').outputs.appServiceUrl.value]"
@@ -1575,6 +2815,10 @@
     "parisApiUrl": {
       "type": "string",
       "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('parisRgName')), 'Microsoft.Resources/deployments', 'paris-api-deployment'), '2025-04-01').outputs.apiUrl.value]"
+    },
+    "berlinApiUrl": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('berlinRgName')), 'Microsoft.Resources/deployments', 'berlin-api-deployment'), '2025-04-01').outputs.containerAppUrl.value]"
     },
     "madridVmName": {
       "type": "string",

@@ -335,7 +335,6 @@ module frontend 'modules/frontend.bicep' = {
     madridApiUrl: madridApi.outputs.apiUrl
     parisApiUrl: parisApi.outputs.apiUrl
     berlinApiUrl: berlinApi.outputs.containerAppUrl
-    appServiceSubnetId: hub.outputs.appServiceSubnetId
     tags: tags
   }
 }

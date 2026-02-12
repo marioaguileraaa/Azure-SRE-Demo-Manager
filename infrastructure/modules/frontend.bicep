@@ -103,7 +103,6 @@ resource appService 'Microsoft.Web/sites@2023-01-01' = {
       ]
       appCommandLine: 'node server.js'
     }
-    httpsOnly: true
   }
 }
 

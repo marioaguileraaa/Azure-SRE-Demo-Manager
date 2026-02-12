@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.40.2.10011",
-      "templateHash": "15024004320797561171"
+      "templateHash": "8282141402008894190"
     }
   },
   "parameters": {
@@ -1595,8 +1595,8 @@
           "location": {
             "value": "[parameters('location')]"
           },
-          "containerAppEnvironmentId": {
-            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('lisbonRgName')), 'Microsoft.Resources/deployments', 'lisbon-api-deployment'), '2025-04-01').outputs.containerAppEnvironmentId.value]"
+          "containerSubnetId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'hub-deployment'), '2025-04-01').outputs.containerSubnetId.value]"
           },
           "containerImage": {
             "value": "[parameters('berlinContainerImage')]"
@@ -1613,7 +1613,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.40.2.10011",
-              "templateHash": "2540426481589860395"
+              "templateHash": "474821713859818643"
             }
           },
           "parameters": {
@@ -1623,10 +1623,10 @@
                 "description": "Location for all Berlin API resources"
               }
             },
-            "containerAppEnvironmentId": {
+            "containerSubnetId": {
               "type": "string",
               "metadata": {
-                "description": "Container App Environment ID from Lisbon (reuse existing environment)"
+                "description": "Container subnet ID from hub VNet"
               }
             },
             "containerImage": {
@@ -1653,6 +1653,24 @@
           },
           "resources": [
             {
+              "type": "Microsoft.App/managedEnvironments",
+              "apiVersion": "2023-05-01",
+              "name": "cae-parking-berlin",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "vnetConfiguration": {
+                  "infrastructureSubnetId": "[parameters('containerSubnetId')]"
+                },
+                "workloadProfiles": [
+                  {
+                    "name": "Consumption",
+                    "workloadProfileType": "Consumption"
+                  }
+                ]
+              }
+            },
+            {
               "type": "Microsoft.App/containerApps",
               "apiVersion": "2023-05-01",
               "name": "ca-parking-berlin",
@@ -1662,7 +1680,7 @@
                 "type": "SystemAssigned"
               },
               "properties": {
-                "environmentId": "[parameters('containerAppEnvironmentId')]",
+                "environmentId": "[resourceId('Microsoft.App/managedEnvironments', 'cae-parking-berlin')]",
                 "configuration": {
                   "ingress": {
                     "external": true,
@@ -1740,7 +1758,10 @@
                     ]
                   }
                 }
-              }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.App/managedEnvironments', 'cae-parking-berlin')]"
+              ]
             }
           ],
           "outputs": {
@@ -1759,6 +1780,10 @@
             "containerAppPrincipalId": {
               "type": "string",
               "value": "[reference(resourceId('Microsoft.App/containerApps', 'ca-parking-berlin'), '2023-05-01', 'full').identity.principalId]"
+            },
+            "containerAppEnvironmentId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.App/managedEnvironments', 'cae-parking-berlin')]"
             }
           }
         }
@@ -1766,7 +1791,7 @@
       "dependsOn": [
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'container-registry-deployment')]",
         "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('berlinRgName'))]",
-        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('lisbonRgName')), 'Microsoft.Resources/deployments', 'lisbon-api-deployment')]"
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'hub-deployment')]"
       ]
     },
     {

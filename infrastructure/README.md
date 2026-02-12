@@ -317,7 +317,7 @@ If you encounter this error with an older infrastructure:
   ```
 - Then redeploy the infrastructure
 
-**Note**: After this fix (merged in PR #XX), redeployments should work without manual intervention.
+**Note**: After this fix, redeployments should work without manual intervention.
 
 ### Bicep Compilation Errors
 

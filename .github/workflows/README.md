@@ -7,9 +7,10 @@ This document explains the GitHub Actions workflows configured for the Azure SRE
 The project uses multiple deployment workflows:
 1. **Infrastructure** - Azure infrastructure provisioning using Bicep (IaC)
 2. **Lisbon API** - Container App deployment
-3. **Madrid API** - Windows VM deployment (self-hosted runner)
-4. **Paris API** - Linux VM deployment (self-hosted runner)
-5. **Frontend** - Azure App Service deployment
+3. **Berlin API** - Container App deployment
+4. **Madrid API** - Windows VM deployment (self-hosted runner)
+5. **Paris API** - Linux VM deployment (self-hosted runner)
+6. **Frontend** - Azure App Service deployment
 
 ---
 
@@ -116,22 +117,35 @@ The workflow captures and displays:
 
 Deploys the Lisbon Parking API to Azure Container Apps using Docker.
 
-Deploys the Lisbon Parking API to Azure Container Apps using Docker.
-
 **Required Variables:**
 - `AZURE_CONTAINER_REGISTRY` - Your ACR name (e.g., `acrparkingdev725vs7xw6g7qg`)
-- `RESOURCE_GROUP` - Resource group name (e.g., `rg-parking-lisbon-dev`)
+- `LISBON_RESOURCE_GROUP` - Resource group name (e.g., `rg-parking-lisbon-dev`)
 
 **Required Secrets:**
 - `AZURE_CREDENTIALS` - Service principal JSON
-- `ACR_USERNAME` - Container registry username  
-- `ACR_PASSWORD` - Container registry password
 
 **Triggers:** Push to `main` affecting `backend/lisbon-parking-api/**`
 
 ---
 
-### 2. Frontend Deployment (App Service)
+### 2. Berlin API Deployment (Container App)
+
+**File:** `.github/workflows/deploy-berlin-api.yml`
+
+Deploys the Berlin Parking API to Azure Container Apps using Docker.
+
+**Required Variables:**
+- `AZURE_CONTAINER_REGISTRY` - Your ACR name (e.g., `acrparkingdev725vs7xw6g7qg`)
+- `BERLIN_RESOURCE_GROUP` - Resource group name (e.g., `rg-parking-berlin-dev`)
+
+**Required Secrets:**
+- `AZURE_CREDENTIALS` - Service principal JSON
+
+**Triggers:** Push to `main` affecting `backend/berlin-parking-api/**`
+
+---
+
+### 3. Frontend Deployment (App Service)
 
 **File:** `.github/workflows/deploy-frontend.yml`
 
@@ -148,7 +162,7 @@ Deploys the React frontend to Azure App Service.
 
 ---
 
-### 3. Madrid API Deployment (Windows VM)
+### 4. Madrid API Deployment (Windows VM)
 
 **File:** `.github/workflows/deploy-madrid-api.yml`
 
@@ -160,7 +174,7 @@ Deploys the Madrid Parking API to Windows VM using a self-hosted runner.
 
 ---
 
-### 4. Paris API Deployment (Linux VM)
+### 5. Paris API Deployment (Linux VM)
 
 **File:** `.github/workflows/deploy-paris-api.yml`
 
@@ -256,13 +270,13 @@ The infrastructure deployment workflows use parameter files in the `infrastructu
 
 **Variables:**
 1. `AZURE_CONTAINER_REGISTRY` - ACR name (e.g., `acrparkingdev725vs7xw6g7qg`)
-2. `RESOURCE_GROUP` - Resource group for Lisbon API (e.g., `rg-parking-lisbon-dev`)
-3. `AZURE_WEBAPP_NAME` - App Service name (e.g., `app-parking-frontend-yd5hvpxzlffke`)
-4. `FRONTEND_RESOURCE_GROUP` - Resource group for frontend (e.g., `rg-parking-frontend-dev`)
+2. `LISBON_RESOURCE_GROUP` - Resource group for Lisbon API (e.g., `rg-parking-lisbon-dev`)
+3. `BERLIN_RESOURCE_GROUP` - Resource group for Berlin API (e.g., `rg-parking-berlin-dev`)
+4. `AZURE_WEBAPP_NAME` - App Service name (e.g., `app-parking-frontend-yd5hvpxzlffke`)
+5. `FRONTEND_RESOURCE_GROUP` - Resource group for frontend (e.g., `rg-parking-frontend-dev`)
 
 **Secrets:**
-1. `ACR_USERNAME` - Container registry username
-2. `ACR_PASSWORD` - Container registry password
+1. `AZURE_CREDENTIALS` - Service principal JSON (subscription-level contributor access)
 
 ### Infrastructure Workflows Configuration
 
@@ -370,13 +384,14 @@ For a fresh deployment, follow this order:
 
 2. **Update GitHub Variables** (One-time setup)
    - Add `AZURE_CONTAINER_REGISTRY` (from infrastructure outputs)
-   - Add `RESOURCE_GROUP` for Lisbon API
+   - Add `LISBON_RESOURCE_GROUP` for Lisbon API
+   - Add `BERLIN_RESOURCE_GROUP` for Berlin API
    - Add `AZURE_WEBAPP_NAME` (from infrastructure outputs)
    - Add `FRONTEND_RESOURCE_GROUP`
-   - Add ACR credentials as secrets
 
 3. **Deploy Applications** (Can be automatic or manual)
    - Deploy Lisbon API (pushes to ACR and updates Container App)
+   - Deploy Berlin API (pushes to ACR and updates Container App)
    - Deploy Frontend (builds and deploys to App Service)
    - Deploy Madrid/Paris APIs if using VMs with self-hosted runners
 

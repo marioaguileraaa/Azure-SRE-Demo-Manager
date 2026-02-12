@@ -232,17 +232,8 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-05-01' = {
   }
 }
 
-// Add GitHub runners subnet with NAT Gateway
-resource runnerSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-05-01' = {
-  parent: vnet
-  name: 'snet-github-runners'
-  properties: {
-    addressPrefix: '10.0.4.0/24'
-    natGateway: {
-      id: natGateway.id
-    }
-  }
-}
+// Note: snet-github-runners subnet is created by github-runner-network.bicep module
+// with proper GitHub.Network/networkSettings delegation. It is not created here to avoid conflicts.
 
 // Add App Service subnet with Web Server delegation
 resource appServiceSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-05-01' = {
@@ -288,9 +279,10 @@ output vnetId string = vnet.id
 output vnetName string = vnet.name
 output vmSubnetId string = vnet.properties.subnets[0].id
 output containerSubnetId string = vnet.properties.subnets[1].id
-output runnerSubnetId string = runnerSubnet.id
+// Note: runnerSubnetId is not output here as the subnet is created by github-runner-network.bicep
 output appServiceSubnetId string = appServiceSubnet.id
 output logAnalyticsWorkspaceId string = logAnalytics.id
 output logAnalyticsWorkspaceName string = logAnalytics.name
 output logAnalyticsCustomerId string = logAnalytics.properties.customerId
+output natGatewayId string = natGateway.id
 output natGatewayPublicIp string = pipRunnerEgress.properties.ipAddress

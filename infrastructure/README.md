@@ -298,6 +298,27 @@ az group delete --name rg-parking-paris-dev --yes --no-wait
 
 ## Troubleshooting
 
+### GitHub Runners Subnet Deployment
+
+**Issue**: Deployment fails with error `InUseSubnetCannotBeDeleted` for `snet-github-runners` subnet.
+
+**Cause**: The subnet has a service association link from GitHub Actions networking that was created by a previous deployment.
+
+**Solution**: The infrastructure has been updated to handle this correctly. The `snet-github-runners` subnet is now only created by the `github-runner-network.bicep` module with proper GitHub delegation, preventing conflicts.
+
+If you encounter this error with an older infrastructure:
+- The subnet cannot be modified or removed while the service association link exists
+- You must first remove the GitHub Network Settings resource manually:
+  ```bash
+  az resource delete \
+    --resource-group rg-parking-hub-dev \
+    --name github-actions-network-settings \
+    --resource-type GitHub.Network/networkSettings
+  ```
+- Then redeploy the infrastructure
+
+**Note**: After this fix, redeployments should work without manual intervention.
+
 ### Bicep Compilation Errors
 
 ```bash

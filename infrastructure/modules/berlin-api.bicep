@@ -1,5 +1,5 @@
 // Berlin API module - Container App for Docker-based API
-// NOTE: This module creates its own standalone Container App Environment
+// NOTE: This module creates its own Container App Environment (separate from Lisbon)
 // and does NOT send logs to Log Analytics (console/stdout only)
 @description('Location for all Berlin API resources')
 param location string
@@ -136,3 +136,4 @@ output containerAppUrl string = 'https://${containerApp.properties.configuration
 output containerAppEnvironmentName string = containerAppEnvironment.name
 output containerAppEnvironmentId string = containerAppEnvironment.id
 output containerAppPrincipalId string = containerApp.identity.principalId
+output containerAppEnvironmentId string = containerAppEnvironment.id

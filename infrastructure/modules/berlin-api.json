@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.40.2.10011",
-      "templateHash": "6025811491089791001"
+      "templateHash": "474821713859818643"
     }
   },
   "parameters": {
@@ -180,6 +180,10 @@
     "containerAppPrincipalId": {
       "type": "string",
       "value": "[reference(resourceId('Microsoft.App/containerApps', 'ca-parking-berlin'), '2023-05-01', 'full').identity.principalId]"
+    },
+    "containerAppEnvironmentId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.App/managedEnvironments', 'cae-parking-berlin')]"
     }
   }
 }

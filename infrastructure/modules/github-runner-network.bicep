@@ -11,6 +11,9 @@ param runnerSubnetPrefix string
 @description('GitHub organization databaseId (GraphQL) used as businessId')
 param githubOrgDatabaseId string
 
+@description('NAT Gateway ID for outbound connectivity')
+param natGatewayId string
+
 @description('Tags to apply to resources')
 param tags object = {}
 
@@ -85,6 +88,9 @@ resource runnerSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-05-01' = {
     ]
     networkSecurityGroup: {
       id: actions_NSG.id
+    }
+    natGateway: {
+      id: natGatewayId
     }
   }
 }

@@ -1,5 +1,31 @@
 # Deployment Changes Summary
 
+## Recent Changes
+
+### February 2026 - Fixed GitHub Runners Subnet Deployment Conflict
+
+**Issue:** Infrastructure redeployments were failing with `InUseSubnetCannotBeDeleted` error for the `snet-github-runners` subnet.
+
+**Root Cause:** The subnet was being created in two places:
+1. `hub.bicep` - without GitHub delegation
+2. `github-runner-network.bicep` - with proper GitHub delegation
+
+This caused conflicts when redeploying because the subnet had a service association link from GitHub Actions that couldn't be deleted.
+
+**Solution:**
+- Removed the duplicate subnet creation from `hub.bicep`
+- The subnet is now only created in `github-runner-network.bicep` with proper `GitHub.Network/networkSettings` delegation
+- Added `natGatewayId` parameter to `github-runner-network.bicep` for proper outbound connectivity
+- Updated `hub.bicep` to output the NAT Gateway ID
+- Updated `main.bicep` to pass the NAT Gateway ID to the GitHub runner network module
+
+**Impact:**
+- Redeployments now work correctly without manual intervention
+- No changes required to parameters or deployment process
+- The fix is backward compatible with existing deployments
+
+---
+
 ## Overview
 This document outlines the changes made to the infrastructure deployment process to:
 1. Use the `main.parameters.json` file for deployment configuration

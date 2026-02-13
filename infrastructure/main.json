@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.40.2.10011",
-      "templateHash": "8282141402008894190"
+      "templateHash": "5048212955159977339"
     }
   },
   "parameters": {
@@ -1613,7 +1613,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.40.2.10011",
-              "templateHash": "474821713859818643"
+              "templateHash": "6025811491089791001"
             }
           },
           "parameters": {
@@ -1788,10 +1788,6 @@
             "containerAppPrincipalId": {
               "type": "string",
               "value": "[reference(resourceId('Microsoft.App/containerApps', 'ca-parking-berlin'), '2023-05-01', 'full').identity.principalId]"
-            },
-            "containerAppEnvironmentId": {
-              "type": "string",
-              "value": "[resourceId('Microsoft.App/managedEnvironments', 'cae-parking-berlin')]"
             }
           }
         }

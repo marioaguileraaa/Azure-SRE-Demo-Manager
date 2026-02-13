@@ -136,4 +136,3 @@ output containerAppUrl string = 'https://${containerApp.properties.configuration
 output containerAppEnvironmentName string = containerAppEnvironment.name
 output containerAppEnvironmentId string = containerAppEnvironment.id
 output containerAppPrincipalId string = containerApp.identity.principalId
-output containerAppEnvironmentId string = containerAppEnvironment.id

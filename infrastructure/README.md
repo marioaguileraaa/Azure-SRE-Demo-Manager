@@ -302,22 +302,28 @@ az group delete --name rg-parking-paris-dev --yes --no-wait
 
 **Issue**: Deployment fails with error `InUseSubnetCannotBeDeleted` for `snet-github-runners` subnet.
 
-**Cause**: The subnet has a service association link from GitHub Actions networking that was created by a previous deployment.
+**Cause**: The subnet has a service association link from GitHub Actions networking that prevents deletion during VNet state reconciliation.
 
-**Solution**: The infrastructure has been updated to handle this correctly. The `snet-github-runners` subnet is now only created by the `github-runner-network.bicep` module with proper GitHub delegation, preventing conflicts.
+**Solution**: **FIXED (February 13, 2026)** - The infrastructure has been updated to prevent this issue:
+- VNet subnets are now created as separate child resources instead of inline definitions
+- This prevents Azure from attempting to delete existing subnets during redeployment
+- The `snet-github-runners` subnet is managed by the `github-runner-network.bicep` module with proper GitHub delegation
 
-If you encounter this error with an older infrastructure:
+**For existing deployments experiencing this issue:**
+If you have an older infrastructure deployment and encounter this error:
 - The subnet cannot be modified or removed while the service association link exists
-- You must first remove the GitHub Network Settings resource manually:
-  ```bash
-  az resource delete \
-    --resource-group rg-parking-hub-dev \
-    --name github-actions-network-settings \
-    --resource-type GitHub.Network/networkSettings
-  ```
-- Then redeploy the infrastructure
+- You can either:
+  1. **Recommended**: Pull the latest infrastructure code and redeploy (the fix will prevent future occurrences)
+  2. **Manual cleanup** (if needed): Remove the GitHub Network Settings resource first:
+     ```bash
+     az resource delete \
+       --resource-group rg-parking-hub-dev \
+       --name github-actions-network-settings \
+       --resource-type GitHub.Network/networkSettings
+     ```
+     Then redeploy the infrastructure
 
-**Note**: After this fix, redeployments should work without manual intervention.
+**Note**: With the February 13, 2026 fix, redeployments work without manual intervention.
 
 ### Bicep Compilation Errors
 

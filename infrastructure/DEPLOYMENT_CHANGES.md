@@ -2,6 +2,50 @@
 
 ## Recent Changes
 
+### February 13, 2026 - Fixed VNet Subnet Management and Deployment Warnings
+
+**Issue:** Infrastructure redeployments were failing with `InUseSubnetCannotBeDeleted` error for the `snet-github-runners` subnet, plus several Bicep warnings (BCP318, no-hardcoded-env-urls).
+
+**Root Cause:** 
+1. VNet resource in `hub.bicep` was defining subnets inline in the `subnets` array
+2. During redeployment, Azure attempted to reconcile the VNet state and tried to delete subnets not in the inline array
+3. The `snet-github-runners` subnet (created by `github-runner-network.bicep`) couldn't be deleted due to its GitHub Actions service association link
+4. Conditional resources accessed without null-forgiving operators caused BCP318 warnings
+5. Hardcoded `core.windows.net` URL prevented multi-cloud compatibility
+
+**Solution:**
+1. **Changed VNet subnet management approach:**
+   - Removed inline `subnets` array from VNet resource definition in `hub.bicep`
+   - Created all subnets as separate child resources: `snet-vms`, `snet-container-apps`, `snet-app-service`
+   - Added proper dependencies between subnets for sequential creation
+   - Updated outputs to reference subnet resources directly instead of using array indices
+   - This prevents Azure from attempting to delete subnets during redeployment
+
+2. **Fixed BCP318 null-safety warnings:**
+   - Added null-forgiving operator `!` for VM resource access in `madrid-api.bicep` outputs
+   - Added null-forgiving operator `!` for VM resource access in `paris-api.bicep` outputs
+   - Added null-forgiving operator `!` for githubRunners module access in `main.bicep` outputs
+
+3. **Fixed hardcoded environment URL:**
+   - Changed from `privatelink.blob.core.windows.net` to `privatelink.blob.${environment().suffixes.storage}` in `storage-private-endpoint.bicep`
+   - Now compatible with Azure Government, Azure China, and other sovereign clouds
+
+**Impact:**
+- Redeployments now work correctly without subnet deletion conflicts
+- All Bicep warnings resolved - clean build with no errors or warnings
+- Infrastructure is now multi-cloud compatible
+- No changes required to parameters or deployment process
+- Fully backward compatible with existing deployments
+
+**Files Modified:**
+- `infrastructure/modules/hub.bicep` - VNet subnet management refactoring
+- `infrastructure/modules/madrid-api.bicep` - Null-forgiving operators in outputs
+- `infrastructure/modules/paris-api.bicep` - Null-forgiving operators in outputs
+- `infrastructure/modules/storage-private-endpoint.bicep` - Environment-aware DNS zone name
+- `infrastructure/main.bicep` - Null-forgiving operator for githubRunners module output
+
+---
+
 ### February 2026 - Fixed GitHub Runners Subnet Deployment Conflict
 
 **Issue:** Infrastructure redeployments were failing with `InUseSubnetCannotBeDeleted` error for the `snet-github-runners` subnet.

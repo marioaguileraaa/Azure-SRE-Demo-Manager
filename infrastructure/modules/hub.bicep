@@ -190,7 +190,7 @@ resource udrAppService 'Microsoft.Network/routeTables@2023-05-01' = {
   }
 }
 
-// Create Virtual Network (with just VM and Container App subnets initially)
+// Create Virtual Network (without inline subnets to avoid conflicts on redeployment)
 resource vnet 'Microsoft.Network/virtualNetworks@2023-05-01' = {
   name: 'vnet-parking-hub'
   location: location
@@ -201,31 +201,38 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-05-01' = {
         vnetAddressPrefix
       ]
     }
-    subnets: [
+  }
+}
+
+// Create VM subnet as separate resource
+resource vmSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-05-01' = {
+  parent: vnet
+  name: 'snet-vms'
+  properties: {
+    addressPrefix: vmSubnetPrefix
+    networkSecurityGroup: {
+      id: nsgVms.id
+    }
+    routeTable: {
+      id: udrVms.id
+    }
+  }
+}
+
+// Create Container Apps subnet as separate resource
+resource containerSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-05-01' = {
+  parent: vnet
+  name: 'snet-container-apps'
+  dependsOn: [
+    vmSubnet
+  ]
+  properties: {
+    addressPrefix: containerSubnetPrefix
+    delegations: [
       {
-        name: 'snet-vms'
+        name: 'Microsoft.App/environments'
         properties: {
-          addressPrefix: vmSubnetPrefix
-          networkSecurityGroup: {
-            id: nsgVms.id
-          }
-          routeTable: {
-            id: udrVms.id
-          }
-        }
-      }
-      {
-        name: 'snet-container-apps'
-        properties: {
-          addressPrefix: containerSubnetPrefix
-          delegations: [
-            {
-              name: 'Microsoft.App/environments'
-              properties: {
-                serviceName: 'Microsoft.App/environments'
-              }
-            }
-          ]
+          serviceName: 'Microsoft.App/environments'
         }
       }
     ]
@@ -239,6 +246,9 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-05-01' = {
 resource appServiceSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-05-01' = {
   parent: vnet
   name: 'snet-app-service'
+  dependsOn: [
+    containerSubnet
+  ]
   properties: {
     addressPrefix: '10.0.5.0/24'
     networkSecurityGroup: {
@@ -277,8 +287,8 @@ resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
 // Outputs
 output vnetId string = vnet.id
 output vnetName string = vnet.name
-output vmSubnetId string = vnet.properties.subnets[0].id
-output containerSubnetId string = vnet.properties.subnets[1].id
+output vmSubnetId string = vmSubnet.id
+output containerSubnetId string = containerSubnet.id
 // Note: runnerSubnetId is not output here as the subnet is created by github-runner-network.bicep
 output appServiceSubnetId string = appServiceSubnet.id
 output logAnalyticsWorkspaceId string = logAnalytics.id

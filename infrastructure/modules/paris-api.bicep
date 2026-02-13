@@ -170,9 +170,9 @@ npm --version
 }
 
 // Outputs - VM outputs are only valid when deployVM=true
-output vmName string = deployVM ? vm.name : ''
-output vmId string = deployVM ? vm.id : ''
-output vmPrincipalId string = deployVM ? vm.identity.principalId : ''
+output vmName string = deployVM ? vm!.name : ''
+output vmId string = deployVM ? vm!.id : ''
+output vmPrincipalId string = deployVM ? vm!.identity.principalId : ''
 output privateIpAddress string = nic.properties.ipConfigurations[0].properties.privateIPAddress
 output publicIpAddress string = (deployVM && createPublicIp) ? publicIp!.properties.ipAddress : ''
 output fqdn string = (deployVM && createPublicIp) ? publicIp!.properties.dnsSettings.fqdn : ''

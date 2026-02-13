@@ -361,7 +361,7 @@ output containerRegistryUrl string = createContainerRegistry ? acr!.outputs.regi
 output deploymentStorageAccountName string = deploymentStorage.outputs.storageAccountName
 output deploymentStorageBlobEndpoint string = deploymentStorage.outputs.blobEndpoint
 
-output githubRunnerNetworkSettingsId string = !empty(githubOrgDatabaseId) ? githubRunners.outputs.networkSettingsResourceId : ''
+output githubRunnerNetworkSettingsId string = !empty(githubOrgDatabaseId) ? githubRunners!.outputs.networkSettingsResourceId : ''
 
 output frontendUrl string = frontend.outputs.appServiceUrl
 output lisbonApiUrl string = lisbonApi.outputs.containerAppUrl

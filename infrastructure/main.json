@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.40.2.10011",
-      "templateHash": "5048212955159977339"
+      "templateHash": "3476702088708304024"
     }
   },
   "parameters": {
@@ -244,7 +244,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.40.2.10011",
-              "templateHash": "8957104004049146813"
+              "templateHash": "15979375976132433706"
             }
           },
           "parameters": {
@@ -478,39 +478,46 @@
                   "addressPrefixes": [
                     "[parameters('vnetAddressPrefix')]"
                   ]
+                }
+              }
+            },
+            {
+              "type": "Microsoft.Network/virtualNetworks/subnets",
+              "apiVersion": "2023-05-01",
+              "name": "[format('{0}/{1}', 'vnet-parking-hub', 'snet-vms')]",
+              "properties": {
+                "addressPrefix": "[parameters('vmSubnetPrefix')]",
+                "networkSecurityGroup": {
+                  "id": "[resourceId('Microsoft.Network/networkSecurityGroups', 'nsg-vms')]"
                 },
-                "subnets": [
+                "routeTable": {
+                  "id": "[resourceId('Microsoft.Network/routeTables', 'udr-vms')]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/networkSecurityGroups', 'nsg-vms')]",
+                "[resourceId('Microsoft.Network/routeTables', 'udr-vms')]",
+                "[resourceId('Microsoft.Network/virtualNetworks', 'vnet-parking-hub')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/virtualNetworks/subnets",
+              "apiVersion": "2023-05-01",
+              "name": "[format('{0}/{1}', 'vnet-parking-hub', 'snet-container-apps')]",
+              "properties": {
+                "addressPrefix": "[parameters('containerSubnetPrefix')]",
+                "delegations": [
                   {
-                    "name": "snet-vms",
+                    "name": "Microsoft.App/environments",
                     "properties": {
-                      "addressPrefix": "[parameters('vmSubnetPrefix')]",
-                      "networkSecurityGroup": {
-                        "id": "[resourceId('Microsoft.Network/networkSecurityGroups', 'nsg-vms')]"
-                      },
-                      "routeTable": {
-                        "id": "[resourceId('Microsoft.Network/routeTables', 'udr-vms')]"
-                      }
-                    }
-                  },
-                  {
-                    "name": "snet-container-apps",
-                    "properties": {
-                      "addressPrefix": "[parameters('containerSubnetPrefix')]",
-                      "delegations": [
-                        {
-                          "name": "Microsoft.App/environments",
-                          "properties": {
-                            "serviceName": "Microsoft.App/environments"
-                          }
-                        }
-                      ]
+                      "serviceName": "Microsoft.App/environments"
                     }
                   }
                 ]
               },
               "dependsOn": [
-                "[resourceId('Microsoft.Network/networkSecurityGroups', 'nsg-vms')]",
-                "[resourceId('Microsoft.Network/routeTables', 'udr-vms')]"
+                "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'vnet-parking-hub', 'snet-vms')]",
+                "[resourceId('Microsoft.Network/virtualNetworks', 'vnet-parking-hub')]"
               ]
             },
             {
@@ -535,6 +542,7 @@
                 ]
               },
               "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'vnet-parking-hub', 'snet-container-apps')]",
                 "[resourceId('Microsoft.Network/networkSecurityGroups', 'nsg-app-service')]",
                 "[resourceId('Microsoft.Network/routeTables', 'udr-app-service')]",
                 "[resourceId('Microsoft.Network/virtualNetworks', 'vnet-parking-hub')]"
@@ -568,11 +576,11 @@
             },
             "vmSubnetId": {
               "type": "string",
-              "value": "[reference(resourceId('Microsoft.Network/virtualNetworks', 'vnet-parking-hub'), '2023-05-01').subnets[0].id]"
+              "value": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'vnet-parking-hub', 'snet-vms')]"
             },
             "containerSubnetId": {
               "type": "string",
-              "value": "[reference(resourceId('Microsoft.Network/virtualNetworks', 'vnet-parking-hub'), '2023-05-01').subnets[1].id]"
+              "value": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'vnet-parking-hub', 'snet-container-apps')]"
             },
             "appServiceSubnetId": {
               "type": "string",
@@ -937,7 +945,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.40.2.10011",
-              "templateHash": "6698487359939356526"
+              "templateHash": "6055505188232495796"
             }
           },
           "parameters": {
@@ -978,14 +986,14 @@
             {
               "type": "Microsoft.Network/privateDnsZones",
               "apiVersion": "2020-06-01",
-              "name": "privatelink.blob.core.windows.net",
+              "name": "[format('privatelink.blob.{0}', environment().suffixes.storage)]",
               "location": "global",
               "tags": "[parameters('tags')]"
             },
             {
               "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
               "apiVersion": "2020-06-01",
-              "name": "[format('{0}/{1}', 'privatelink.blob.core.windows.net', format('link-{0}', parameters('vnetName')))]",
+              "name": "[format('{0}/{1}', format('privatelink.blob.{0}', environment().suffixes.storage), format('link-{0}', parameters('vnetName')))]",
               "location": "global",
               "properties": {
                 "virtualNetwork": {
@@ -994,7 +1002,7 @@
                 "registrationEnabled": false
               },
               "dependsOn": [
-                "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.blob.core.windows.net')]"
+                "[resourceId('Microsoft.Network/privateDnsZones', format('privatelink.blob.{0}', environment().suffixes.storage))]"
               ]
             },
             {
@@ -1029,13 +1037,13 @@
                   {
                     "name": "blob-zone-config",
                     "properties": {
-                      "privateDnsZoneId": "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.blob.core.windows.net')]"
+                      "privateDnsZoneId": "[resourceId('Microsoft.Network/privateDnsZones', format('privatelink.blob.{0}', environment().suffixes.storage))]"
                     }
                   }
                 ]
               },
               "dependsOn": [
-                "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.blob.core.windows.net')]",
+                "[resourceId('Microsoft.Network/privateDnsZones', format('privatelink.blob.{0}', environment().suffixes.storage))]",
                 "[resourceId('Microsoft.Network/privateEndpoints', 'pe-deployment-storage-blob')]"
               ]
             }
@@ -1047,7 +1055,7 @@
             },
             "privateDnsZoneId": {
               "type": "string",
-              "value": "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.blob.core.windows.net')]"
+              "value": "[resourceId('Microsoft.Network/privateDnsZones', format('privatelink.blob.{0}', environment().suffixes.storage))]"
             }
           }
         }

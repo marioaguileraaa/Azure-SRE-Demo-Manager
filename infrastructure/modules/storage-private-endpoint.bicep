@@ -26,7 +26,7 @@ resource subnet 'Microsoft.Network/virtualNetworks/subnets@2023-05-01' existing 
 
 // Private DNS zone for blob private endpoints
 resource dnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
-  name: 'privatelink.blob.core.windows.net'
+  name: 'privatelink.blob.${environment().suffixes.storage}'
   location: 'global'
   tags: tags
 }

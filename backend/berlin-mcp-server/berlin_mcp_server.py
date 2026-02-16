@@ -11,6 +11,7 @@ import secrets
 from fastapi import Request, HTTPException, status
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.types import ASGIApp, Scope, Receive, Send
 
 # Configuration
 BERLIN_API_URL = os.getenv("BERLIN_API_URL", "https://ca-parking-berlin.braveocean-195c6009.swedencentral.azurecontainerapps.io")
@@ -357,7 +358,6 @@ async def get_mcp_server_stats() -> str:
 if __name__ == "__main__":
     from fastapi import FastAPI
     from fastapi.responses import JSONResponse
-    from starlette.types import ASGIApp, Scope, Receive, Send
     
     if APPINSIGHTS_CONNECTION:
         logger.info("MCP Server starting", extra={'custom_dimensions': {'service': 'berlin-mcp-server'}})

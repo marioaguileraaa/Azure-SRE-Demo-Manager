@@ -85,6 +85,110 @@ Get statistics about the MCP server itself (meta-monitoring).
 
 - `BERLIN_API_URL` - URL of the Berlin Parking API
 - `APPLICATIONINSIGHTS_CONNECTION_STRING` - Application Insights connection string for logging
+- `MCP_AUTH_TOKEN` - Bearer token for authentication (optional, but recommended for production)
+
+## Authentication
+
+The MCP server supports **Bearer Token authentication** to secure the MCP endpoints.
+
+### Environment Variable
+
+Set the `MCP_AUTH_TOKEN` environment variable to enable authentication:
+
+```bash
+export MCP_AUTH_TOKEN="your-secret-token-here"
+```
+
+### Protected Endpoints
+
+- ✅ `/sse` - MCP protocol endpoint (requires authentication)
+- ❌ `/health` - Health check (public, no auth required)
+- ❌ `/` - Server info (public, for discovery)
+
+### MCP Client Configuration
+
+Configure your MCP client with Bearer Token authentication:
+
+```json
+{
+  "mcpServers": {
+    "berlin-monitoring": {
+      "url": "https://ca-berlin-mcp.ashyriver-65b8d9ff.swedencentral.azurecontainerapps.io/sse",
+      "transport": "sse",
+      "headers": {
+        "Authorization": "Bearer your-secret-token-here"
+      }
+    }
+  }
+}
+```
+
+### Testing Authentication
+
+**Without token (should fail):**
+```powershell
+Invoke-WebRequest -Uri "https://ca-berlin-mcp.ashyriver-65b8d9ff.swedencentral.azurecontainerapps.io/sse"
+# Expected: 401 Unauthorized
+```
+
+**With valid token (should succeed):**
+```powershell
+$headers = @{
+    "Authorization" = "Bearer your-secret-token-here"
+}
+Invoke-WebRequest -Uri "https://ca-berlin-mcp.ashyriver-65b8d9ff.swedencentral.azurecontainerapps.io/sse" -Headers $headers
+# Expected: 200 OK (connection established)
+```
+
+**Health endpoint (always public):**
+```powershell
+Invoke-RestMethod "https://ca-berlin-mcp.ashyriver-65b8d9ff.swedencentral.azurecontainerapps.io/health"
+# Expected: 200 OK (no auth required)
+```
+
+### Generating a Secure Token
+
+Generate a cryptographically secure token:
+
+**PowerShell:**
+```powershell
+# Generate a secure random token
+$bytes = New-Object Byte[] 32
+[Security.Cryptography.RNGCryptoServiceProvider]::Create().GetBytes($bytes)
+$token = [Convert]::ToBase64String($bytes)
+Write-Host "MCP_AUTH_TOKEN=$token"
+```
+
+**Bash:**
+```bash
+# Generate a secure random token
+openssl rand -base64 32
+```
+
+### Setting the Token in Azure Container App
+
+```bash
+# Update Container App with the token
+az containerapp update \
+  --name ca-berlin-mcp \
+  --resource-group rg-parking-berlin-mcp-dev \
+  --set-env-vars "MCP_AUTH_TOKEN=your-generated-token-here"
+```
+
+### Security Notes
+
+- ✅ Use a cryptographically secure random token (at least 32 bytes)
+- ✅ Store the token securely (Azure Key Vault recommended)
+- ✅ Rotate the token periodically
+- ⚠️ Never commit the token to source control
+- ⚠️ Use HTTPS only (Container App enforces this)
+
+### Backward Compatibility
+
+If `MCP_AUTH_TOKEN` is not set, the server will:
+- ⚠️ Log a warning
+- ⚠️ Allow all requests (authentication disabled)
+- This is for development/testing only - not recommended for production
 
 ## Testing
 

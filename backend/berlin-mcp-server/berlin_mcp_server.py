@@ -6,10 +6,14 @@ from datetime import datetime
 from opencensus.ext.azure.log_exporter import AzureLogHandler
 import os
 import uvicorn
+from fastapi import Request, HTTPException, status
+from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 
 # Configuration
 BERLIN_API_URL = os.getenv("BERLIN_API_URL", "https://ca-parking-berlin.braveocean-195c6009.swedencentral.azurecontainerapps.io")
 APPINSIGHTS_CONNECTION = os.getenv("APPLICATIONINSIGHTS_CONNECTION_STRING")
+MCP_AUTH_TOKEN = os.getenv("MCP_AUTH_TOKEN")  # Bearer token for authentication
 
 # Setup Application Insights logging
 logger = logging.getLogger(__name__)
@@ -48,6 +52,59 @@ class MCPMetrics:
             })
 
 metrics = MCPMetrics()
+
+# Authentication Middleware
+class BearerTokenAuthMiddleware(BaseHTTPMiddleware):
+    """Middleware to validate Bearer token for MCP endpoints"""
+    
+    async def dispatch(self, request: Request, call_next):
+        # Skip auth for health endpoint (needed for Container App probes)
+        if request.url.path == "/health":
+            return await call_next(request)
+        
+        # Skip auth for root endpoint (for discovery)
+        if request.url.path == "/":
+            return await call_next(request)
+        
+        # If MCP_AUTH_TOKEN is not set, allow all requests (backward compatibility)
+        if not MCP_AUTH_TOKEN:
+            logger.warning("MCP_AUTH_TOKEN not set - authentication disabled")
+            return await call_next(request)
+        
+        # Check Authorization header for protected endpoints
+        auth_header = request.headers.get("Authorization")
+        
+        if not auth_header:
+            logger.warning(f"Missing Authorization header from {request.client.host}")
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"error": "Missing Authorization header"},
+                headers={"WWW-Authenticate": "Bearer"}
+            )
+        
+        # Validate Bearer token
+        if not auth_header.startswith("Bearer "):
+            logger.warning(f"Invalid Authorization header format from {request.client.host}")
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"error": "Invalid Authorization header format. Expected: Bearer <token>"},
+                headers={"WWW-Authenticate": "Bearer"}
+            )
+        
+        token = auth_header.replace("Bearer ", "")
+        
+        if token != MCP_AUTH_TOKEN:
+            logger.warning(f"Invalid token from {request.client.host}")
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content={"error": "Invalid authentication token"}
+            )
+        
+        # Token is valid, proceed with request
+        if APPINSIGHTS_CONNECTION:
+            logger.info(f"Authenticated request to {request.url.path}")
+        
+        return await call_next(request)
 
 @app.tool()
 async def check_health() -> str:
@@ -252,10 +309,19 @@ if __name__ == "__main__":
     if APPINSIGHTS_CONNECTION:
         logger.info("MCP Server starting", extra={'custom_dimensions': {'service': 'berlin-mcp-server'}})
     
-    print("Starting Berlin MCP Monitoring Server on port 8080...")
+    # Log authentication status
+    if MCP_AUTH_TOKEN:
+        print(f"Starting Berlin MCP Monitoring Server on port 8080 with authentication enabled...")
+        logger.info("Authentication enabled", extra={'custom_dimensions': {'auth': 'bearer-token'}})
+    else:
+        print(f"⚠️  WARNING: Starting Berlin MCP Monitoring Server on port 8080 WITHOUT authentication")
+        logger.warning("Authentication disabled - MCP_AUTH_TOKEN not set")
     
     # Create main FastAPI app
     main_app = FastAPI(title="Berlin MCP Monitoring Server")
+    
+    # Add authentication middleware
+    main_app.add_middleware(BearerTokenAuthMiddleware)
     
     # Define tool names for consistent reporting
     TOOL_NAMES = [
@@ -276,7 +342,8 @@ if __name__ == "__main__":
             "service": "berlin-mcp-server",
             "timestamp": datetime.now().isoformat(),
             "mcp_tools": len(TOOL_NAMES),
-            "target_api": BERLIN_API_URL
+            "target_api": BERLIN_API_URL,
+            "auth_enabled": bool(MCP_AUTH_TOKEN)
         })
     
     # Add root endpoint with info
@@ -287,6 +354,7 @@ if __name__ == "__main__":
             "service": "Berlin MCP Monitoring Server",
             "version": "1.0.0",
             "protocol": "MCP",
+            "auth_enabled": bool(MCP_AUTH_TOKEN),
             "endpoints": {
                 "health": "/health",
                 "mcp_sse": "/sse"

@@ -101,7 +101,8 @@ jobs:
             --image ${{ env.IMAGE_TAG }} \
             --set-env-vars \
               BERLIN_API_URL="$BERLIN_API_URL" \
-              APPLICATIONINSIGHTS_CONNECTION_STRING="$APPINSIGHTS_CONNECTION"
+              APPLICATIONINSIGHTS_CONNECTION_STRING="$APPINSIGHTS_CONNECTION" \
+              MCP_AUTH_TOKEN="${{ secrets.MCP_AUTH_TOKEN }}"
 
       - name: Get MCP Server URL
         if: steps.check_rg.outputs.exists == 'true'

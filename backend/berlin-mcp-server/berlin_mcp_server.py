@@ -5,6 +5,7 @@ import logging
 from datetime import datetime
 from opencensus.ext.azure.log_exporter import AzureLogHandler
 import os
+import uvicorn
 
 # Configuration
 BERLIN_API_URL = os.getenv("BERLIN_API_URL", "https://ca-parking-berlin.braveocean-195c6009.swedencentral.azurecontainerapps.io")
@@ -245,8 +246,6 @@ async def get_mcp_server_stats() -> str:
     return result
 
 if __name__ == "__main__":
-    import uvicorn
-    
     if APPINSIGHTS_CONNECTION:
         logger.info("MCP Server starting", extra={'custom_dimensions': {'service': 'berlin-mcp-server'}})
     

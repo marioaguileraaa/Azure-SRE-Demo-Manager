@@ -275,7 +275,7 @@ module berlinAcrAccess 'modules/acr-role-assignment.bicep' = if (createContainer
 }
 
 // ========================================
-// Berlin MCP Server (Container Instance for monitoring Berlin API)
+// Berlin MCP Server (Container App for monitoring Berlin API)
 // ========================================
 
 module berlinMcpServer 'modules/berlin-mcp-server.bicep' = if (deployBerlinMcp) {
@@ -284,6 +284,7 @@ module berlinMcpServer 'modules/berlin-mcp-server.bicep' = if (deployBerlinMcp) 
   params: {
     location: location
     environment: environment
+    containerSubnetId: hub.outputs.containerSubnetId
     berlinApiUrl: berlinApi.outputs.containerAppUrl
     containerImage: '' // Will be set by CI/CD pipeline
     containerRegistry: createContainerRegistry ? acr!.outputs.loginServer : containerRegistry
@@ -291,12 +292,12 @@ module berlinMcpServer 'modules/berlin-mcp-server.bicep' = if (deployBerlinMcp) 
   }
 }
 
-// Grant Berlin MCP Server Container Instance access to ACR
+// Grant Berlin MCP Server Container App access to ACR
 module berlinMcpAcrAccess 'modules/acr-role-assignment.bicep' = if (createContainerRegistry && deployBerlinMcp) {
   scope: hubRg
   name: 'berlin-mcp-acr-access'
   params: {
-    principalId: berlinMcpServer!.outputs.containerInstancePrincipalId
+    principalId: berlinMcpServer!.outputs.containerAppPrincipalId
     acrName: acr!.outputs.registryName
   }
 }
@@ -409,7 +410,7 @@ output berlinApiUrl string = berlinApi.outputs.containerAppUrl
 output berlinMcpServerUrl string = deployBerlinMcp ? berlinMcpServer!.outputs.mcpServerUrl : ''
 output berlinMcpAppInsightsName string = deployBerlinMcp ? berlinMcpServer!.outputs.appInsightsName : ''
 output berlinMcpLogAnalyticsWorkspaceName string = deployBerlinMcp ? berlinMcpServer!.outputs.logAnalyticsWorkspaceName : ''
-output berlinMcpContainerInstanceName string = deployBerlinMcp ? berlinMcpServer!.outputs.containerInstanceName : ''
+output berlinMcpContainerAppName string = deployBerlinMcp ? berlinMcpServer!.outputs.containerAppName : ''
 
 output madridVmName string = madridApi.outputs.vmName
 output madridPublicIp string = madridApi.outputs.publicIpAddress

@@ -21,7 +21,7 @@ on:
 env:
   AZURE_REGION: swedencentral
   RESOURCE_GROUP: rg-berlin-mcp-dev
-  CONTAINER_INSTANCE_NAME: aci-berlin-mcp-dev
+  CONTAINER_APP_NAME: ca-berlin-mcp-dev
   AZURE_CONTAINER_REGISTRY: ${{ vars.AZURE_CONTAINER_REGISTRY }}
   IMAGE_NAME: berlin-mcp-server
 
@@ -65,7 +65,7 @@ jobs:
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Deploy to Azure Container Instance
+      - name: Deploy to Azure Container App
         run: |
           if [ "${{ steps.check_rg.outputs.exists }}" == "false" ]; then
             echo "Resource group ${{ env.RESOURCE_GROUP }} does not exist. Skipping deployment."
@@ -94,32 +94,25 @@ jobs:
             --query connectionString \
             --output tsv)
           
-          # Update container instance with new image
-          az container create \
+          # Update container app with new image
+          az containerapp update \
+            --name ${{ env.CONTAINER_APP_NAME }} \
             --resource-group ${{ env.RESOURCE_GROUP }} \
-            --name ${{ env.CONTAINER_INSTANCE_NAME }} \
             --image ${{ env.IMAGE_TAG }} \
-            --acr-identity [system] \
-            --cpu 1 \
-            --memory 1 \
-            --ports 8080 \
-            --dns-name-label berlin-mcp-dev-$(echo ${{ github.sha }} | cut -c1-8) \
-            --environment-variables \
+            --set-env-vars \
               BERLIN_API_URL="$BERLIN_API_URL" \
-              APPLICATIONINSIGHTS_CONNECTION_STRING="$APPINSIGHTS_CONNECTION" \
-            --restart-policy Always \
-            --assign-identity [system]
+              APPLICATIONINSIGHTS_CONNECTION_STRING="$APPINSIGHTS_CONNECTION"
 
       - name: Get MCP Server URL
         if: steps.check_rg.outputs.exists == 'true'
         run: |
-          MCP_SERVER_FQDN=$(az container show \
+          MCP_SERVER_FQDN=$(az containerapp show \
             --resource-group ${{ env.RESOURCE_GROUP }} \
-            --name ${{ env.CONTAINER_INSTANCE_NAME }} \
-            --query ipAddress.fqdn \
+            --name ${{ env.CONTAINER_APP_NAME }} \
+            --query properties.configuration.ingress.fqdn \
             --output tsv)
           
-          echo "MCP_SERVER_URL=http://${MCP_SERVER_FQDN}:8080" >> $GITHUB_ENV
+          echo "MCP_SERVER_URL=https://${MCP_SERVER_FQDN}" >> $GITHUB_ENV
 
       - name: Deployment summary
         run: |
@@ -127,7 +120,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           
           if [ "${{ steps.check_rg.outputs.exists }}" == "true" ]; then
-            echo "- **Container Instance**: ${{ env.CONTAINER_INSTANCE_NAME }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Container App**: ${{ env.CONTAINER_APP_NAME }}" >> $GITHUB_STEP_SUMMARY
             echo "- **Image**: ${{ env.IMAGE_TAG }}" >> $GITHUB_STEP_SUMMARY
             echo "- **Resource Group**: ${{ env.RESOURCE_GROUP }}" >> $GITHUB_STEP_SUMMARY
             echo "- **MCP Server URL**: ${{ env.MCP_SERVER_URL }}" >> $GITHUB_STEP_SUMMARY

@@ -1,9 +1,12 @@
-// Berlin MCP Server module - Container Instance for monitoring Berlin API
+// Berlin MCP Server module - Container App for monitoring Berlin API
 @description('Location for all MCP server resources')
 param location string
 
 @description('Environment name (e.g., dev, prod)')
 param environment string = 'dev'
+
+@description('Container subnet ID from hub VNet')
+param containerSubnetId string
 
 @description('URL of the Berlin Parking API to monitor')
 param berlinApiUrl string
@@ -45,30 +48,65 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
   }
 }
 
-// Container Instance for MCP server
-resource containerInstance 'Microsoft.ContainerInstance/containerGroups@2023-05-01' = {
-  name: 'aci-berlin-mcp-${environment}'
+// Container App Environment for MCP server
+resource containerAppEnvironment 'Microsoft.App/managedEnvironments@2023-05-01' = {
+  name: 'cae-berlin-mcp-${environment}'
   location: location
   tags: tags
   properties: {
-    containers: [
+    appLogsConfiguration: {
+      destination: 'log-analytics'
+      logAnalyticsConfiguration: {
+        customerId: logAnalyticsWorkspace.properties.customerId
+        sharedKey: listKeys(logAnalyticsWorkspace.id, '2022-10-01').primarySharedKey
+      }
+    }
+    vnetConfiguration: {
+      infrastructureSubnetId: containerSubnetId
+    }
+    workloadProfiles: [
       {
-        name: 'berlin-mcp-server'
-        properties: {
-          image: empty(containerImage) ? 'mcr.microsoft.com/azuredocs/aci-helloworld:latest' : containerImage
+        name: 'Consumption'
+        workloadProfileType: 'Consumption'
+      }
+    ]
+  }
+}
+
+// Container App for MCP server
+resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
+  name: 'ca-berlin-mcp-${environment}'
+  location: location
+  tags: tags
+  identity: {
+    type: 'SystemAssigned'
+  }
+  properties: {
+    environmentId: containerAppEnvironment.id
+    configuration: {
+      ingress: {
+        external: true
+        targetPort: 8080
+        transport: 'auto'
+        allowInsecure: false
+      }
+      registries: empty(containerRegistry) ? [] : [
+        {
+          server: containerRegistry
+          identity: 'system'
+        }
+      ]
+    }
+    template: {
+      containers: [
+        {
+          name: 'berlin-mcp-server'
+          image: empty(containerImage) ? 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest' : containerImage
           resources: {
-            requests: {
-              cpu: 1
-              memoryInGB: 1
-            }
+            cpu: json('0.25')
+            memory: '0.5Gi'
           }
-          ports: [
-            {
-              port: 8080
-              protocol: 'TCP'
-            }
-          ]
-          environmentVariables: [
+          env: [
             {
               name: 'BERLIN_API_URL'
               value: berlinApiUrl
@@ -79,35 +117,21 @@ resource containerInstance 'Microsoft.ContainerInstance/containerGroups@2023-05-
             }
           ]
         }
-      }
-    ]
-    osType: 'Linux'
-    restartPolicy: 'Always'
-    ipAddress: {
-      type: 'Public'
-      ports: [
-        {
-          port: 8080
-          protocol: 'TCP'
-        }
       ]
-      dnsNameLabel: 'berlin-mcp-${environment}-${uniqueString(resourceGroup().id)}'
-    }
-    imageRegistryCredentials: empty(containerRegistry) ? [] : [
-      {
-        server: containerRegistry
-        identity: resourceGroup().id
+      scale: {
+        minReplicas: 1
+        maxReplicas: 3
       }
-    ]
-  }
-  identity: {
-    type: 'SystemAssigned'
+    }
   }
 }
 
 // Outputs
-output containerInstanceName string = containerInstance.name
-output mcpServerUrl string = 'http://${containerInstance.properties.ipAddress.fqdn}:8080'
+output containerAppName string = containerApp.name
+output containerAppFqdn string = containerApp.properties.configuration.ingress.fqdn
+output mcpServerUrl string = 'https://${containerApp.properties.configuration.ingress.fqdn}'
+output containerAppEnvironmentName string = containerAppEnvironment.name
+output containerAppEnvironmentId string = containerAppEnvironment.id
 output appInsightsName string = appInsights.name
 output logAnalyticsWorkspaceName string = logAnalyticsWorkspace.name
-output containerInstancePrincipalId string = containerInstance.identity.principalId
+output containerAppPrincipalId string = containerApp.identity.principalId

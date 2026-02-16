@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.40.2.10011",
-      "templateHash": "9042578022653931090"
+      "templateHash": "16450673076657402864"
     }
   },
   "parameters": {
@@ -1910,6 +1910,9 @@
           "environment": {
             "value": "[parameters('environment')]"
           },
+          "containerSubnetId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'hub-deployment'), '2025-04-01').outputs.containerSubnetId.value]"
+          },
           "berlinApiUrl": {
             "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('berlinRgName')), 'Microsoft.Resources/deployments', 'berlin-api-deployment'), '2025-04-01').outputs.containerAppUrl.value]"
           },
@@ -1928,7 +1931,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.40.2.10011",
-              "templateHash": "11213965135269791278"
+              "templateHash": "2868878412794229665"
             }
           },
           "parameters": {
@@ -1943,6 +1946,12 @@
               "defaultValue": "dev",
               "metadata": {
                 "description": "Environment name (e.g., dev, prod)"
+              }
+            },
+            "containerSubnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Container subnet ID from hub VNet"
               }
             },
             "berlinApiUrl": {
@@ -2006,30 +2015,63 @@
               ]
             },
             {
-              "type": "Microsoft.ContainerInstance/containerGroups",
+              "type": "Microsoft.App/managedEnvironments",
               "apiVersion": "2023-05-01",
-              "name": "[format('aci-berlin-mcp-{0}', parameters('environment'))]",
+              "name": "[format('cae-berlin-mcp-{0}', parameters('environment'))]",
               "location": "[parameters('location')]",
               "tags": "[parameters('tags')]",
               "properties": {
-                "containers": [
+                "appLogsConfiguration": {
+                  "destination": "log-analytics",
+                  "logAnalyticsConfiguration": {
+                    "customerId": "[reference(resourceId('Microsoft.OperationalInsights/workspaces', format('law-berlin-mcp-{0}', parameters('environment'))), '2022-10-01').customerId]",
+                    "sharedKey": "[listKeys(resourceId('Microsoft.OperationalInsights/workspaces', format('law-berlin-mcp-{0}', parameters('environment'))), '2022-10-01').primarySharedKey]"
+                  }
+                },
+                "vnetConfiguration": {
+                  "infrastructureSubnetId": "[parameters('containerSubnetId')]"
+                },
+                "workloadProfiles": [
                   {
-                    "name": "berlin-mcp-server",
-                    "properties": {
-                      "image": "[if(empty(parameters('containerImage')), 'mcr.microsoft.com/azuredocs/aci-helloworld:latest', parameters('containerImage'))]",
+                    "name": "Consumption",
+                    "workloadProfileType": "Consumption"
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces', format('law-berlin-mcp-{0}', parameters('environment')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.App/containerApps",
+              "apiVersion": "2023-05-01",
+              "name": "[format('ca-berlin-mcp-{0}', parameters('environment'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "properties": {
+                "environmentId": "[resourceId('Microsoft.App/managedEnvironments', format('cae-berlin-mcp-{0}', parameters('environment')))]",
+                "configuration": {
+                  "ingress": {
+                    "external": true,
+                    "targetPort": 8080,
+                    "transport": "auto",
+                    "allowInsecure": false
+                  },
+                  "registries": "[if(empty(parameters('containerRegistry')), createArray(), createArray(createObject('server', parameters('containerRegistry'), 'identity', 'system')))]"
+                },
+                "template": {
+                  "containers": [
+                    {
+                      "name": "berlin-mcp-server",
+                      "image": "[if(empty(parameters('containerImage')), 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest', parameters('containerImage'))]",
                       "resources": {
-                        "requests": {
-                          "cpu": 1,
-                          "memoryInGB": 1
-                        }
+                        "cpu": "[json('0.25')]",
+                        "memory": "0.5Gi"
                       },
-                      "ports": [
-                        {
-                          "port": 8080,
-                          "protocol": "TCP"
-                        }
-                      ],
-                      "environmentVariables": [
+                      "env": [
                         {
                           "name": "BERLIN_API_URL",
                           "value": "[parameters('berlinApiUrl')]"
@@ -2040,38 +2082,39 @@
                         }
                       ]
                     }
-                  }
-                ],
-                "osType": "Linux",
-                "restartPolicy": "Always",
-                "ipAddress": {
-                  "type": "Public",
-                  "ports": [
-                    {
-                      "port": 8080,
-                      "protocol": "TCP"
-                    }
                   ],
-                  "dnsNameLabel": "[format('berlin-mcp-{0}-{1}', parameters('environment'), uniqueString(resourceGroup().id))]"
-                },
-                "imageRegistryCredentials": "[if(empty(parameters('containerRegistry')), createArray(), createArray(createObject('server', parameters('containerRegistry'), 'identity', resourceGroup().id)))]"
-              },
-              "identity": {
-                "type": "SystemAssigned"
+                  "scale": {
+                    "minReplicas": 1,
+                    "maxReplicas": 3
+                  }
+                }
               },
               "dependsOn": [
-                "[resourceId('Microsoft.Insights/components', format('ai-berlin-mcp-{0}', parameters('environment')))]"
+                "[resourceId('Microsoft.Insights/components', format('ai-berlin-mcp-{0}', parameters('environment')))]",
+                "[resourceId('Microsoft.App/managedEnvironments', format('cae-berlin-mcp-{0}', parameters('environment')))]"
               ]
             }
           ],
           "outputs": {
-            "containerInstanceName": {
+            "containerAppName": {
               "type": "string",
-              "value": "[format('aci-berlin-mcp-{0}', parameters('environment'))]"
+              "value": "[format('ca-berlin-mcp-{0}', parameters('environment'))]"
+            },
+            "containerAppFqdn": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.App/containerApps', format('ca-berlin-mcp-{0}', parameters('environment'))), '2023-05-01').configuration.ingress.fqdn]"
             },
             "mcpServerUrl": {
               "type": "string",
-              "value": "[format('http://{0}:8080', reference(resourceId('Microsoft.ContainerInstance/containerGroups', format('aci-berlin-mcp-{0}', parameters('environment'))), '2023-05-01').ipAddress.fqdn)]"
+              "value": "[format('https://{0}', reference(resourceId('Microsoft.App/containerApps', format('ca-berlin-mcp-{0}', parameters('environment'))), '2023-05-01').configuration.ingress.fqdn)]"
+            },
+            "containerAppEnvironmentName": {
+              "type": "string",
+              "value": "[format('cae-berlin-mcp-{0}', parameters('environment'))]"
+            },
+            "containerAppEnvironmentId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.App/managedEnvironments', format('cae-berlin-mcp-{0}', parameters('environment')))]"
             },
             "appInsightsName": {
               "type": "string",
@@ -2081,9 +2124,9 @@
               "type": "string",
               "value": "[format('law-berlin-mcp-{0}', parameters('environment'))]"
             },
-            "containerInstancePrincipalId": {
+            "containerAppPrincipalId": {
               "type": "string",
-              "value": "[reference(resourceId('Microsoft.ContainerInstance/containerGroups', format('aci-berlin-mcp-{0}', parameters('environment'))), '2023-05-01', 'full').identity.principalId]"
+              "value": "[reference(resourceId('Microsoft.App/containerApps', format('ca-berlin-mcp-{0}', parameters('environment'))), '2023-05-01', 'full').identity.principalId]"
             }
           }
         }
@@ -2091,7 +2134,8 @@
       "dependsOn": [
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'container-registry-deployment')]",
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('berlinRgName')), 'Microsoft.Resources/deployments', 'berlin-api-deployment')]",
-        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('berlinMcpRgName'))]"
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('berlinMcpRgName'))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'hub-deployment')]"
       ]
     },
     {
@@ -2107,7 +2151,7 @@
         "mode": "Incremental",
         "parameters": {
           "principalId": {
-            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('berlinMcpRgName')), 'Microsoft.Resources/deployments', 'berlin-mcp-server-deployment'), '2025-04-01').outputs.containerInstancePrincipalId.value]"
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('berlinMcpRgName')), 'Microsoft.Resources/deployments', 'berlin-mcp-server-deployment'), '2025-04-01').outputs.containerAppPrincipalId.value]"
           },
           "acrName": {
             "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'container-registry-deployment'), '2025-04-01').outputs.registryName.value]"
@@ -3158,9 +3202,9 @@
       "type": "string",
       "value": "[if(parameters('deployBerlinMcp'), reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('berlinMcpRgName')), 'Microsoft.Resources/deployments', 'berlin-mcp-server-deployment'), '2025-04-01').outputs.logAnalyticsWorkspaceName.value, '')]"
     },
-    "berlinMcpContainerInstanceName": {
+    "berlinMcpContainerAppName": {
       "type": "string",
-      "value": "[if(parameters('deployBerlinMcp'), reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('berlinMcpRgName')), 'Microsoft.Resources/deployments', 'berlin-mcp-server-deployment'), '2025-04-01').outputs.containerInstanceName.value, '')]"
+      "value": "[if(parameters('deployBerlinMcp'), reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('berlinMcpRgName')), 'Microsoft.Resources/deployments', 'berlin-mcp-server-deployment'), '2025-04-01').outputs.containerAppName.value, '')]"
     },
     "madridVmName": {
       "type": "string",

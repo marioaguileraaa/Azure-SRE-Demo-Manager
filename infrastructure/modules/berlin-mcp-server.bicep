@@ -34,6 +34,7 @@ resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10
 }
 
 // Application Insights for MCP server monitoring
+// Note: Name does not include environment suffix to match manually deployed resource in Azure
 resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
   name: 'appi-parking-berlin-mcp'
   location: location

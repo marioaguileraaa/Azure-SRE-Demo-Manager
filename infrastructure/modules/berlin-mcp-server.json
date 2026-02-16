@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.40.2.10011",
-      "templateHash": "16418450721531460595"
+      "templateHash": "2758760415799505854"
     }
   },
   "parameters": {
@@ -19,7 +19,7 @@
       "type": "string",
       "defaultValue": "dev",
       "metadata": {
-        "description": "Environment name (e.g., dev, prod)"
+        "description": "Environment name (e.g., dev, prod) - NOTE: Not used in resource naming as resources are hardcoded to match existing manually deployed Azure resources"
       }
     },
     "containerSubnetId": {

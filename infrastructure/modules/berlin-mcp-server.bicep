@@ -2,7 +2,7 @@
 @description('Location for all MCP server resources')
 param location string
 
-@description('Environment name (e.g., dev, prod)')
+@description('Environment name (e.g., dev, prod) - NOTE: Not used in resource naming as resources are hardcoded to match existing manually deployed Azure resources')
 param environment string = 'dev'
 
 @description('Container subnet ID from hub VNet')

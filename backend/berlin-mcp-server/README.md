@@ -131,6 +131,7 @@ Get statistics about the MCP server itself (meta-monitoring).
 - `BERLIN_API_URL` - URL of the Berlin Parking API
 - `APPLICATIONINSIGHTS_CONNECTION_STRING` - Application Insights connection string for logging
 - `MCP_AUTH_TOKEN` - Bearer token for authentication (optional, but recommended for production)
+- `MCP_ALLOWED_HOSTS` - Comma-separated list of allowed Host headers for SSE transport security (optional, automatically configured during deployment)
 
 ## Authentication
 
@@ -234,6 +235,50 @@ If `MCP_AUTH_TOKEN` is not set, the server will:
 - ⚠️ Log a warning
 - ⚠️ Allow all requests (authentication disabled)
 - This is for development/testing only - not recommended for production
+
+## DNS Rebinding Protection
+
+The MCP server includes **DNS rebinding protection** as a security feature to prevent malicious attacks. This protection validates the `Host` header in incoming requests.
+
+### How It Works
+
+- The server maintains a list of allowed hosts in `MCP_ALLOWED_HOSTS`
+- By default, only `localhost:*` and `127.0.0.1:*` are allowed
+- During deployment, the Azure Container Apps FQDN is automatically added to the allowed hosts list
+- Requests with an invalid Host header are rejected with HTTP 421 (Misdirected Request)
+
+### Configuration
+
+The `MCP_ALLOWED_HOSTS` environment variable accepts a comma-separated list of allowed hosts:
+
+```bash
+# Single host
+MCP_ALLOWED_HOSTS="ca-berlin-mcp.ashyriver-65b8d9ff.swedencentral.azurecontainerapps.io:*"
+
+# Multiple hosts
+MCP_ALLOWED_HOSTS="ca-berlin-mcp.ashyriver-65b8d9ff.swedencentral.azurecontainerapps.io:*,custom-domain.com:*"
+```
+
+The `:*` suffix allows any port number, which is necessary for cloud environments where ephemeral ports are used.
+
+### Automatic Configuration
+
+The GitHub Actions deployment workflow automatically configures `MCP_ALLOWED_HOSTS` with the Container App's FQDN. No manual configuration is needed.
+
+### Troubleshooting
+
+If you encounter **"421 Misdirected Request"** or **"Invalid Host header"** errors:
+
+1. Check the Host header being sent in your request
+2. Ensure the host is in the `MCP_ALLOWED_HOSTS` list
+3. Verify the deployment workflow properly configured the environment variable
+4. For custom domains, add them to `MCP_ALLOWED_HOSTS` manually:
+   ```bash
+   az containerapp update \
+     --name ca-berlin-mcp \
+     --resource-group rg-parking-berlin-mcp-dev \
+     --set-env-vars "MCP_ALLOWED_HOSTS=your-fqdn:*,custom-domain.com:*"
+   ```
 
 ## Testing
 

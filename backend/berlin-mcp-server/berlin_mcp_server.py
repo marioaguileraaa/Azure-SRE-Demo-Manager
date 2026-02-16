@@ -98,8 +98,8 @@ class BearerTokenAuthMiddleware(BaseHTTPMiddleware):
                 headers={"WWW-Authenticate": "Bearer"}
             )
         
-        # Extract token after "Bearer " prefix
-        token = auth_header[7:]
+        # Extract token after "Bearer " prefix (Python 3.9+)
+        token = auth_header.removeprefix("Bearer ")
         
         # Check if token is empty
         if not token:

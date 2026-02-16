@@ -5,6 +5,7 @@ import logging
 from datetime import datetime
 from opencensus.ext.azure.log_exporter import AzureLogHandler
 import os
+import uvicorn
 
 # Configuration
 BERLIN_API_URL = os.getenv("BERLIN_API_URL", "https://ca-parking-berlin.braveocean-195c6009.swedencentral.azurecontainerapps.io")
@@ -247,5 +248,11 @@ async def get_mcp_server_stats() -> str:
 if __name__ == "__main__":
     if APPINSIGHTS_CONNECTION:
         logger.info("MCP Server starting", extra={'custom_dimensions': {'service': 'berlin-mcp-server'}})
-    print("Starting Berlin MCP Monitoring Server...")
-    app.run(transport="stdio")
+    
+    print("Starting Berlin MCP Monitoring Server on port 8080...")
+    
+    # Get the SSE app for HTTP/SSE transport
+    sse_app = app.sse_app()
+    
+    # Run with uvicorn on port 8080 for Container App
+    uvicorn.run(sse_app, host="0.0.0.0", port=8080, log_level="info")

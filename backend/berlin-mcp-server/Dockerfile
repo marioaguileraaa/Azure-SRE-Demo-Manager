@@ -12,9 +12,8 @@ COPY berlin_mcp_server.py .
 # Expose MCP server port
 EXPOSE 8080
 
-# Health check - use HTTP GET to /health endpoint
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD python -c "import urllib.request; import sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/health').getcode() == 200 else 1)"
+# Note: Health checks are handled by Container App probes (Startup, Liveness, Readiness)
+# Docker HEALTHCHECK is not used to avoid conflicts with platform probes
 
 # Run the MCP server
 CMD ["python", "berlin_mcp_server.py"]

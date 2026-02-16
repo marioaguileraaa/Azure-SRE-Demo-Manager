@@ -386,18 +386,26 @@ if __name__ == "__main__":
             "auth_enabled": bool(MCP_AUTH_TOKEN),
             "endpoints": {
                 "health": "/health",
-                "mcp_sse": "/sse/"
+                "mcp_sse": "/sse"
             },
             "tools": TOOL_NAMES,
-            "note": "MCP SSE endpoint requires trailing slash: /sse/"
+            "note": "MCP SSE endpoint accepts both /sse and /sse/ paths"
         })
     
     # Get the MCP SSE app and mount it (protected by auth)
     mcp_sse_app = app.sse_app()
     
-    # Mount MCP SSE app at /sse for MCP protocol
-    # Note: FastAPI mount behavior requires trailing slash in URL
-    main_app.mount("/sse", mcp_sse_app)
+    # Use api_route with direct ASGI proxy to avoid 307 redirects that lose auth headers
+    # Handle both /sse and /sse/ to prevent any redirects
+    @main_app.api_route("/sse", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"])
+    @main_app.api_route("/sse/", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"])
+    async def mcp_sse_proxy(request: Request):
+        """Proxy requests to MCP SSE app without redirects"""
+        # Normalize path for MCP SSE app (it expects /sse without trailing slash)
+        scope = dict(request.scope)
+        if scope["path"].endswith("/"):
+            scope["path"] = scope["path"].rstrip("/")
+        return await mcp_sse_app(scope, request.receive, request._send)
     
     # Run the combined app
     uvicorn.run(main_app, host="0.0.0.0", port=8080, log_level="info")

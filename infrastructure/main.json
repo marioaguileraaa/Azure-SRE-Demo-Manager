@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.40.2.10011",
-      "templateHash": "4594281003793345174"
+      "templateHash": "14131169974947338882"
     }
   },
   "parameters": {
@@ -1931,7 +1931,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.40.2.10011",
-              "templateHash": "9910815434700946651"
+              "templateHash": "2758760415799505854"
             }
           },
           "parameters": {
@@ -1945,7 +1945,7 @@
               "type": "string",
               "defaultValue": "dev",
               "metadata": {
-                "description": "Environment name (e.g., dev, prod)"
+                "description": "Environment name (e.g., dev, prod) - NOTE: Not used in resource naming as resources are hardcoded to match existing manually deployed Azure resources"
               }
             },
             "containerSubnetId": {
@@ -1986,7 +1986,7 @@
             {
               "type": "Microsoft.OperationalInsights/workspaces",
               "apiVersion": "2022-10-01",
-              "name": "[format('law-berlin-mcp-{0}', parameters('environment'))]",
+              "name": "law-berlin-mcp",
               "location": "[parameters('location')]",
               "tags": "[parameters('tags')]",
               "properties": {
@@ -2005,27 +2005,27 @@
               "kind": "web",
               "properties": {
                 "Application_Type": "web",
-                "WorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', format('law-berlin-mcp-{0}', parameters('environment')))]",
+                "WorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', 'law-berlin-mcp')]",
                 "IngestionMode": "LogAnalytics",
                 "publicNetworkAccessForIngestion": "Enabled",
                 "publicNetworkAccessForQuery": "Enabled"
               },
               "dependsOn": [
-                "[resourceId('Microsoft.OperationalInsights/workspaces', format('law-berlin-mcp-{0}', parameters('environment')))]"
+                "[resourceId('Microsoft.OperationalInsights/workspaces', 'law-berlin-mcp')]"
               ]
             },
             {
               "type": "Microsoft.App/managedEnvironments",
               "apiVersion": "2023-05-01",
-              "name": "[format('cae-berlin-mcp-{0}', parameters('environment'))]",
+              "name": "cae-berlin-mcp",
               "location": "[parameters('location')]",
               "tags": "[parameters('tags')]",
               "properties": {
                 "appLogsConfiguration": {
                   "destination": "log-analytics",
                   "logAnalyticsConfiguration": {
-                    "customerId": "[reference(resourceId('Microsoft.OperationalInsights/workspaces', format('law-berlin-mcp-{0}', parameters('environment'))), '2022-10-01').customerId]",
-                    "sharedKey": "[listKeys(resourceId('Microsoft.OperationalInsights/workspaces', format('law-berlin-mcp-{0}', parameters('environment'))), '2022-10-01').primarySharedKey]"
+                    "customerId": "[reference(resourceId('Microsoft.OperationalInsights/workspaces', 'law-berlin-mcp'), '2022-10-01').customerId]",
+                    "sharedKey": "[listKeys(resourceId('Microsoft.OperationalInsights/workspaces', 'law-berlin-mcp'), '2022-10-01').primarySharedKey]"
                   }
                 },
                 "vnetConfiguration": {
@@ -2039,20 +2039,20 @@
                 ]
               },
               "dependsOn": [
-                "[resourceId('Microsoft.OperationalInsights/workspaces', format('law-berlin-mcp-{0}', parameters('environment')))]"
+                "[resourceId('Microsoft.OperationalInsights/workspaces', 'law-berlin-mcp')]"
               ]
             },
             {
               "type": "Microsoft.App/containerApps",
               "apiVersion": "2023-05-01",
-              "name": "[format('ca-berlin-mcp-{0}', parameters('environment'))]",
+              "name": "ca-berlin-mcp",
               "location": "[parameters('location')]",
               "tags": "[parameters('tags')]",
               "identity": {
                 "type": "SystemAssigned"
               },
               "properties": {
-                "environmentId": "[resourceId('Microsoft.App/managedEnvironments', format('cae-berlin-mcp-{0}', parameters('environment')))]",
+                "environmentId": "[resourceId('Microsoft.App/managedEnvironments', 'cae-berlin-mcp')]",
                 "configuration": {
                   "ingress": {
                     "external": true,
@@ -2091,30 +2091,30 @@
               },
               "dependsOn": [
                 "[resourceId('Microsoft.Insights/components', 'appi-parking-berlin-mcp')]",
-                "[resourceId('Microsoft.App/managedEnvironments', format('cae-berlin-mcp-{0}', parameters('environment')))]"
+                "[resourceId('Microsoft.App/managedEnvironments', 'cae-berlin-mcp')]"
               ]
             }
           ],
           "outputs": {
             "containerAppName": {
               "type": "string",
-              "value": "[format('ca-berlin-mcp-{0}', parameters('environment'))]"
+              "value": "ca-berlin-mcp"
             },
             "containerAppFqdn": {
               "type": "string",
-              "value": "[reference(resourceId('Microsoft.App/containerApps', format('ca-berlin-mcp-{0}', parameters('environment'))), '2023-05-01').configuration.ingress.fqdn]"
+              "value": "[reference(resourceId('Microsoft.App/containerApps', 'ca-berlin-mcp'), '2023-05-01').configuration.ingress.fqdn]"
             },
             "mcpServerUrl": {
               "type": "string",
-              "value": "[format('https://{0}', reference(resourceId('Microsoft.App/containerApps', format('ca-berlin-mcp-{0}', parameters('environment'))), '2023-05-01').configuration.ingress.fqdn)]"
+              "value": "[format('https://{0}', reference(resourceId('Microsoft.App/containerApps', 'ca-berlin-mcp'), '2023-05-01').configuration.ingress.fqdn)]"
             },
             "containerAppEnvironmentName": {
               "type": "string",
-              "value": "[format('cae-berlin-mcp-{0}', parameters('environment'))]"
+              "value": "cae-berlin-mcp"
             },
             "containerAppEnvironmentId": {
               "type": "string",
-              "value": "[resourceId('Microsoft.App/managedEnvironments', format('cae-berlin-mcp-{0}', parameters('environment')))]"
+              "value": "[resourceId('Microsoft.App/managedEnvironments', 'cae-berlin-mcp')]"
             },
             "appInsightsName": {
               "type": "string",
@@ -2122,11 +2122,11 @@
             },
             "logAnalyticsWorkspaceName": {
               "type": "string",
-              "value": "[format('law-berlin-mcp-{0}', parameters('environment'))]"
+              "value": "law-berlin-mcp"
             },
             "containerAppPrincipalId": {
               "type": "string",
-              "value": "[reference(resourceId('Microsoft.App/containerApps', format('ca-berlin-mcp-{0}', parameters('environment'))), '2023-05-01', 'full').identity.principalId]"
+              "value": "[reference(resourceId('Microsoft.App/containerApps', 'ca-berlin-mcp'), '2023-05-01', 'full').identity.principalId]"
             }
           }
         }

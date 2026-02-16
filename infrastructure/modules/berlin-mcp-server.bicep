@@ -2,7 +2,7 @@
 @description('Location for all MCP server resources')
 param location string
 
-@description('Environment name (e.g., dev, prod)')
+@description('Environment name (e.g., dev, prod) - NOTE: Not used in resource naming as resources are hardcoded to match existing manually deployed Azure resources')
 param environment string = 'dev'
 
 @description('Container subnet ID from hub VNet')
@@ -21,8 +21,9 @@ param containerRegistry string = ''
 param tags object = {}
 
 // Log Analytics Workspace for MCP server logs
+// Note: Name does not include environment suffix to match manually deployed resource in Azure
 resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
-  name: 'law-berlin-mcp-${environment}'
+  name: 'law-berlin-mcp'
   location: location
   tags: tags
   properties: {
@@ -50,8 +51,9 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
 }
 
 // Container App Environment for MCP server
+// Note: Name does not include environment suffix to match manually deployed resource in Azure
 resource containerAppEnvironment 'Microsoft.App/managedEnvironments@2023-05-01' = {
-  name: 'cae-berlin-mcp-${environment}'
+  name: 'cae-berlin-mcp'
   location: location
   tags: tags
   properties: {
@@ -75,8 +77,9 @@ resource containerAppEnvironment 'Microsoft.App/managedEnvironments@2023-05-01' 
 }
 
 // Container App for MCP server
+// Note: Name does not include environment suffix to match manually deployed resource in Azure
 resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
-  name: 'ca-berlin-mcp-${environment}'
+  name: 'ca-berlin-mcp'
   location: location
   tags: tags
   identity: {

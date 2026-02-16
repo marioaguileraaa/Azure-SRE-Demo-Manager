@@ -21,7 +21,7 @@ on:
 env:
   AZURE_REGION: swedencentral
   RESOURCE_GROUP: rg-parking-berlin-mcp-dev
-  CONTAINER_APP_NAME: ca-berlin-mcp-dev
+  CONTAINER_APP_NAME: ca-berlin-mcp
   AZURE_CONTAINER_REGISTRY: ${{ vars.AZURE_CONTAINER_REGISTRY }}
   IMAGE_NAME: berlin-mcp-server
 

@@ -375,7 +375,7 @@ if __name__ == "__main__":
             "auth_enabled": bool(MCP_AUTH_TOKEN)
         })
     
-    # Add root endpoint with info
+    # Add root endpoint with info (public - for discovery)
     @main_app.get("/")
     async def root():
         """Root endpoint with server information"""
@@ -386,28 +386,18 @@ if __name__ == "__main__":
             "auth_enabled": bool(MCP_AUTH_TOKEN),
             "endpoints": {
                 "health": "/health",
-                "mcp_sse": "/sse"
+                "mcp_sse": "/sse/"
             },
-            "tools": TOOL_NAMES
+            "tools": TOOL_NAMES,
+            "note": "MCP SSE endpoint requires trailing slash: /sse/"
         })
     
-    # Get the MCP SSE app
+    # Get the MCP SSE app and mount it (protected by auth)
     mcp_sse_app = app.sse_app()
     
-    # Create SSE endpoint route that proxies to the MCP SSE app
-    # This approach avoids the mounting issues with trailing slashes
-    @main_app.api_route("/sse", methods=["GET", "POST"], include_in_schema=False)
-    async def sse_endpoint(request: Request):
-        """
-        MCP SSE endpoint - protected by authentication middleware.
-        Proxies requests directly to the MCP SSE app's ASGI handler.
-        """
-        # The ASGI app callable expects (scope, receive, send)
-        # FastAPI's Request provides these via the underlying Starlette request
-        # Note: request._send is a Starlette internal, but this is the standard pattern
-        # for proxying ASGI apps when mount() doesn't work (e.g., to avoid trailing slash redirects).
-        # Alternative would be using app.mount() but that causes 307 redirects on /sse -> /sse/
-        await mcp_sse_app(request.scope, request.receive, request._send)
+    # Mount MCP SSE app at /sse for MCP protocol
+    # Note: FastAPI mount behavior requires trailing slash in URL
+    main_app.mount("/sse", mcp_sse_app)
     
     # Run the combined app
     uvicorn.run(main_app, host="0.0.0.0", port=8080, log_level="info")

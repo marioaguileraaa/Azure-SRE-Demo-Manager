@@ -89,7 +89,7 @@ jobs:
           
           # Get Application Insights connection string
           APPINSIGHTS_CONNECTION=$(az monitor app-insights component show \
-            --app appi-parking-berlin-mcp-dev \
+            --app appi-parking-berlin-mcp \
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --query connectionString \
             --output tsv)

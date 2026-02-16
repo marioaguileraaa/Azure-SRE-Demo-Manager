@@ -386,18 +386,40 @@ if __name__ == "__main__":
             "auth_enabled": bool(MCP_AUTH_TOKEN),
             "endpoints": {
                 "health": "/health",
-                "mcp_sse": "/sse/"
+                "mcp_sse": "/sse"
             },
             "tools": TOOL_NAMES,
-            "note": "MCP SSE endpoint requires trailing slash: /sse/"
+            "note": "MCP SSE endpoint accepts both /sse and /sse/ paths"
         })
     
-    # Get the MCP SSE app and mount it (protected by auth)
+    # Get the MCP SSE app
     mcp_sse_app = app.sse_app()
     
-    # Mount MCP SSE app at /sse for MCP protocol
-    # Note: FastAPI mount behavior requires trailing slash in URL
-    main_app.mount("/sse", mcp_sse_app)
+    # Create ASGI wrapper to normalize paths and avoid 307 redirects
+    class MCPSSEWrapper:
+        """ASGI wrapper that normalizes paths for MCP SSE app"""
+        def __init__(self, asgi_app):
+            self.asgi_app = asgi_app
+        
+        async def __call__(self, scope, receive, send):
+            # Normalize path (remove trailing slash for MCP SSE app)
+            if scope["path"].endswith("/") and scope["path"] != "/":
+                scope = dict(scope)
+                scope["path"] = scope["path"].rstrip("/")
+            return await self.asgi_app(scope, receive, send)
+    
+    wrapped_mcp_app = MCPSSEWrapper(mcp_sse_app)
+    
+    # Use api_route to handle both /sse and /sse/ without 307 redirects
+    @main_app.api_route("/sse", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"])
+    @main_app.api_route("/sse/", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"])
+    async def mcp_sse_proxy(request: Request):
+        """Proxy requests to MCP SSE app without redirects
+        
+        Note: request._send is used here as it's the standard way to proxy ASGI apps
+        in FastAPI/Starlette route handlers. This is intentional and documented behavior.
+        """
+        return await wrapped_mcp_app(request.scope, request.receive, request._send)
     
     # Run the combined app
     uvicorn.run(main_app, host="0.0.0.0", port=8080, log_level="info")

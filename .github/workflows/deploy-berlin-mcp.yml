@@ -105,6 +105,8 @@ jobs:
           
           if [ -z "$MCP_SERVER_FQDN" ]; then
             echo "Error: Could not retrieve MCP Server FQDN"
+            echo "This can happen if the Container App was not created by infrastructure deployment."
+            echo "Ensure the infrastructure is deployed first with deployBerlinMcp=true."
             exit 1
           fi
           

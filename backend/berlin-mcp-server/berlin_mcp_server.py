@@ -33,7 +33,8 @@ allowed_hosts = [
 
 # Add custom allowed hosts from environment variable
 if MCP_ALLOWED_HOSTS:
-    custom_hosts = [host.strip() for host in MCP_ALLOWED_HOSTS.split(",") if host.strip()]
+    # Split, strip, and filter out empty strings
+    custom_hosts = list(filter(None, (host.strip() for host in MCP_ALLOWED_HOSTS.split(","))))
     allowed_hosts.extend(custom_hosts)
     if custom_hosts:
         logger.info(f"Added custom allowed hosts: {custom_hosts}")

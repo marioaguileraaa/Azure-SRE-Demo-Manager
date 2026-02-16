@@ -110,8 +110,18 @@ class BearerTokenAuthMiddleware(BaseHTTPMiddleware):
                 headers={"WWW-Authenticate": "Bearer"}
             )
         
-        if not secrets.compare_digest(token, MCP_AUTH_TOKEN):
-            logger.warning(f"Invalid token from {request.client.host}")
+        # Compare tokens using constant-time comparison
+        # secrets.compare_digest handles length mismatches gracefully (returns False)
+        try:
+            if not secrets.compare_digest(token, MCP_AUTH_TOKEN):
+                logger.warning(f"Invalid token from {request.client.host}")
+                return JSONResponse(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    content={"error": "Invalid authentication token"}
+                )
+        except TypeError:
+            # Handle edge case where token types differ
+            logger.warning(f"Invalid token type from {request.client.host}")
             return JSONResponse(
                 status_code=status.HTTP_403_FORBIDDEN,
                 content={"error": "Invalid authentication token"}

@@ -152,15 +152,11 @@ Generate a cryptographically secure token:
 
 **PowerShell:**
 ```powershell
-# Generate a secure random token (PowerShell 7+)
-$token = [Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Minimum 0 -Maximum 256 }))
+# Generate a cryptographically secure random token
+$bytes = New-Object Byte[] 32
+[Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+$token = [Convert]::ToBase64String($bytes)
 Write-Host "MCP_AUTH_TOKEN=$token"
-
-# Alternative for older PowerShell versions (5.1 and below)
-# $bytes = New-Object Byte[] 32
-# [Security.Cryptography.RNGCryptoServiceProvider]::Create().GetBytes($bytes)
-# $token = [Convert]::ToBase64String($bytes)
-# Write-Host "MCP_AUTH_TOKEN=$token"
 ```
 
 **Bash:**

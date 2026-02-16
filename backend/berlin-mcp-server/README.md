@@ -17,6 +17,45 @@ Azure SRE Agent → MCP Server (rg-parking-berlin-mcp-dev) → Berlin API (rg-pa
                   [YOU MONITOR THIS]                       [EXTERNAL - NO MONITORING]
 ```
 
+## Endpoints
+
+The MCP server exposes the following HTTP endpoints:
+
+### `GET /health`
+Health check endpoint for Container App probes and monitoring.
+
+**Response:**
+```json
+{
+  "status": "healthy",
+  "service": "berlin-mcp-server",
+  "timestamp": "2026-02-16T15:50:00.000Z",
+  "mcp_tools": 6,
+  "target_api": "https://ca-parking-berlin..."
+}
+```
+
+### `GET /`
+Root endpoint with server information and available tools.
+
+**Response:**
+```json
+{
+  "service": "Berlin MCP Monitoring Server",
+  "version": "1.0.0",
+  "protocol": "MCP",
+  "endpoints": {
+    "health": "/health",
+    "mcp_sse": "/sse"
+  },
+  "tools": ["check_health", "get_metrics_summary", ...]
+}
+```
+
+### `POST /sse`
+MCP protocol endpoint for SSE (Server-Sent Events) transport.
+Used by MCP clients to communicate with the server.
+
 ## Available Tools
 
 The MCP server exposes these tools that SRE agents can call:
@@ -46,6 +85,31 @@ Get statistics about the MCP server itself (meta-monitoring).
 
 - `BERLIN_API_URL` - URL of the Berlin Parking API
 - `APPLICATIONINSIGHTS_CONNECTION_STRING` - Application Insights connection string for logging
+
+## Testing
+
+### Test Health Endpoint
+```bash
+curl https://ca-berlin-mcp.ashyriver-65b8d9ff.swedencentral.azurecontainerapps.io/health
+```
+
+### Test Server Info
+```bash
+curl https://ca-berlin-mcp.ashyriver-65b8d9ff.swedencentral.azurecontainerapps.io/
+```
+
+### Connect MCP Client
+Configure your MCP client to use the SSE transport:
+```json
+{
+  "mcpServers": {
+    "berlin-monitoring": {
+      "url": "https://ca-berlin-mcp.ashyriver-65b8d9ff.swedencentral.azurecontainerapps.io/sse",
+      "transport": "sse"
+    }
+  }
+}
+```
 
 ## Deployment
 

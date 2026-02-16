@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.40.2.10011",
-      "templateHash": "7912175536932592695"
+      "templateHash": "9910815434700946651"
     }
   },
   "parameters": {
@@ -73,7 +73,7 @@
     {
       "type": "Microsoft.Insights/components",
       "apiVersion": "2020-02-02",
-      "name": "[format('appi-parking-berlin-mcp-{0}', parameters('environment'))]",
+      "name": "appi-parking-berlin-mcp",
       "location": "[parameters('location')]",
       "tags": "[parameters('tags')]",
       "kind": "web",
@@ -152,7 +152,7 @@
                 },
                 {
                   "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
-                  "value": "[reference(resourceId('Microsoft.Insights/components', format('appi-parking-berlin-mcp-{0}', parameters('environment'))), '2020-02-02').ConnectionString]"
+                  "value": "[reference(resourceId('Microsoft.Insights/components', 'appi-parking-berlin-mcp'), '2020-02-02').ConnectionString]"
                 }
               ]
             }
@@ -164,7 +164,7 @@
         }
       },
       "dependsOn": [
-        "[resourceId('Microsoft.Insights/components', format('appi-parking-berlin-mcp-{0}', parameters('environment')))]",
+        "[resourceId('Microsoft.Insights/components', 'appi-parking-berlin-mcp')]",
         "[resourceId('Microsoft.App/managedEnvironments', format('cae-berlin-mcp-{0}', parameters('environment')))]"
       ]
     }
@@ -192,7 +192,7 @@
     },
     "appInsightsName": {
       "type": "string",
-      "value": "[format('appi-parking-berlin-mcp-{0}', parameters('environment'))]"
+      "value": "appi-parking-berlin-mcp"
     },
     "logAnalyticsWorkspaceName": {
       "type": "string",

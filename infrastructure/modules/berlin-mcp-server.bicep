@@ -35,7 +35,7 @@ resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10
 
 // Application Insights for MCP server monitoring
 resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
-  name: 'appi-parking-berlin-mcp-${environment}'
+  name: 'appi-parking-berlin-mcp'
   location: location
   tags: tags
   kind: 'web'

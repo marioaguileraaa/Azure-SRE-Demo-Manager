@@ -37,6 +37,9 @@ param deployMadridVm bool = true
 @description('Deploy or skip the Paris VM and its extensions')
 param deployParisVm bool = true
 
+@description('Deploy or skip the Berlin MCP server')
+param deployBerlinMcp bool = false
+
 @description('Virtual Network address prefix')
 param vnetAddressPrefix string = '10.0.0.0/16'
 
@@ -83,6 +86,7 @@ var lisbonRgName = 'rg-parking-lisbon-${environment}'
 var madridRgName = 'rg-parking-madrid-${environment}'
 var parisRgName = 'rg-parking-paris-${environment}'
 var berlinRgName = 'rg-parking-berlin-${environment}'
+var berlinMcpRgName = 'rg-berlin-mcp-${environment}'
 
 // ========================================
 // Resource Groups
@@ -120,6 +124,12 @@ resource parisRg 'Microsoft.Resources/resourceGroups@2023-07-01' = {
 
 resource berlinRg 'Microsoft.Resources/resourceGroups@2023-07-01' = {
   name: berlinRgName
+  location: location
+  tags: tags
+}
+
+resource berlinMcpRg 'Microsoft.Resources/resourceGroups@2023-07-01' = if (deployBerlinMcp) {
+  name: berlinMcpRgName
   location: location
   tags: tags
 }
@@ -265,6 +275,33 @@ module berlinAcrAccess 'modules/acr-role-assignment.bicep' = if (createContainer
 }
 
 // ========================================
+// Berlin MCP Server (Container Instance for monitoring Berlin API)
+// ========================================
+
+module berlinMcpServer 'modules/berlin-mcp-server.bicep' = if (deployBerlinMcp) {
+  scope: berlinMcpRg
+  name: 'berlin-mcp-server-deployment'
+  params: {
+    location: location
+    environment: environment
+    berlinApiUrl: berlinApi.outputs.containerAppUrl
+    containerImage: '' // Will be set by CI/CD pipeline
+    containerRegistry: createContainerRegistry ? acr!.outputs.loginServer : containerRegistry
+    tags: tags
+  }
+}
+
+// Grant Berlin MCP Server Container Instance access to ACR
+module berlinMcpAcrAccess 'modules/acr-role-assignment.bicep' = if (createContainerRegistry && deployBerlinMcp) {
+  scope: hubRg
+  name: 'berlin-mcp-acr-access'
+  params: {
+    principalId: berlinMcpServer!.outputs.containerInstancePrincipalId
+    acrName: acr!.outputs.registryName
+  }
+}
+
+// ========================================
 // Madrid API (Windows Server VM)
 // ========================================
 
@@ -350,6 +387,7 @@ output lisbonResourceGroup string = lisbonRg.name
 output madridResourceGroup string = madridRg.name
 output parisResourceGroup string = parisRg.name
 output berlinResourceGroup string = berlinRg.name
+output berlinMcpResourceGroup string = deployBerlinMcp ? berlinMcpRg!.name : ''
 
 output vnetName string = hub.outputs.vnetName
 output logAnalyticsWorkspaceName string = hub.outputs.logAnalyticsWorkspaceName
@@ -368,6 +406,10 @@ output lisbonApiUrl string = lisbonApi.outputs.containerAppUrl
 output madridApiUrl string = madridApi.outputs.apiUrl
 output parisApiUrl string = parisApi.outputs.apiUrl
 output berlinApiUrl string = berlinApi.outputs.containerAppUrl
+output berlinMcpServerUrl string = deployBerlinMcp ? berlinMcpServer!.outputs.mcpServerUrl : ''
+output berlinMcpAppInsightsName string = deployBerlinMcp ? berlinMcpServer!.outputs.appInsightsName : ''
+output berlinMcpLogAnalyticsWorkspaceName string = deployBerlinMcp ? berlinMcpServer!.outputs.logAnalyticsWorkspaceName : ''
+output berlinMcpContainerInstanceName string = deployBerlinMcp ? berlinMcpServer!.outputs.containerInstanceName : ''
 
 output madridVmName string = madridApi.outputs.vmName
 output madridPublicIp string = madridApi.outputs.publicIpAddress

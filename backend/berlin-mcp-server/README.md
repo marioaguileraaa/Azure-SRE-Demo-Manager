@@ -1,0 +1,68 @@
+# Berlin MCP Monitoring Server
+
+A Model Context Protocol (MCP) server that provides monitoring and observability tools for the Berlin Parking API. This server acts as an integration layer between Azure SRE agents and the Berlin API.
+
+## Purpose
+
+The Berlin API represents an **external/third-party service** that you don't directly control or monitor. This MCP server:
+- Lives in its own resource group (`rg-berlin-mcp-dev`) 
+- Provides tools for SRE agents to query the Berlin API
+- Logs its own performance to Application Insights
+- Allows SRE to monitor YOUR integration infrastructure, not the external API
+
+## Architecture
+
+```
+Azure SRE Agent → MCP Server (rg-berlin-mcp-dev) → Berlin API (rg-parking-berlin-dev)
+                  [YOU MONITOR THIS]              [EXTERNAL - NO MONITORING]
+```
+
+## Available Tools
+
+The MCP server exposes these tools that SRE agents can call:
+
+### 1. `check_health`
+Check if the Berlin parking API is healthy and responding.
+
+### 2. `get_metrics_summary`
+Get current parking and performance metrics summary (occupancy, slots, etc.).
+
+### 3. `get_performance_metrics`
+Get detailed OpenTelemetry performance metrics (response times, throughput, errors).
+
+### 4. `check_slo_compliance`
+Check if the Berlin API meets SLO thresholds.
+- Parameters:
+  - `p95_threshold_ms` (float): P95 response time threshold in milliseconds (default: 100.0)
+  - `error_rate_threshold` (float): Error rate threshold percentage (default: 1.0)
+
+### 5. `get_level_status`
+Get parking occupancy status by level.
+
+### 6. `get_mcp_server_stats`
+Get statistics about the MCP server itself (meta-monitoring).
+
+## Environment Variables
+
+- `BERLIN_API_URL` - URL of the Berlin Parking API
+- `APPLICATIONINSIGHTS_CONNECTION_STRING` - Application Insights connection string for logging
+
+## Deployment
+
+The MCP server is deployed as an Azure Container Instance. See `infrastructure/modules/berlin-mcp-server.bicep` for infrastructure details.
+
+## Monitoring
+
+The MCP server logs all tool calls to Application Insights with:
+- Tool name
+- Duration
+- Success/failure status
+- Custom dimensions for filtering
+
+Query example in Log Analytics:
+```kusto
+traces
+| where customDimensions.tool != ""
+| project timestamp, tool=customDimensions.tool, duration_ms=customDimensions.duration_ms, success=customDimensions.success
+| summarize avg(todouble(duration_ms)), count() by tostring(tool)
+```

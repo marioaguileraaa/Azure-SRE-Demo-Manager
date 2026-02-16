@@ -1,0 +1,140 @@
+name: Deploy Berlin MCP Server
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'backend/berlin-mcp-server/**'
+      - 'infrastructure/modules/berlin-mcp-server.bicep'
+      - '.github/workflows/deploy-berlin-mcp.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - prod
+
+env:
+  AZURE_REGION: swedencentral
+  RESOURCE_GROUP: rg-berlin-mcp-dev
+  CONTAINER_INSTANCE_NAME: aci-berlin-mcp-dev
+  AZURE_CONTAINER_REGISTRY: ${{ vars.AZURE_CONTAINER_REGISTRY }}
+  IMAGE_NAME: berlin-mcp-server
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Log in to Azure Container Registry
+        run: |
+          az acr login --name ${{ env.AZURE_CONTAINER_REGISTRY }}
+
+      - name: Build and push Docker image
+        working-directory: backend/berlin-mcp-server
+        run: |
+          IMAGE_TAG=${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          IMAGE_TAG_LATEST=${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/${{ env.IMAGE_NAME }}:latest
+          
+          docker build -t $IMAGE_TAG -t $IMAGE_TAG_LATEST .
+          docker push $IMAGE_TAG
+          docker push $IMAGE_TAG_LATEST
+          
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+
+      - name: Check if resource group exists
+        id: check_rg
+        run: |
+          if az group show --name ${{ env.RESOURCE_GROUP }} &>/dev/null; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Deploy to Azure Container Instance
+        run: |
+          if [ "${{ steps.check_rg.outputs.exists }}" == "false" ]; then
+            echo "Resource group ${{ env.RESOURCE_GROUP }} does not exist. Skipping deployment."
+            echo "To enable Berlin MCP Server, set deployBerlinMcp=true in infrastructure deployment."
+            exit 0
+          fi
+          
+          # Get the Berlin API URL from the Berlin resource group
+          BERLIN_API_URL=$(az containerapp show \
+            --name ca-parking-berlin \
+            --resource-group rg-parking-berlin-dev \
+            --query properties.configuration.ingress.fqdn \
+            --output tsv)
+          
+          if [ -z "$BERLIN_API_URL" ]; then
+            echo "Error: Could not retrieve Berlin API URL"
+            exit 1
+          fi
+          
+          BERLIN_API_URL="https://${BERLIN_API_URL}"
+          
+          # Get Application Insights connection string
+          APPINSIGHTS_CONNECTION=$(az monitor app-insights component show \
+            --app ai-berlin-mcp-dev \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --query connectionString \
+            --output tsv)
+          
+          # Update container instance with new image
+          az container create \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --name ${{ env.CONTAINER_INSTANCE_NAME }} \
+            --image ${{ env.IMAGE_TAG }} \
+            --registry-login-server ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io \
+            --registry-username $(az acr credential show --name ${{ env.AZURE_CONTAINER_REGISTRY }} --query username -o tsv) \
+            --registry-password $(az acr credential show --name ${{ env.AZURE_CONTAINER_REGISTRY }} --query passwords[0].value -o tsv) \
+            --cpu 1 \
+            --memory 1 \
+            --ports 8080 \
+            --dns-name-label berlin-mcp-dev-$(echo ${{ github.sha }} | cut -c1-8) \
+            --environment-variables \
+              BERLIN_API_URL="$BERLIN_API_URL" \
+              APPLICATIONINSIGHTS_CONNECTION_STRING="$APPINSIGHTS_CONNECTION" \
+            --restart-policy Always
+
+      - name: Get MCP Server URL
+        if: steps.check_rg.outputs.exists == 'true'
+        run: |
+          MCP_SERVER_FQDN=$(az container show \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --name ${{ env.CONTAINER_INSTANCE_NAME }} \
+            --query ipAddress.fqdn \
+            --output tsv)
+          
+          echo "MCP_SERVER_URL=http://${MCP_SERVER_FQDN}:8080" >> $GITHUB_ENV
+
+      - name: Deployment summary
+        run: |
+          echo "### Deployment Successful! 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.check_rg.outputs.exists }}" == "true" ]; then
+            echo "- **Container Instance**: ${{ env.CONTAINER_INSTANCE_NAME }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Image**: ${{ env.IMAGE_TAG }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Resource Group**: ${{ env.RESOURCE_GROUP }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **MCP Server URL**: ${{ env.MCP_SERVER_URL }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Berlin MCP Server resource group not found." >> $GITHUB_STEP_SUMMARY
+            echo "Image built and pushed to registry, but deployment was skipped." >> $GITHUB_STEP_SUMMARY
+            echo "To enable deployment, set deployBerlinMcp=true in infrastructure deployment." >> $GITHUB_STEP_SUMMARY
+          fi

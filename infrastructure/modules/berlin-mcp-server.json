@@ -1,0 +1,166 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.40.2.10011",
+      "templateHash": "11213965135269791278"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "metadata": {
+        "description": "Location for all MCP server resources"
+      }
+    },
+    "environment": {
+      "type": "string",
+      "defaultValue": "dev",
+      "metadata": {
+        "description": "Environment name (e.g., dev, prod)"
+      }
+    },
+    "berlinApiUrl": {
+      "type": "string",
+      "metadata": {
+        "description": "URL of the Berlin Parking API to monitor"
+      }
+    },
+    "containerImage": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Container image for the MCP server"
+      }
+    },
+    "containerRegistry": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Container registry server (leave empty for public registries)"
+      }
+    },
+    "tags": {
+      "type": "object",
+      "defaultValue": {},
+      "metadata": {
+        "description": "Tags to apply to resources"
+      }
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.OperationalInsights/workspaces",
+      "apiVersion": "2022-10-01",
+      "name": "[format('law-berlin-mcp-{0}', parameters('environment'))]",
+      "location": "[parameters('location')]",
+      "tags": "[parameters('tags')]",
+      "properties": {
+        "sku": {
+          "name": "PerGB2018"
+        },
+        "retentionInDays": 30
+      }
+    },
+    {
+      "type": "Microsoft.Insights/components",
+      "apiVersion": "2020-02-02",
+      "name": "[format('ai-berlin-mcp-{0}', parameters('environment'))]",
+      "location": "[parameters('location')]",
+      "tags": "[parameters('tags')]",
+      "kind": "web",
+      "properties": {
+        "Application_Type": "web",
+        "WorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', format('law-berlin-mcp-{0}', parameters('environment')))]",
+        "IngestionMode": "LogAnalytics",
+        "publicNetworkAccessForIngestion": "Enabled",
+        "publicNetworkAccessForQuery": "Enabled"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.OperationalInsights/workspaces', format('law-berlin-mcp-{0}', parameters('environment')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.ContainerInstance/containerGroups",
+      "apiVersion": "2023-05-01",
+      "name": "[format('aci-berlin-mcp-{0}', parameters('environment'))]",
+      "location": "[parameters('location')]",
+      "tags": "[parameters('tags')]",
+      "properties": {
+        "containers": [
+          {
+            "name": "berlin-mcp-server",
+            "properties": {
+              "image": "[if(empty(parameters('containerImage')), 'mcr.microsoft.com/azuredocs/aci-helloworld:latest', parameters('containerImage'))]",
+              "resources": {
+                "requests": {
+                  "cpu": 1,
+                  "memoryInGB": 1
+                }
+              },
+              "ports": [
+                {
+                  "port": 8080,
+                  "protocol": "TCP"
+                }
+              ],
+              "environmentVariables": [
+                {
+                  "name": "BERLIN_API_URL",
+                  "value": "[parameters('berlinApiUrl')]"
+                },
+                {
+                  "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
+                  "value": "[reference(resourceId('Microsoft.Insights/components', format('ai-berlin-mcp-{0}', parameters('environment'))), '2020-02-02').ConnectionString]"
+                }
+              ]
+            }
+          }
+        ],
+        "osType": "Linux",
+        "restartPolicy": "Always",
+        "ipAddress": {
+          "type": "Public",
+          "ports": [
+            {
+              "port": 8080,
+              "protocol": "TCP"
+            }
+          ],
+          "dnsNameLabel": "[format('berlin-mcp-{0}-{1}', parameters('environment'), uniqueString(resourceGroup().id))]"
+        },
+        "imageRegistryCredentials": "[if(empty(parameters('containerRegistry')), createArray(), createArray(createObject('server', parameters('containerRegistry'), 'identity', resourceGroup().id)))]"
+      },
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Insights/components', format('ai-berlin-mcp-{0}', parameters('environment')))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "containerInstanceName": {
+      "type": "string",
+      "value": "[format('aci-berlin-mcp-{0}', parameters('environment'))]"
+    },
+    "mcpServerUrl": {
+      "type": "string",
+      "value": "[format('http://{0}:8080', reference(resourceId('Microsoft.ContainerInstance/containerGroups', format('aci-berlin-mcp-{0}', parameters('environment'))), '2023-05-01').ipAddress.fqdn)]"
+    },
+    "appInsightsName": {
+      "type": "string",
+      "value": "[format('ai-berlin-mcp-{0}', parameters('environment'))]"
+    },
+    "logAnalyticsWorkspaceName": {
+      "type": "string",
+      "value": "[format('law-berlin-mcp-{0}', parameters('environment'))]"
+    },
+    "containerInstancePrincipalId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.ContainerInstance/containerGroups', format('aci-berlin-mcp-{0}', parameters('environment'))), '2023-05-01', 'full').identity.principalId]"
+    }
+  }
+}

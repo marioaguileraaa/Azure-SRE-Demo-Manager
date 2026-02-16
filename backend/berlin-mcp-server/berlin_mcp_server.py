@@ -404,7 +404,10 @@ if __name__ == "__main__":
         """
         # The ASGI app callable expects (scope, receive, send)
         # FastAPI's Request provides these via the underlying Starlette request
-        return await mcp_sse_app(request.scope, request.receive, request._send)
+        # Note: request._send is a Starlette internal, but this is the standard pattern
+        # for proxying ASGI apps when mount() doesn't work (e.g., to avoid trailing slash redirects).
+        # Alternative would be using app.mount() but that causes 307 redirects on /sse -> /sse/
+        await mcp_sse_app(request.scope, request.receive, request._send)
     
     # Run the combined app
     uvicorn.run(main_app, host="0.0.0.0", port=8080, log_level="info")

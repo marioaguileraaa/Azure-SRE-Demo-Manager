@@ -99,9 +99,7 @@ jobs:
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --name ${{ env.CONTAINER_INSTANCE_NAME }} \
             --image ${{ env.IMAGE_TAG }} \
-            --registry-login-server ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io \
-            --registry-username $(az acr credential show --name ${{ env.AZURE_CONTAINER_REGISTRY }} --query username -o tsv) \
-            --registry-password $(az acr credential show --name ${{ env.AZURE_CONTAINER_REGISTRY }} --query passwords[0].value -o tsv) \
+            --acr-identity [system] \
             --cpu 1 \
             --memory 1 \
             --ports 8080 \
@@ -109,7 +107,8 @@ jobs:
             --environment-variables \
               BERLIN_API_URL="$BERLIN_API_URL" \
               APPLICATIONINSIGHTS_CONNECTION_STRING="$APPINSIGHTS_CONNECTION" \
-            --restart-policy Always
+            --restart-policy Always \
+            --assign-identity [system]
 
       - name: Get MCP Server URL
         if: steps.check_rg.outputs.exists == 'true'

@@ -60,8 +60,9 @@ async def check_health() -> str:
             data = response.json()
             success = response.status_code == 200
             
+            status_emoji = "✅" if data['status'] == 'healthy' else "❌"
             result = f"""
-Berlin API Health Status:
+{status_emoji} Berlin API Health Status:
 - Status: {data['status']}
 - Service: {data['service']}
 - City: {data['city']}

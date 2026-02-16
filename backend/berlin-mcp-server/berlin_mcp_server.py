@@ -58,6 +58,10 @@ metrics = MCPMetrics()
 class BearerTokenAuthMiddleware(BaseHTTPMiddleware):
     """Middleware to validate Bearer token for MCP endpoints"""
     
+    def __init__(self, app):
+        super().__init__(app)
+        self._logged_no_token_warning = False
+    
     async def dispatch(self, request: Request, call_next):
         # Skip auth for health endpoint (needed for Container App probes)
         if request.url.path == "/health":
@@ -69,7 +73,9 @@ class BearerTokenAuthMiddleware(BaseHTTPMiddleware):
         
         # If MCP_AUTH_TOKEN is not set, allow all requests (backward compatibility)
         if not MCP_AUTH_TOKEN:
-            logger.warning("MCP_AUTH_TOKEN not set - authentication disabled")
+            if not self._logged_no_token_warning:
+                logger.warning("MCP_AUTH_TOKEN not set - authentication disabled")
+                self._logged_no_token_warning = True
             return await call_next(request)
         
         # Check Authorization header for protected endpoints
@@ -89,6 +95,15 @@ class BearerTokenAuthMiddleware(BaseHTTPMiddleware):
             return JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 content={"error": "Invalid Authorization header format. Expected: Bearer <token>"},
+                headers={"WWW-Authenticate": "Bearer"}
+            )
+        
+        # Safely extract token after "Bearer " prefix (length check already done by startswith)
+        if len(auth_header) < 8:  # "Bearer " (7) + at least 1 char for token
+            logger.warning(f"Empty token from {request.client.host}")
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"error": "Token cannot be empty"},
                 headers={"WWW-Authenticate": "Bearer"}
             )
         

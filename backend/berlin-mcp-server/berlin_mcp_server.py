@@ -245,7 +245,15 @@ async def get_mcp_server_stats() -> str:
     return result
 
 if __name__ == "__main__":
+    import uvicorn
+    
     if APPINSIGHTS_CONNECTION:
         logger.info("MCP Server starting", extra={'custom_dimensions': {'service': 'berlin-mcp-server'}})
-    print("Starting Berlin MCP Monitoring Server...")
-    app.run(transport="stdio")
+    
+    print("Starting Berlin MCP Monitoring Server on port 8080...")
+    
+    # Get the SSE app for HTTP/SSE transport
+    sse_app = app.sse_app()
+    
+    # Run with uvicorn on port 8080 for Container App
+    uvicorn.run(sse_app, host="0.0.0.0", port=8080, log_level="info")

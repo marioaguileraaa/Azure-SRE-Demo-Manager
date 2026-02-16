@@ -226,7 +226,90 @@ The MCP server is deployed as an **Azure Container App**.
 - **Log Analytics**: `law-berlin-mcp`
 - **Application Insights**: `appi-parking-berlin-mcp`
 
+### GitHub Actions Deployment
+
+The MCP server is automatically deployed via GitHub Actions when code is pushed to the `main` branch.
+
+#### Required GitHub Secrets
+
+1. **`AZURE_CREDENTIALS`** - Azure service principal credentials
+   ```json
+   {
+     "clientId": "...",
+     "clientSecret": "...",
+     "subscriptionId": "...",
+     "tenantId": "..."
+   }
+   ```
+
+2. **`MCP_AUTH_TOKEN`** - Bearer token for authentication (recommended)
+   ```bash
+   # Generate a secure token
+   openssl rand -base64 32
+   ```
+
+#### Setting GitHub Secrets
+
+1. Go to your repository → **Settings** → **Secrets and variables** → **Actions**
+2. Click **New repository secret**
+3. Name: `MCP_AUTH_TOKEN`
+4. Value: Your generated token (from the command above)
+5. Click **Add secret**
+
+#### Required GitHub Variables
+
+1. **`AZURE_CONTAINER_REGISTRY`** - Name of your Azure Container Registry
+   - Example: `acrparkingdev`
+   - Set in: Repository → Settings → Variables → Actions
+
+#### Verifying Deployment
+
+After deployment, check that authentication is enabled:
+
+```powershell
+# Check health endpoint
+Invoke-RestMethod "https://ca-berlin-mcp.ashyriver-65b8d9ff.swedencentral.azurecontainerapps.io/health"
+
+# Should return:
+# {
+#   "status": "healthy",
+#   "auth_enabled": true  ← Should be true
+# }
+```
+
+#### Security Best Practices
+
+- ✅ Always use GitHub **Secrets** (not Variables) for tokens
+- ✅ Rotate the `MCP_AUTH_TOKEN` periodically
+- ✅ Use a cryptographically secure random token (at least 32 bytes)
+- ✅ Never commit tokens to source control
+- ✅ Use different tokens for different environments (dev/prod)
+
 ### Manual Deployment
+
+If you need to deploy manually (outside of GitHub Actions):
+
+```bash
+# Set environment variables
+export RESOURCE_GROUP="rg-parking-berlin-mcp-dev"
+export CONTAINER_APP_NAME="ca-berlin-mcp"
+export IMAGE_TAG="your-registry.azurecr.io/berlin-mcp-server:latest"
+export BERLIN_API_URL="https://ca-parking-berlin..."
+export APPINSIGHTS_CONNECTION="InstrumentationKey=..."
+export MCP_AUTH_TOKEN="your-generated-token"
+
+# Update Container App
+az containerapp update \
+  --name $CONTAINER_APP_NAME \
+  --resource-group $RESOURCE_GROUP \
+  --image $IMAGE_TAG \
+  --set-env-vars \
+    "BERLIN_API_URL=$BERLIN_API_URL" \
+    "APPLICATIONINSIGHTS_CONNECTION_STRING=$APPINSIGHTS_CONNECTION" \
+    "MCP_AUTH_TOKEN=$MCP_AUTH_TOKEN"
+```
+
+### Infrastructure Deployment
 
 ```bash
 # Deploy infrastructure

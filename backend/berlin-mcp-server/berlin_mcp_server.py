@@ -1,4 +1,5 @@
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 import httpx
 import json
 import logging
@@ -15,6 +16,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 BERLIN_API_URL = os.getenv("BERLIN_API_URL", "https://ca-parking-berlin.braveocean-195c6009.swedencentral.azurecontainerapps.io")
 APPINSIGHTS_CONNECTION = os.getenv("APPLICATIONINSIGHTS_CONNECTION_STRING")
 MCP_AUTH_TOKEN = os.getenv("MCP_AUTH_TOKEN")  # Bearer token for authentication
+MCP_ALLOWED_HOSTS = os.getenv("MCP_ALLOWED_HOSTS", "")  # Comma-separated list of allowed hosts
 
 # Setup Application Insights logging
 logger = logging.getLogger(__name__)
@@ -22,7 +24,27 @@ if APPINSIGHTS_CONNECTION:
     logger.addHandler(AzureLogHandler(connection_string=APPINSIGHTS_CONNECTION))
     logger.setLevel(logging.INFO)
 
-app = FastMCP("berlin-monitoring")
+# Configure allowed hosts for SSE transport security
+# This prevents DNS rebinding attacks while allowing Azure Container Apps hosts
+allowed_hosts = [
+    "localhost:*",
+    "127.0.0.1:*",
+]
+
+# Add custom allowed hosts from environment variable
+if MCP_ALLOWED_HOSTS:
+    custom_hosts = [host.strip() for host in MCP_ALLOWED_HOSTS.split(",") if host.strip()]
+    allowed_hosts.extend(custom_hosts)
+    if custom_hosts:
+        logger.info(f"Added custom allowed hosts: {custom_hosts}")
+
+# Configure transport security for MCP SSE
+transport_security = TransportSecuritySettings(
+    enable_dns_rebinding_protection=True,
+    allowed_hosts=allowed_hosts,
+)
+
+app = FastMCP("berlin-monitoring", transport_security=transport_security)
 
 # Track MCP server metrics
 class MCPMetrics:

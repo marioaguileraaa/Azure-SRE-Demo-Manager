@@ -20,7 +20,7 @@ on:
 
 env:
   AZURE_REGION: swedencentral
-  RESOURCE_GROUP: rg-berlin-mcp-dev
+  RESOURCE_GROUP: rg-parking-berlin-mcp-dev
   CONTAINER_APP_NAME: ca-berlin-mcp-dev
   AZURE_CONTAINER_REGISTRY: ${{ vars.AZURE_CONTAINER_REGISTRY }}
   IMAGE_NAME: berlin-mcp-server
@@ -89,7 +89,7 @@ jobs:
           
           # Get Application Insights connection string
           APPINSIGHTS_CONNECTION=$(az monitor app-insights component show \
-            --app ai-berlin-mcp-dev \
+            --app appi-parking-berlin-mcp-dev \
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --query connectionString \
             --output tsv)

@@ -357,6 +357,7 @@ async def get_mcp_server_stats() -> str:
 if __name__ == "__main__":
     from fastapi import FastAPI
     from fastapi.responses import JSONResponse
+    from starlette.types import ASGIApp, Scope, Receive, Send
     
     if APPINSIGHTS_CONNECTION:
         logger.info("MCP Server starting", extra={'custom_dimensions': {'service': 'berlin-mcp-server'}})
@@ -412,37 +413,106 @@ if __name__ == "__main__":
                 "mcp_sse": "/sse"
             },
             "tools": TOOL_NAMES,
-            "note": "MCP SSE endpoint accepts both /sse and /sse/ paths"
+            "note": "MCP SSE endpoint mounted at /sse (trailing slash handled automatically)"
         })
     
     # Get the MCP SSE app
     mcp_sse_app = app.sse_app()
     
-    # Create ASGI wrapper to normalize paths and avoid 307 redirects
-    class MCPSSEWrapper:
-        """ASGI wrapper that normalizes paths for MCP SSE app"""
-        def __init__(self, asgi_app):
-            self.asgi_app = asgi_app
+    # Create a routing ASGI middleware that intercepts /sse requests
+    # and passes them directly to MCP app with clean scope
+    class MCPRoutingMiddleware:
+        """Middleware that routes /sse requests to MCP app bypassing FastAPI routing"""
+        def __init__(self, app: ASGIApp, mcp_app: ASGIApp):
+            self.app = app
+            self.mcp_app = mcp_app
         
-        async def __call__(self, scope, receive, send):
-            # Normalize path (remove trailing slash for MCP SSE app)
-            if scope["path"].endswith("/") and scope["path"] != "/":
-                scope = dict(scope)
-                scope["path"] = scope["path"].rstrip("/")
-            return await self.asgi_app(scope, receive, send)
-    
-    wrapped_mcp_app = MCPSSEWrapper(mcp_sse_app)
-    
-    # Use api_route to handle both /sse and /sse/ without 307 redirects
-    @main_app.api_route("/sse", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"])
-    @main_app.api_route("/sse/", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"])
-    async def mcp_sse_proxy(request: Request):
-        """Proxy requests to MCP SSE app without redirects
+        async def check_auth(self, scope: Scope) -> tuple[bool, dict]:
+            """Check authentication for /sse requests. Returns (is_authed, error_response)"""
+            # If MCP_AUTH_TOKEN is not set, allow all requests
+            if not MCP_AUTH_TOKEN:
+                return True, {}
+            
+            # Get Authorization header
+            headers_dict = {k.decode(): v.decode() for k, v in scope.get("headers", [])}
+            auth_header = headers_dict.get("authorization", "")
+            
+            # Check if Authorization header exists
+            if not auth_header:
+                client_host = scope.get("client", ("unknown",))[0] if scope.get("client") else "unknown"
+                logger.warning(f"Missing Authorization header from {client_host}")
+                return False, {
+                    "status": 401,
+                    "headers": [[b"content-type", b"application/json"], [b"www-authenticate", b"Bearer"]],
+                    "body": b'{"error": "Missing Authorization header"}'
+                }
+            
+            # Validate Bearer token format
+            if not auth_header.startswith("Bearer "):
+                return False, {
+                    "status": 401,
+                    "headers": [[b"content-type", b"application/json"], [b"www-authenticate", b"Bearer"]],
+                    "body": b'{"error": "Invalid Authorization header format. Expected: Bearer <token>"}'
+                }
+            
+            # Extract and validate token
+            token = auth_header[7:]  # Remove "Bearer " prefix
+            if not token or not secrets.compare_digest(token, MCP_AUTH_TOKEN):
+                return False, {
+                    "status": 403,
+                    "headers": [[b"content-type", b"application/json"]],
+                    "body": b'{"error": "Invalid authentication token"}'
+                }
+            
+            # Token is valid
+            if APPINSIGHTS_CONNECTION:
+                logger.info(f"Authenticated request to {scope['path']}")
+            return True, {}
         
-        Note: request._send is used here as it's the standard way to proxy ASGI apps
-        in FastAPI/Starlette route handlers. This is intentional and documented behavior.
-        """
-        return await wrapped_mcp_app(request.scope, request.receive, request._send)
+        async def send_error(self, send: Send, error_response: dict):
+            """Send error response"""
+            await send({
+                "type": "http.response.start",
+                "status": error_response["status"],
+                "headers": error_response["headers"],
+            })
+            await send({
+                "type": "http.response.body",
+                "body": error_response["body"],
+            })
+        
+        async def __call__(self, scope: Scope, receive: Receive, send: Send):
+            # Only intercept HTTP requests to /sse or /sse/
+            if scope["type"] == "http" and scope["path"] in ["/sse", "/sse/"]:
+                # Check authentication first
+                is_authed, error_response = await self.check_auth(scope)
+                if not is_authed:
+                    return await self.send_error(send, error_response)
+                
+                # Create clean scope for MCP app
+                clean_scope = {
+                    "type": scope["type"],
+                    "asgi": scope["asgi"],
+                    "http_version": scope["http_version"],
+                    "method": scope["method"],
+                    "scheme": scope["scheme"],
+                    "path": "/sse",  # Normalize to /sse
+                    "query_string": scope["query_string"],
+                    "root_path": scope.get("root_path", ""),
+                    "headers": scope["headers"],
+                    "server": scope.get("server"),
+                    "client": scope.get("client"),
+                    "extensions": scope.get("extensions", {}),
+                }
+                
+                # Pass to MCP app with clean scope
+                return await self.mcp_app(clean_scope, receive, send)
+            
+            # Pass other requests to FastAPI
+            return await self.app(scope, receive, send)
     
-    # Run the combined app
-    uvicorn.run(main_app, host="0.0.0.0", port=8080, log_level="info")
+    # Create the routing middleware wrapping the MCP app
+    main_app_with_mcp = MCPRoutingMiddleware(main_app, mcp_sse_app)
+    
+    # Run the combined app (with MCP routing middleware)
+    uvicorn.run(main_app_with_mcp, host="0.0.0.0", port=8080, log_level="info")

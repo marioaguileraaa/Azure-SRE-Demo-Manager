@@ -1,5 +1,4 @@
-from mcp.server import Server
-from mcp.types import Tool, TextContent
+from mcp.server.fastmcp import FastMCP
 import httpx
 import json
 import logging
@@ -17,7 +16,7 @@ if APPINSIGHTS_CONNECTION:
     logger.addHandler(AzureLogHandler(connection_string=APPINSIGHTS_CONNECTION))
     logger.setLevel(logging.INFO)
 
-app = Server("berlin-monitoring")
+app = FastMCP("berlin-monitoring")
 
 # Track MCP server metrics
 class MCPMetrics:
@@ -249,4 +248,4 @@ if __name__ == "__main__":
     if APPINSIGHTS_CONNECTION:
         logger.info("MCP Server starting", extra={'custom_dimensions': {'service': 'berlin-mcp-server'}})
     print("Starting Berlin MCP Monitoring Server...")
-    app.run()
+    app.run(transport="stdio")

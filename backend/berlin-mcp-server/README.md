@@ -5,7 +5,7 @@ A Model Context Protocol (MCP) server that provides monitoring and observability
 ## Purpose
 
 The Berlin API represents an **external/third-party service** that you don't directly control or monitor. This MCP server:
-- Lives in its own resource group (`rg-berlin-mcp-dev`) 
+- Lives in its own resource group (`rg-parking-berlin-mcp-dev`) 
 - Provides tools for SRE agents to query the Berlin API
 - Logs its own performance to Application Insights
 - Allows SRE to monitor YOUR integration infrastructure, not the external API
@@ -13,8 +13,8 @@ The Berlin API represents an **external/third-party service** that you don't dir
 ## Architecture
 
 ```
-Azure SRE Agent → MCP Server (rg-berlin-mcp-dev) → Berlin API (rg-parking-berlin-dev)
-                  [YOU MONITOR THIS]              [EXTERNAL - NO MONITORING]
+Azure SRE Agent → MCP Server (rg-parking-berlin-mcp-dev) → Berlin API (rg-parking-berlin-dev)
+                  [YOU MONITOR THIS]                       [EXTERNAL - NO MONITORING]
 ```
 
 ## Available Tools
@@ -49,7 +49,28 @@ Get statistics about the MCP server itself (meta-monitoring).
 
 ## Deployment
 
-The MCP server is deployed as an Azure Container Instance. See `infrastructure/modules/berlin-mcp-server.bicep` for infrastructure details.
+The MCP server is deployed as an **Azure Container App**.
+
+### Resource Names
+- **Resource Group**: `rg-parking-berlin-mcp-dev`
+- **Container App Environment**: `cae-berlin-mcp`
+- **Container App**: `ca-berlin-mcp`
+- **Log Analytics**: `law-berlin-mcp`
+- **Application Insights**: `appi-parking-berlin-mcp`
+
+### Manual Deployment
+
+```bash
+# Deploy infrastructure
+az deployment group create \
+  --resource-group rg-parking-berlin-mcp-dev \
+  --template-file infrastructure/modules/berlin-mcp-server.bicep \
+  --parameters \
+    location=swedencentral \
+    environment=dev \
+    berlinApiUrl=https://ca-parking-berlin.braveocean-195c6009.swedencentral.azurecontainerapps.io \
+    containerImage=<your-image>
+```
 
 ## Monitoring
 

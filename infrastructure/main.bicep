@@ -86,7 +86,7 @@ var lisbonRgName = 'rg-parking-lisbon-${environment}'
 var madridRgName = 'rg-parking-madrid-${environment}'
 var parisRgName = 'rg-parking-paris-${environment}'
 var berlinRgName = 'rg-parking-berlin-${environment}'
-var berlinMcpRgName = 'rg-berlin-mcp-${environment}'
+var berlinMcpRgName = 'rg-parking-berlin-mcp-${environment}'
 
 // ========================================
 // Resource Groups

@@ -130,6 +130,16 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
           ]
           probes: [
             {
+              type: 'startup'
+              httpGet: {
+                path: '/health'
+                port: 8080
+              }
+              initialDelaySeconds: 0
+              periodSeconds: 5
+              failureThreshold: 12
+            }
+            {
               type: 'liveness'
               httpGet: {
                 path: '/health'
@@ -144,7 +154,7 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
                 path: '/health'
                 port: 8080
               }
-              initialDelaySeconds: 5
+              initialDelaySeconds: 10
               periodSeconds: 10
             }
           ]

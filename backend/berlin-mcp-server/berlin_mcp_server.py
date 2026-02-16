@@ -98,16 +98,17 @@ class BearerTokenAuthMiddleware(BaseHTTPMiddleware):
                 headers={"WWW-Authenticate": "Bearer"}
             )
         
-        # Safely extract token after "Bearer " prefix (length check already done by startswith)
-        if len(auth_header) < 8:  # "Bearer " (7) + at least 1 char for token
+        # Extract token after "Bearer " prefix
+        token = auth_header[7:]
+        
+        # Check if token is empty
+        if not token:
             logger.warning(f"Empty token from {request.client.host}")
             return JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 content={"error": "Token cannot be empty"},
                 headers={"WWW-Authenticate": "Bearer"}
             )
-        
-        token = auth_header[7:]  # Extract token after "Bearer " prefix
         
         if not secrets.compare_digest(token, MCP_AUTH_TOKEN):
             logger.warning(f"Invalid token from {request.client.host}")

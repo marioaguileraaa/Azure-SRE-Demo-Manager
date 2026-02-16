@@ -60,6 +60,7 @@ class BearerTokenAuthMiddleware(BaseHTTPMiddleware):
     
     def __init__(self, app):
         super().__init__(app)
+        # Per-worker warning flag (intentional: each worker logs once)
         self._logged_no_token_warning = False
     
     async def dispatch(self, request: Request, call_next):
@@ -82,6 +83,7 @@ class BearerTokenAuthMiddleware(BaseHTTPMiddleware):
         auth_header = request.headers.get("Authorization")
         
         if not auth_header:
+            # Log client IP for security monitoring (retained per Application Insights retention policy)
             logger.warning(f"Missing Authorization header from {request.client.host}")
             return JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,

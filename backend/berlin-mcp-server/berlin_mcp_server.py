@@ -257,6 +257,16 @@ if __name__ == "__main__":
     # Create main FastAPI app
     main_app = FastAPI(title="Berlin MCP Monitoring Server")
     
+    # Define tool names for consistent reporting
+    TOOL_NAMES = [
+        "check_health",
+        "get_metrics_summary",
+        "get_performance_metrics",
+        "check_slo_compliance",
+        "get_level_status",
+        "get_mcp_server_stats"
+    ]
+    
     # Add health endpoint
     @main_app.get("/health")
     async def health():
@@ -265,7 +275,7 @@ if __name__ == "__main__":
             "status": "healthy",
             "service": "berlin-mcp-server",
             "timestamp": datetime.now().isoformat(),
-            "mcp_tools": 6,
+            "mcp_tools": len(TOOL_NAMES),
             "target_api": BERLIN_API_URL
         })
     
@@ -281,14 +291,7 @@ if __name__ == "__main__":
                 "health": "/health",
                 "mcp_sse": "/sse"
             },
-            "tools": [
-                "check_health",
-                "get_metrics_summary",
-                "get_performance_metrics",
-                "check_slo_compliance",
-                "get_level_status",
-                "get_mcp_server_stats"
-            ]
+            "tools": TOOL_NAMES
         })
     
     # Get the MCP SSE app and mount it

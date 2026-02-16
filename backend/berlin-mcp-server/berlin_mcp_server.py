@@ -6,6 +6,7 @@ from datetime import datetime
 from opencensus.ext.azure.log_exporter import AzureLogHandler
 import os
 import uvicorn
+import secrets
 from fastapi import Request, HTTPException, status
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -91,9 +92,9 @@ class BearerTokenAuthMiddleware(BaseHTTPMiddleware):
                 headers={"WWW-Authenticate": "Bearer"}
             )
         
-        token = auth_header.replace("Bearer ", "")
+        token = auth_header[7:]  # Extract token after "Bearer " prefix
         
-        if token != MCP_AUTH_TOKEN:
+        if not secrets.compare_digest(token, MCP_AUTH_TOKEN):
             logger.warning(f"Invalid token from {request.client.host}")
             return JSONResponse(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -311,10 +312,10 @@ if __name__ == "__main__":
     
     # Log authentication status
     if MCP_AUTH_TOKEN:
-        print(f"Starting Berlin MCP Monitoring Server on port 8080 with authentication enabled...")
+        print("✅ Starting Berlin MCP Monitoring Server on port 8080 with authentication enabled")
         logger.info("Authentication enabled", extra={'custom_dimensions': {'auth': 'bearer-token'}})
     else:
-        print(f"⚠️  WARNING: Starting Berlin MCP Monitoring Server on port 8080 WITHOUT authentication")
+        print("⚠️  WARNING: Starting Berlin MCP Monitoring Server on port 8080 WITHOUT authentication")
         logger.warning("Authentication disabled - MCP_AUTH_TOKEN not set")
     
     # Create main FastAPI app

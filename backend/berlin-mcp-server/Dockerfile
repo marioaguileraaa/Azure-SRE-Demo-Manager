@@ -12,9 +12,9 @@ COPY berlin_mcp_server.py .
 # Expose MCP server port
 EXPOSE 8080
 
-# Health check - verify server is responsive
+# Health check - use HTTP GET to /health endpoint
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD python -c "import socket; s = socket.socket(socket.AF_INET, socket.SOCK_STREAM); result = s.connect_ex(('localhost', 8080)); s.close(); exit(0 if result == 0 else 1)"
+  CMD python -c "import urllib.request; import sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/health').getcode() == 200 else 1)"
 
 # Run the MCP server
 CMD ["python", "berlin_mcp_server.py"]

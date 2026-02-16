@@ -246,13 +246,59 @@ async def get_mcp_server_stats() -> str:
     return result
 
 if __name__ == "__main__":
+    from fastapi import FastAPI
+    from fastapi.responses import JSONResponse
+    
     if APPINSIGHTS_CONNECTION:
         logger.info("MCP Server starting", extra={'custom_dimensions': {'service': 'berlin-mcp-server'}})
     
     print("Starting Berlin MCP Monitoring Server on port 8080...")
     
-    # Get the SSE app for HTTP/SSE transport
-    sse_app = app.sse_app()
+    # Create main FastAPI app
+    main_app = FastAPI(title="Berlin MCP Monitoring Server")
     
-    # Run with uvicorn on port 8080 for Container App
-    uvicorn.run(sse_app, host="0.0.0.0", port=8080, log_level="info")
+    # Define tool names for consistent reporting
+    TOOL_NAMES = [
+        "check_health",
+        "get_metrics_summary",
+        "get_performance_metrics",
+        "check_slo_compliance",
+        "get_level_status",
+        "get_mcp_server_stats"
+    ]
+    
+    # Add health endpoint
+    @main_app.get("/health")
+    async def health():
+        """Health check endpoint for Container App probes"""
+        return JSONResponse({
+            "status": "healthy",
+            "service": "berlin-mcp-server",
+            "timestamp": datetime.now().isoformat(),
+            "mcp_tools": len(TOOL_NAMES),
+            "target_api": BERLIN_API_URL
+        })
+    
+    # Add root endpoint with info
+    @main_app.get("/")
+    async def root():
+        """Root endpoint with server information"""
+        return JSONResponse({
+            "service": "Berlin MCP Monitoring Server",
+            "version": "1.0.0",
+            "protocol": "MCP",
+            "endpoints": {
+                "health": "/health",
+                "mcp_sse": "/sse"
+            },
+            "tools": TOOL_NAMES
+        })
+    
+    # Get the MCP SSE app and mount it
+    mcp_sse_app = app.sse_app()
+    
+    # Mount MCP SSE app at /sse for MCP protocol
+    main_app.mount("/sse", mcp_sse_app)
+    
+    # Run the combined app
+    uvicorn.run(main_app, host="0.0.0.0", port=8080, log_level="info")

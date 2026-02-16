@@ -433,13 +433,13 @@ if __name__ == "__main__":
             if not MCP_AUTH_TOKEN:
                 return True, {}
             
-            # Get Authorization header with error handling for malformed headers
+            # Get Authorization header - use strict decoding to detect malformed headers
             try:
-                headers_dict = {k.decode('utf-8', errors='replace'): v.decode('utf-8', errors='replace') 
+                headers_dict = {k.decode('utf-8'): v.decode('utf-8') 
                                for k, v in scope.get("headers", [])}
                 auth_header = headers_dict.get("authorization", "")
-            except Exception as e:
-                logger.warning(f"Failed to decode headers: {e}")
+            except UnicodeDecodeError:
+                logger.warning("Malformed UTF-8 in request headers")
                 return False, {
                     "status": 400,
                     "headers": [[b"content-type", b"application/json"]],
@@ -466,25 +466,16 @@ if __name__ == "__main__":
             
             # Extract and validate token
             token = auth_header[7:]  # Remove "Bearer " prefix
-            # Ensure both token and MCP_AUTH_TOKEN are strings for comparison
-            if not token or not isinstance(token, str) or not isinstance(MCP_AUTH_TOKEN, str):
+            if not token:
                 return False, {
                     "status": 403,
                     "headers": [[b"content-type", b"application/json"]],
                     "body": b'{"error": "Invalid authentication token"}'
                 }
             
-            # Compare tokens using constant-time comparison (both are strings)
-            try:
-                if not secrets.compare_digest(token, MCP_AUTH_TOKEN):
-                    return False, {
-                        "status": 403,
-                        "headers": [[b"content-type", b"application/json"]],
-                        "body": b'{"error": "Invalid authentication token"}'
-                    }
-            except TypeError:
-                # Handle edge case where types somehow differ despite the check
-                logger.warning("Token type mismatch in comparison")
+            # Compare tokens using constant-time comparison
+            # Both token and MCP_AUTH_TOKEN are strings at this point
+            if not secrets.compare_digest(token, MCP_AUTH_TOKEN):
                 return False, {
                     "status": 403,
                     "headers": [[b"content-type", b"application/json"]],

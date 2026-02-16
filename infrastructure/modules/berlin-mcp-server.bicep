@@ -17,6 +17,10 @@ param containerImage string = ''
 @description('Container registry server (leave empty for public registries)')
 param containerRegistry string = ''
 
+@description('MCP authentication token (Bearer token)')
+@secure()
+param mcpAuthToken string = ''
+
 @description('Tags to apply to resources')
 param tags object = {}
 
@@ -118,6 +122,10 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
             {
               name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
               value: appInsights.properties.ConnectionString
+            }
+            {
+              name: 'MCP_AUTH_TOKEN'
+              value: mcpAuthToken
             }
           ]
           probes: [

@@ -391,11 +391,20 @@ if __name__ == "__main__":
             "tools": TOOL_NAMES
         })
     
-    # Get the MCP SSE app and mount it
+    # Get the MCP SSE app
     mcp_sse_app = app.sse_app()
     
-    # Mount MCP SSE app at /sse for MCP protocol
-    main_app.mount("/sse", mcp_sse_app)
+    # Create SSE endpoint route that proxies to the MCP SSE app
+    # This approach avoids the mounting issues with trailing slashes
+    @main_app.api_route("/sse", methods=["GET", "POST"], include_in_schema=False)
+    async def sse_endpoint(request: Request):
+        """
+        MCP SSE endpoint - protected by authentication middleware.
+        Proxies requests directly to the MCP SSE app's ASGI handler.
+        """
+        # The ASGI app callable expects (scope, receive, send)
+        # FastAPI's Request provides these via the underlying Starlette request
+        return await mcp_sse_app(request.scope, request.receive, request._send)
     
     # Run the combined app
     uvicorn.run(main_app, host="0.0.0.0", port=8080, log_level="info")

@@ -14,7 +14,7 @@ EXPOSE 8080
 
 # Health check - use HTTP GET to /health endpoint
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/health').read()"
+  CMD python -c "import urllib.request; import sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/health').getcode() == 200 else 1)"
 
 # Run the MCP server
 CMD ["python", "berlin_mcp_server.py"]

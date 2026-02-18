@@ -96,23 +96,19 @@ jobs:
           
           BERLIN_API_URL="https://${BERLIN_API_URL}"
           
-          # Get the MCP Server's own FQDN for allowed hosts configuration
-          MCP_SERVER_FQDN=$(az containerapp show \
-            --name ${{ env.CONTAINER_APP_NAME }} \
-            --resource-group ${{ env.RESOURCE_GROUP }} \
-            --query properties.configuration.ingress.fqdn \
-            --output tsv)
-          
-          if [ -z "$MCP_SERVER_FQDN" ]; then
-            echo "Error: Could not retrieve MCP Server FQDN"
-            echo "This can happen if the Container App was not created by infrastructure deployment."
-            echo "Ensure the infrastructure is deployed first with deployBerlinMcp=true."
-            exit 1
-          fi
-          
-          # Configure allowed hosts for MCP SSE transport security
-          MCP_ALLOWED_HOSTS="${MCP_SERVER_FQDN}:*"
-          echo "✅ MCP Server FQDN: $MCP_SERVER_FQDN"
+          # MCP_ALLOWED_HOSTS no longer needed - DNS rebinding protection is disabled
+          # This was previously configured but is now unused because:
+          # - DNS rebinding protection is incompatible with Azure Container Apps ingress
+          # - Authentication via MCP_AUTH_TOKEN provides security
+          # - Azure Container Apps provides network-level security
+          #
+          # Previously configured:
+          # MCP_SERVER_FQDN=$(az containerapp show \
+          #   --name ${{ env.CONTAINER_APP_NAME }} \
+          #   --resource-group ${{ env.RESOURCE_GROUP }} \
+          #   --query properties.configuration.ingress.fqdn \
+          #   --output tsv)
+          # MCP_ALLOWED_HOSTS="${MCP_SERVER_FQDN}:*"
           
           # Get Application Insights connection string
           APPINSIGHTS_CONNECTION=$(az monitor app-insights component show \
@@ -130,6 +126,7 @@ jobs:
           fi
           
           # Update container app with new image and environment variables
+          # Note: MCP_ALLOWED_HOSTS is no longer set (DNS rebinding protection disabled)
           az containerapp update \
             --name ${{ env.CONTAINER_APP_NAME }} \
             --resource-group ${{ env.RESOURCE_GROUP }} \
@@ -137,8 +134,7 @@ jobs:
             --set-env-vars \
               "BERLIN_API_URL=$BERLIN_API_URL" \
               "APPLICATIONINSIGHTS_CONNECTION_STRING=$APPINSIGHTS_CONNECTION" \
-              "MCP_AUTH_TOKEN=$MCP_AUTH_TOKEN" \
-              "MCP_ALLOWED_HOSTS=$MCP_ALLOWED_HOSTS"
+              "MCP_AUTH_TOKEN=$MCP_AUTH_TOKEN"
           
           echo "✅ Container App updated successfully"
 

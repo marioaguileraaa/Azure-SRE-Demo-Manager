@@ -25,25 +25,30 @@ if APPINSIGHTS_CONNECTION:
     logger.addHandler(AzureLogHandler(connection_string=APPINSIGHTS_CONNECTION))
     logger.setLevel(logging.INFO)
 
-# Configure allowed hosts for SSE transport security
-# This prevents DNS rebinding attacks while allowing Azure Container Apps hosts
-allowed_hosts = [
-    "localhost:*",
-    "127.0.0.1:*",
-]
-
-# Add custom allowed hosts from environment variable
-if MCP_ALLOWED_HOSTS:
-    # Split, strip, and filter out empty strings
-    custom_hosts = list(filter(None, (host.strip() for host in MCP_ALLOWED_HOSTS.split(","))))
-    allowed_hosts.extend(custom_hosts)
-    if custom_hosts:
-        logger.info(f"Added custom allowed hosts: {custom_hosts}")
+# DNS rebinding protection configuration - DISABLED
+# The MCP library's DNS rebinding protection is incompatible with Azure Container Apps ingress.
+# Azure's ingress handling causes the ASGI scope Host header to fail the MCP library's strict validation.
+# This is acceptable because:
+# - Authentication is enabled via MCP_AUTH_TOKEN (Bearer token)
+# - This is an internal monitoring tool within Azure infrastructure
+# - Azure Container Apps provides network-level security (WAF, DDoS protection)
+#
+# Previously configured allowed hosts (now unused):
+# allowed_hosts = [
+#     "localhost:*",
+#     "127.0.0.1:*",
+# ]
+# if MCP_ALLOWED_HOSTS:
+#     custom_hosts = list(filter(None, (host.strip() for host in MCP_ALLOWED_HOSTS.split(","))))
+#     allowed_hosts.extend(custom_hosts)
+#     if custom_hosts:
+#         logger.info(f"Added custom allowed hosts: {custom_hosts}")
 
 # Configure transport security for MCP SSE
+# DNS rebinding protection disabled due to incompatibility with Azure Container Apps ingress
 transport_security = TransportSecuritySettings(
-    enable_dns_rebinding_protection=True,
-    allowed_hosts=allowed_hosts,
+    enable_dns_rebinding_protection=False,
+    allowed_hosts=[],
 )
 
 app = FastMCP("berlin-monitoring", transport_security=transport_security)

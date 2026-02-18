@@ -52,8 +52,9 @@ Root endpoint with server information and available tools.
 }
 ```
 
-### `POST /sse`
+### `GET /sse` or `POST /sse`
 MCP protocol endpoint for SSE (Server-Sent Events) transport.
+Both GET and POST methods are accepted (POST is converted to GET internally for SSE compatibility).
 Used by MCP clients to communicate with the server.
 
 ## ⚠️ Important: MCP SSE Endpoint URL

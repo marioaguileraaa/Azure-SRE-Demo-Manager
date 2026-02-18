@@ -519,15 +519,18 @@ if __name__ == "__main__":
                 if APPINSIGHTS_CONNECTION and logger.isEnabledFor(logging.INFO):
                     header_names = [name.decode() for name, _ in filtered_headers]
                     host_value = next((value.decode() for name, value in filtered_headers if name.lower() == b"host"), None)
+                    original_method = scope["method"]
                     logger.info(f"Processed /sse headers: {len(scope['headers'])} -> {len(filtered_headers)} (names: {header_names})")
                     logger.info(f"Host header set to: {host_value}")
+                    logger.info(f"Converting HTTP method: {original_method} -> GET")
                 
                 # Create clean scope for MCP app
+                # Force GET method for SSE endpoint (Azure SRE Agent sends POST, but SSE requires GET)
                 clean_scope = {
                     "type": scope["type"],
                     "asgi": scope["asgi"],
                     "http_version": scope["http_version"],
-                    "method": scope["method"],
+                    "method": "GET",  # Force GET for SSE compatibility
                     "scheme": scope["scheme"],
                     "path": "/sse",  # Normalize to /sse
                     "query_string": scope["query_string"],

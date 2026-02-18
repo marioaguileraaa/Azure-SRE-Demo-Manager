@@ -498,16 +498,14 @@ if __name__ == "__main__":
                 
                 # Filter out problematic headers (especially Host header)
                 # The MCP library's SSE validation rejects Azure Container Apps Host headers
-                filtered_headers = []
-                for name, value in scope["headers"]:
-                    # Skip Host header - causes MCP SSE validation to fail
-                    if name.lower() != b"host":
-                        filtered_headers.append((name, value))
+                filtered_headers = [(name, value) for name, value in scope["headers"] if name.lower() != b"host"]
                 
                 # Add logging to debug (only log header names, not values, to avoid exposing sensitive data)
                 if APPINSIGHTS_CONNECTION and logger.isEnabledFor(logging.INFO):
                     header_names = [name.decode() for name, _ in filtered_headers]
-                    logger.info(f"Filtered headers for /sse (names only): {header_names}")
+                    original_count = len(scope["headers"])
+                    filtered_count = len(filtered_headers)
+                    logger.info(f"Filtered /sse headers: {original_count} -> {filtered_count} (names: {header_names})")
                 
                 # Create clean scope for MCP app
                 clean_scope = {

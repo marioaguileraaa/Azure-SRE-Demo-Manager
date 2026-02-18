@@ -504,9 +504,10 @@ if __name__ == "__main__":
                     if name.lower() != b"host":
                         filtered_headers.append((name, value))
                 
-                # Add logging to debug
-                if APPINSIGHTS_CONNECTION:
-                    logger.info(f"Filtered headers for /sse: {[(n.decode(), v.decode()) for n, v in filtered_headers]}")
+                # Add logging to debug (only log header names, not values, to avoid exposing sensitive data)
+                if APPINSIGHTS_CONNECTION and logger.isEnabledFor(logging.INFO):
+                    header_names = [name.decode() for name, _ in filtered_headers]
+                    logger.info(f"Filtered headers for /sse (names only): {header_names}")
                 
                 # Create clean scope for MCP app
                 clean_scope = {

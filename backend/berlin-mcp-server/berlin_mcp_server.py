@@ -508,8 +508,12 @@ if __name__ == "__main__":
                             filtered_headers.append((b"host", b"localhost:8080"))
                             host_header_added = True
                         # Skip any additional Host headers
-                    else:
-                        filtered_headers.append((name, value))
+                        continue
+                    filtered_headers.append((name, value))
+                
+                # Ensure Host header exists (add if missing)
+                if not host_header_added:
+                    filtered_headers.append((b"host", b"localhost:8080"))
                 
                 # Add logging to debug (only log header names, not values, to avoid exposing sensitive data)
                 if APPINSIGHTS_CONNECTION and logger.isEnabledFor(logging.INFO):

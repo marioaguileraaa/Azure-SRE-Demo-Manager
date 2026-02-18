@@ -496,6 +496,17 @@ if __name__ == "__main__":
                 if not is_authed:
                     return await self.send_error(send, error_response)
                 
+                # Filter out problematic headers (especially Host header)
+                # The MCP library's SSE validation rejects Azure Container Apps Host headers
+                filtered_headers = [(name, value) for name, value in scope["headers"] if name.lower() != b"host"]
+                
+                # Add logging to debug (only log header names, not values, to avoid exposing sensitive data)
+                if APPINSIGHTS_CONNECTION and logger.isEnabledFor(logging.INFO):
+                    header_names = [name.decode() for name, _ in filtered_headers]
+                    original_count = len(scope["headers"])
+                    filtered_count = len(filtered_headers)
+                    logger.info(f"Filtered /sse headers: {original_count} -> {filtered_count} (names: {header_names})")
+                
                 # Create clean scope for MCP app
                 clean_scope = {
                     "type": scope["type"],
@@ -506,7 +517,7 @@ if __name__ == "__main__":
                     "path": "/sse",  # Normalize to /sse
                     "query_string": scope["query_string"],
                     "root_path": scope.get("root_path", ""),
-                    "headers": scope["headers"],
+                    "headers": filtered_headers,  # Use filtered headers
                     "server": scope.get("server"),
                     "client": scope.get("client"),
                     "extensions": scope.get("extensions", {}),

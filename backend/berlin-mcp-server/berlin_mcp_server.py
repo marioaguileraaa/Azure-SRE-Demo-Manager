@@ -496,16 +496,31 @@ if __name__ == "__main__":
                 if not is_authed:
                     return await self.send_error(send, error_response)
                 
-                # Filter out problematic headers (especially Host header)
-                # The MCP library's SSE validation rejects Azure Container Apps Host headers
-                filtered_headers = [(name, value) for name, value in scope["headers"] if name.lower() != b"host"]
+                # Replace Host header with localhost to satisfy MCP validation
+                # The MCP library requires Host header to exist AND match allowed hosts
+                # Previous approach removed Host header, which broke the "must exist" check
+                filtered_headers = []
+                host_header_added = False
+                for name, value in scope["headers"]:
+                    if name.lower() == b"host":
+                        if not host_header_added:
+                            # Replace Azure hostname with localhost (only first occurrence)
+                            filtered_headers.append((b"host", b"localhost:8080"))
+                            host_header_added = True
+                        # Skip any additional Host headers
+                        continue
+                    filtered_headers.append((name, value))
+                
+                # Ensure Host header exists (add if missing)
+                if not host_header_added:
+                    filtered_headers.append((b"host", b"localhost:8080"))
                 
                 # Add logging to debug (only log header names, not values, to avoid exposing sensitive data)
                 if APPINSIGHTS_CONNECTION and logger.isEnabledFor(logging.INFO):
                     header_names = [name.decode() for name, _ in filtered_headers]
-                    original_count = len(scope["headers"])
-                    filtered_count = len(filtered_headers)
-                    logger.info(f"Filtered /sse headers: {original_count} -> {filtered_count} (names: {header_names})")
+                    host_value = next((value.decode() for name, value in filtered_headers if name.lower() == b"host"), None)
+                    logger.info(f"Processed /sse headers: {len(scope['headers'])} -> {len(filtered_headers)} (names: {header_names})")
+                    logger.info(f"Host header set to: {host_value}")
                 
                 # Create clean scope for MCP app
                 clean_scope = {

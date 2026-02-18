@@ -1,5 +1,4 @@
 from mcp.server.fastmcp import FastMCP
-from mcp.server.transport_security import TransportSecuritySettings
 import httpx
 import json
 import logging
@@ -17,7 +16,6 @@ from starlette.types import ASGIApp, Scope, Receive, Send
 BERLIN_API_URL = os.getenv("BERLIN_API_URL", "https://ca-parking-berlin.braveocean-195c6009.swedencentral.azurecontainerapps.io")
 APPINSIGHTS_CONNECTION = os.getenv("APPLICATIONINSIGHTS_CONNECTION_STRING")
 MCP_AUTH_TOKEN = os.getenv("MCP_AUTH_TOKEN")  # Bearer token for authentication
-MCP_ALLOWED_HOSTS = os.getenv("MCP_ALLOWED_HOSTS", "")  # Comma-separated list of allowed hosts
 
 # Setup Application Insights logging
 logger = logging.getLogger(__name__)
@@ -25,33 +23,19 @@ if APPINSIGHTS_CONNECTION:
     logger.addHandler(AzureLogHandler(connection_string=APPINSIGHTS_CONNECTION))
     logger.setLevel(logging.INFO)
 
-# DNS rebinding protection configuration - DISABLED
-# The MCP library's DNS rebinding protection is incompatible with Azure Container Apps ingress.
-# Azure's ingress handling causes the ASGI scope Host header to fail the MCP library's strict validation.
-# This is acceptable because:
-# - Authentication is enabled via MCP_AUTH_TOKEN (Bearer token)
-# - This is an internal monitoring tool within Azure infrastructure
-# - Azure Container Apps provides network-level security (WAF, DDoS protection)
+# Configure FastMCP without transport security settings
+# DNS rebinding protection not needed - authentication via MCP_AUTH_TOKEN provides security
+# Azure Container Apps provides network-level security (WAF, DDoS protection)
 #
-# Previously configured allowed hosts (now unused):
-# allowed_hosts = [
-#     "localhost:*",
-#     "127.0.0.1:*",
-# ]
-# if MCP_ALLOWED_HOSTS:
-#     custom_hosts = list(filter(None, (host.strip() for host in MCP_ALLOWED_HOSTS.split(","))))
-#     allowed_hosts.extend(custom_hosts)
-#     if custom_hosts:
-#         logger.info(f"Added custom allowed hosts: {custom_hosts}")
-
-# Configure transport security for MCP SSE
-# DNS rebinding protection disabled due to incompatibility with Azure Container Apps ingress
-transport_security = TransportSecuritySettings(
-    enable_dns_rebinding_protection=False,
-    allowed_hosts=[],
-)
-
-app = FastMCP("berlin-monitoring", transport_security=transport_security)
+# Previous approach using TransportSecuritySettings with enable_dns_rebinding_protection=False
+# caused silent startup failures. Since DNS rebinding protection is disabled anyway,
+# we don't need TransportSecuritySettings at all.
+#
+# Security is provided by:
+# - Bearer token authentication (MCP_AUTH_TOKEN) enforced by BearerTokenAuthMiddleware
+# - Azure Container Apps network-level security (WAF, DDoS protection)
+# - This is an internal monitoring tool within Azure infrastructure
+app = FastMCP("berlin-monitoring")
 
 # Track MCP server metrics
 class MCPMetrics:

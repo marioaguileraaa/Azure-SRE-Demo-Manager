@@ -46,60 +46,49 @@ Root endpoint with server information and available tools.
   "protocol": "MCP",
   "endpoints": {
     "health": "/health",
-    "mcp_sse": "/sse"
+    "mcp_endpoint": "/mcp"
   },
   "tools": ["check_health", "get_metrics_summary", ...]
 }
 ```
 
-### `GET /sse` or `POST /sse`
-MCP protocol endpoint for SSE (Server-Sent Events) transport.
-Both GET and POST methods are accepted (POST is converted to GET internally for SSE compatibility).
+### `POST /mcp`
+MCP protocol endpoint using Streamable-HTTP transport (MCP spec 2025-03-26).
+Accepts JSON-RPC messages for initialize, tools/list, and tool calls.
 Used by MCP clients to communicate with the server.
 
-## ⚠️ Important: MCP SSE Endpoint URL
+## MCP Connector Configuration
 
-Due to FastAPI mount behavior, the MCP SSE endpoint **requires a trailing slash**.
-
-### Correct URL (with trailing slash):
-```
-https://ca-berlin-mcp.ashyriver-65b8d9ff.swedencentral.azurecontainerapps.io/sse/
-```
-
-### Incorrect URL (without trailing slash):
-```
-https://ca-berlin-mcp.ashyriver-65b8d9ff.swedencentral.azurecontainerapps.io/sse
-# This will return HTTP 307 redirect
-```
-
-### MCP Connector Configuration
+Configure your Azure SRE Agent MCP connector with the following settings:
 
 | Field | Value |
 |-------|-------|
 | **Name** | `berlin-monitoring` |
 | **Connection Type** | `Streamable-HTTP` |
-| **URL** | `https://ca-berlin-mcp.ashyriver-65b8d9ff.swedencentral.azurecontainerapps.io/sse/` ← **Note trailing slash** |
+| **URL** | `https://ca-berlin-mcp.ashyriver-65b8d9ff.swedencentral.azurecontainerapps.io/mcp` |
 | **Authentication Method** | `Bearer Token` |
 | **Token** | `your-token-from-github-secret` |
 
-### Why the Trailing Slash?
+### Testing the MCP Endpoint
 
-When FastAPI uses `.mount("/sse", app)`, it expects the mounted app to handle paths under `/sse/`. Requests to `/sse` (without trailing slash) receive a 307 redirect to `/sse/`. Most MCP clients handle this automatically, but it's best to use the correct URL with the trailing slash from the start.
-
-### Testing
+Test the endpoint with a JSON-RPC initialize request:
 
 ```bash
 TOKEN="your-token-here"
 
-# Test without trailing slash (will get 307 redirect)
-curl -i -H "Authorization: Bearer $TOKEN" \
-  https://ca-berlin-mcp.../sse
-# Returns: HTTP 307 with Location: /sse/
+# Test the MCP endpoint with initialize request
+curl -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test-client","version":"1.0.0"}}}' \
+  https://ca-berlin-mcp.ashyriver-65b8d9ff.swedencentral.azurecontainerapps.io/mcp
 
-# Test with trailing slash (correct, will work)
-curl -i -m 3 -H "Authorization: Bearer $TOKEN" \
-  https://ca-berlin-mcp.../sse/
-# Returns: HTTP 200 (or timeout which is normal for SSE)
+# Test tools/list request
+curl -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' \
+  https://ca-berlin-mcp.ashyriver-65b8d9ff.swedencentral.azurecontainerapps.io/mcp
 ```
 
 ## Available Tools
@@ -147,7 +136,7 @@ export MCP_AUTH_TOKEN="your-secret-token-here"
 
 ### Protected Endpoints
 
-- ✅ `/sse/` - MCP protocol endpoint (requires authentication, note trailing slash)
+- ✅ `/mcp` - MCP protocol endpoint (requires authentication)
 - ❌ `/health` - Health check (public, no auth required)
 - ❌ `/` - Server info (public, for discovery)
 
@@ -159,8 +148,8 @@ Configure your MCP client with Bearer Token authentication:
 {
   "mcpServers": {
     "berlin-monitoring": {
-      "url": "https://ca-berlin-mcp.ashyriver-65b8d9ff.swedencentral.azurecontainerapps.io/sse/",
-      "transport": "sse",
+      "url": "https://ca-berlin-mcp.ashyriver-65b8d9ff.swedencentral.azurecontainerapps.io/mcp",
+      "transport": "streamable-http",
       "headers": {
         "Authorization": "Bearer your-secret-token-here"
       }
@@ -172,23 +161,27 @@ Configure your MCP client with Bearer Token authentication:
 ### Testing Authentication
 
 **Without token (should fail):**
-```powershell
-Invoke-WebRequest -Uri "https://ca-berlin-mcp.ashyriver-65b8d9ff.swedencentral.azurecontainerapps.io/sse/"
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test-client","version":"1.0.0"}}}' \
+  https://ca-berlin-mcp.ashyriver-65b8d9ff.swedencentral.azurecontainerapps.io/mcp
 # Expected: 401 Unauthorized
 ```
 
 **With valid token (should succeed):**
-```powershell
-$headers = @{
-    "Authorization" = "Bearer your-secret-token-here"
-}
-Invoke-WebRequest -Uri "https://ca-berlin-mcp.ashyriver-65b8d9ff.swedencentral.azurecontainerapps.io/sse/" -Headers $headers
-# Expected: 200 OK (connection established)
+```bash
+curl -X POST \
+  -H "Authorization: Bearer your-secret-token-here" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test-client","version":"1.0.0"}}}' \
+  https://ca-berlin-mcp.ashyriver-65b8d9ff.swedencentral.azurecontainerapps.io/mcp
+# Expected: 200 OK with JSON-RPC response
 ```
 
 **Health endpoint (always public):**
-```powershell
-Invoke-RestMethod "https://ca-berlin-mcp.ashyriver-65b8d9ff.swedencentral.azurecontainerapps.io/health"
+```bash
+curl https://ca-berlin-mcp.ashyriver-65b8d9ff.swedencentral.azurecontainerapps.io/health
 # Expected: 200 OK (no auth required)
 ```
 
@@ -267,19 +260,17 @@ curl https://ca-berlin-mcp.ashyriver-65b8d9ff.swedencentral.azurecontainerapps.i
 ```
 
 ### Connect MCP Client
-Configure your MCP client to use the SSE transport:
+Configure your MCP client to use the Streamable-HTTP transport:
 ```json
 {
   "mcpServers": {
     "berlin-monitoring": {
-      "url": "https://ca-berlin-mcp.ashyriver-65b8d9ff.swedencentral.azurecontainerapps.io/sse/",
-      "transport": "sse"
+      "url": "https://ca-berlin-mcp.ashyriver-65b8d9ff.swedencentral.azurecontainerapps.io/mcp",
+      "transport": "streamable-http"
     }
   }
 }
 ```
-
-**Note:** The trailing slash in the URL (`/sse/`) is required for proper routing.
 
 ## Deployment
 

@@ -80,14 +80,31 @@ TOKEN="your-token-here"
 curl -X POST \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test-client","version":"1.0.0"}}}' \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "initialize",
+    "params": {
+      "protocolVersion": "2024-11-05",
+      "capabilities": {},
+      "clientInfo": {
+        "name": "test-client",
+        "version": "1.0.0"
+      }
+    }
+  }' \
   https://ca-berlin-mcp.ashyriver-65b8d9ff.swedencentral.azurecontainerapps.io/mcp
 
 # Test tools/list request
 curl -X POST \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 2,
+    "method": "tools/list",
+    "params": {}
+  }' \
   https://ca-berlin-mcp.ashyriver-65b8d9ff.swedencentral.azurecontainerapps.io/mcp
 ```
 
@@ -164,7 +181,19 @@ Configure your MCP client with Bearer Token authentication:
 ```bash
 curl -X POST \
   -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test-client","version":"1.0.0"}}}' \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "initialize",
+    "params": {
+      "protocolVersion": "2024-11-05",
+      "capabilities": {},
+      "clientInfo": {
+        "name": "test-client",
+        "version": "1.0.0"
+      }
+    }
+  }' \
   https://ca-berlin-mcp.ashyriver-65b8d9ff.swedencentral.azurecontainerapps.io/mcp
 # Expected: 401 Unauthorized
 ```
@@ -174,7 +203,19 @@ curl -X POST \
 curl -X POST \
   -H "Authorization: Bearer your-secret-token-here" \
   -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test-client","version":"1.0.0"}}}' \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "initialize",
+    "params": {
+      "protocolVersion": "2024-11-05",
+      "capabilities": {},
+      "clientInfo": {
+        "name": "test-client",
+        "version": "1.0.0"
+      }
+    }
+  }' \
   https://ca-berlin-mcp.ashyriver-65b8d9ff.swedencentral.azurecontainerapps.io/mcp
 # Expected: 200 OK with JSON-RPC response
 ```
@@ -243,7 +284,7 @@ This is acceptable because:
 
 ### Why DNS Rebinding Protection is Disabled
 
-The MCP library validates the ASGI scope's Host header for DNS rebinding protection. However, Azure Container Apps' ingress handling modifies the ASGI scope in ways that fail the MCP library's strict validation, causing "Request validation failed" errors at the SSE endpoint.
+The MCP library validates the ASGI scope's Host header for DNS rebinding protection. However, Azure Container Apps' ingress handling modifies the ASGI scope in ways that fail the MCP library's strict validation, causing "Request validation failed" errors at the MCP endpoint.
 
 Since the server already has multiple layers of security (Bearer token authentication, Azure network security), disabling this specific protection is an acceptable trade-off for Azure Container Apps compatibility.
 

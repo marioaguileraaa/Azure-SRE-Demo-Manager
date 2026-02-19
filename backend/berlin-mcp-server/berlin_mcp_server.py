@@ -399,25 +399,25 @@ if __name__ == "__main__":
             "auth_enabled": bool(MCP_AUTH_TOKEN),
             "endpoints": {
                 "health": "/health",
-                "mcp_sse": "/sse"
+                "mcp_endpoint": "/mcp"
             },
             "tools": TOOL_NAMES,
-            "note": "MCP SSE endpoint mounted at /sse (trailing slash handled automatically)"
+            "note": "MCP endpoint at /mcp using Streamable-HTTP transport"
         })
     
-    # Get the MCP SSE app
-    mcp_sse_app = app.sse_app()
+    # Get the MCP Streamable-HTTP app
+    mcp_http_app = app.streamable_http_app()
     
-    # Create a routing ASGI middleware that intercepts /sse requests
+    # Create a routing ASGI middleware that intercepts /mcp requests
     # and passes them directly to MCP app with clean scope
     class MCPRoutingMiddleware:
-        """Middleware that routes /sse requests to MCP app bypassing FastAPI routing"""
+        """Middleware that routes /mcp requests to MCP app bypassing FastAPI routing"""
         def __init__(self, app: ASGIApp, mcp_app: ASGIApp):
             self.app = app
             self.mcp_app = mcp_app
         
         async def check_auth(self, scope: Scope) -> tuple[bool, dict]:
-            """Check authentication for /sse requests. Returns (is_authed, error_response)"""
+            """Check authentication for /mcp requests. Returns (is_authed, error_response)"""
             # If MCP_AUTH_TOKEN is not set, allow all requests
             if not MCP_AUTH_TOKEN:
                 return True, {}
@@ -489,57 +489,33 @@ if __name__ == "__main__":
             })
         
         async def __call__(self, scope: Scope, receive: Receive, send: Send):
-            # Only intercept HTTP requests to /sse or /sse/
-            if scope["type"] == "http" and scope["path"] in ["/sse", "/sse/"]:
+            # Only intercept HTTP requests to /mcp
+            if scope["type"] == "http" and scope["path"] == "/mcp":
                 # Check authentication first
                 is_authed, error_response = await self.check_auth(scope)
                 if not is_authed:
                     return await self.send_error(send, error_response)
                 
-                # Replace Host header with localhost to satisfy MCP validation
-                # The MCP library requires Host header to exist AND match allowed hosts
-                # Previous approach removed Host header, which broke the "must exist" check
-                filtered_headers = []
-                host_header_added = False
-                for name, value in scope["headers"]:
-                    if name.lower() == b"host":
-                        if not host_header_added:
-                            # Replace Azure hostname with localhost (only first occurrence)
-                            filtered_headers.append((b"host", b"localhost:8080"))
-                            host_header_added = True
-                        # Skip any additional Host headers
-                        continue
-                    filtered_headers.append((name, value))
-                
-                # Ensure Host header exists (add if missing)
-                if not host_header_added:
-                    filtered_headers.append((b"host", b"localhost:8080"))
-                
-                # Add logging to debug (only log header names, not values, to avoid exposing sensitive data)
-                if APPINSIGHTS_CONNECTION and logger.isEnabledFor(logging.INFO):
-                    header_names = [name.decode() for name, _ in filtered_headers]
-                    host_value = next((value.decode() for name, value in filtered_headers if name.lower() == b"host"), None)
-                    original_method = scope["method"]
-                    logger.info(f"Processed /sse headers: {len(scope['headers'])} -> {len(filtered_headers)} (names: {header_names})")
-                    logger.info(f"Host header set to: {host_value}")
-                    logger.info(f"Converting HTTP method: {original_method} -> GET")
-                
                 # Create clean scope for MCP app
-                # Force GET method for SSE endpoint (Azure SRE Agent sends POST, but SSE requires GET)
+                # Streamable-HTTP uses POST natively, keep original method
                 clean_scope = {
                     "type": scope["type"],
                     "asgi": scope["asgi"],
                     "http_version": scope["http_version"],
-                    "method": "GET",  # Force GET for SSE compatibility
+                    "method": scope["method"],  # Keep original method (POST for Streamable-HTTP)
                     "scheme": scope["scheme"],
-                    "path": "/sse",  # Normalize to /sse
+                    "path": "/mcp",
                     "query_string": scope["query_string"],
                     "root_path": scope.get("root_path", ""),
-                    "headers": filtered_headers,  # Use filtered headers
+                    "headers": scope["headers"],  # Pass headers as-is
                     "server": scope.get("server"),
                     "client": scope.get("client"),
                     "extensions": scope.get("extensions", {}),
                 }
+                
+                # Log the request for debugging
+                if APPINSIGHTS_CONNECTION and logger.isEnabledFor(logging.INFO):
+                    logger.info(f"Routing {scope['method']} request to /mcp endpoint")
                 
                 # Pass to MCP app with clean scope
                 return await self.mcp_app(clean_scope, receive, send)
@@ -548,7 +524,7 @@ if __name__ == "__main__":
             return await self.app(scope, receive, send)
     
     # Create the routing middleware wrapping the MCP app
-    main_app_with_mcp = MCPRoutingMiddleware(main_app, mcp_sse_app)
+    main_app_with_mcp = MCPRoutingMiddleware(main_app, mcp_http_app)
     
     # Run the combined app (with MCP routing middleware)
     uvicorn.run(main_app_with_mcp, host="0.0.0.0", port=8080, log_level="info")

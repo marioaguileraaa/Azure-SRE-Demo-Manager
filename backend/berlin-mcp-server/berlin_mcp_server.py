@@ -345,6 +345,7 @@ async def get_mcp_server_stats() -> str:
     return result
 
 if __name__ == "__main__":
+    from contextlib import asynccontextmanager
     from fastapi import FastAPI
     from fastapi.responses import JSONResponse
     
@@ -359,8 +360,18 @@ if __name__ == "__main__":
         print("⚠️  WARNING: Starting Berlin MCP Monitoring Server on port 8080 WITHOUT authentication")
         logger.warning("Authentication disabled - MCP_AUTH_TOKEN not set")
     
-    # Create main FastAPI app
-    main_app = FastAPI(title="Berlin MCP Monitoring Server")
+    # Get the MCP Streamable-HTTP ASGI app
+    mcp_http_app = app.streamable_http_app()
+
+    # Lifespan: start/stop the MCP session manager alongside FastAPI
+    @asynccontextmanager
+    async def lifespan(fastapi_app: FastAPI):
+        # Startup: run the MCP app lifespan so its task group is initialized
+        async with mcp_http_app.lifespan(fastapi_app):
+            yield
+
+    # Create main FastAPI app with the lifespan that starts MCP session manager
+    main_app = FastAPI(title="Berlin MCP Monitoring Server", lifespan=lifespan)
     
     # Add authentication middleware
     main_app.add_middleware(BearerTokenAuthMiddleware)
@@ -404,9 +415,6 @@ if __name__ == "__main__":
             "tools": TOOL_NAMES,
             "note": "MCP endpoint at /mcp using Streamable-HTTP transport"
         })
-    
-    # Get the MCP Streamable-HTTP app
-    mcp_http_app = app.streamable_http_app()
     
     # Create a routing ASGI middleware that intercepts /mcp requests
     # and passes them directly to MCP app with clean scope
@@ -489,6 +497,11 @@ if __name__ == "__main__":
             })
         
         async def __call__(self, scope: Scope, receive: Receive, send: Send):
+            # Forward lifespan events to FastAPI app so that the MCP session manager
+            # task group is properly initialized on startup
+            if scope["type"] == "lifespan":
+                return await self.app(scope, receive, send)
+
             # Only intercept HTTP requests to /mcp
             if scope["type"] == "http" and scope["path"] == "/mcp":
                 # Check authentication first

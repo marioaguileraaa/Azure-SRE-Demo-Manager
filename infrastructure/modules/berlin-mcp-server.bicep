@@ -130,16 +130,16 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
           ]
           probes: [
             {
-              type: 'Liveness'
+              type: 'Startup'
               httpGet: {
-                path: '/health'
+                path: '/startup'
                 port: 8080
                 scheme: 'HTTP'
               }
-              initialDelaySeconds: 10
-              periodSeconds: 10
-              timeoutSeconds: 5
-              failureThreshold: 3
+              initialDelaySeconds: 5
+              periodSeconds: 5
+              timeoutSeconds: 3
+              failureThreshold: 12
             }
             {
               type: 'Readiness'
@@ -148,22 +148,22 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
                 port: 8080
                 scheme: 'HTTP'
               }
-              initialDelaySeconds: 10
+              initialDelaySeconds: 5
               periodSeconds: 5
               timeoutSeconds: 3
-              failureThreshold: 3
+              failureThreshold: 6
             }
             {
-              type: 'Startup'
+              type: 'Liveness'
               httpGet: {
                 path: '/health'
                 port: 8080
                 scheme: 'HTTP'
               }
-              initialDelaySeconds: 15
+              initialDelaySeconds: 30
               periodSeconds: 10
               timeoutSeconds: 5
-              failureThreshold: 12
+              failureThreshold: 3
             }
           ]
         }

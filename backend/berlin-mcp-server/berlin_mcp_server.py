@@ -370,7 +370,7 @@ if __name__ == "__main__":
     @asynccontextmanager
     async def lifespan(fastapi_app: FastAPI):
         global _server_ready
-        async with mcp_http_app.lifespan(fastapi_app):
+        async with mcp_http_app.router.lifespan_context(fastapi_app):
             _server_ready = True
             yield
         _server_ready = False

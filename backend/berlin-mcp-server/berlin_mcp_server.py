@@ -81,6 +81,10 @@ class BearerTokenAuthMiddleware(BaseHTTPMiddleware):
         if request.url.path == "/health":
             return await call_next(request)
         
+        # Skip auth for startup endpoint (needed for Container App startup probe)
+        if request.url.path == "/startup":
+            return await call_next(request)
+        
         # Skip auth for root endpoint (for discovery)
         if request.url.path == "/":
             return await call_next(request)
@@ -394,7 +398,18 @@ if __name__ == "__main__":
     # Add health endpoint
     @main_app.get("/health")
     async def health():
-        """Health check endpoint for Container App probes"""
+        """Health check endpoint for Container App probes.
+        Returns 503 until MCP session manager is initialized."""
+        if not _server_ready:
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "status": "starting",
+                    "service": "berlin-mcp-server",
+                    "mcp_ready": False,
+                    "timestamp": datetime.now().isoformat(),
+                }
+            )
         return JSONResponse({
             "status": "healthy",
             "service": "berlin-mcp-server",
@@ -403,6 +418,17 @@ if __name__ == "__main__":
             "mcp_ready": _server_ready,
             "target_api": BERLIN_API_URL,
             "auth_enabled": bool(MCP_AUTH_TOKEN)
+        })
+    
+    # Add startup endpoint
+    @main_app.get("/startup")
+    async def startup_check():
+        """Startup check endpoint - returns 200 as soon as uvicorn is running.
+        Used by Container App startup probe only."""
+        return JSONResponse({
+            "status": "starting",
+            "service": "berlin-mcp-server",
+            "timestamp": datetime.now().isoformat()
         })
     
     # Add root endpoint with info (public - for discovery)
@@ -416,6 +442,7 @@ if __name__ == "__main__":
             "auth_enabled": bool(MCP_AUTH_TOKEN),
             "endpoints": {
                 "health": "/health",
+                "startup": "/startup",
                 "mcp_endpoint": "/mcp"
             },
             "tools": TOOL_NAMES,

@@ -363,12 +363,17 @@ if __name__ == "__main__":
     # Get the MCP Streamable-HTTP ASGI app
     mcp_http_app = app.streamable_http_app()
 
+    # Flag to track whether the MCP session manager has been initialized
+    _server_ready = False
+
     # Lifespan: start/stop the MCP session manager alongside FastAPI
     @asynccontextmanager
     async def lifespan(fastapi_app: FastAPI):
-        # Startup: run the MCP app lifespan so its task group is initialized
+        global _server_ready
         async with mcp_http_app.lifespan(fastapi_app):
+            _server_ready = True
             yield
+        _server_ready = False
 
     # Create main FastAPI app with the lifespan that starts MCP session manager
     main_app = FastAPI(title="Berlin MCP Monitoring Server", lifespan=lifespan)
@@ -395,6 +400,7 @@ if __name__ == "__main__":
             "service": "berlin-mcp-server",
             "timestamp": datetime.now().isoformat(),
             "mcp_tools": len(TOOL_NAMES),
+            "mcp_ready": _server_ready,
             "target_api": BERLIN_API_URL,
             "auth_enabled": bool(MCP_AUTH_TOKEN)
         })

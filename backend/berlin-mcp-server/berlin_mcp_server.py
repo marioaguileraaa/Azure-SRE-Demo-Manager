@@ -544,6 +544,13 @@ if __name__ == "__main__":
                 
                 # Create clean scope for MCP app
                 # Streamable-HTTP uses POST natively, keep original method
+                # Rewrite host header to localhost:8080 to satisfy FastMCP's DNS rebinding
+                # protection, which validates that Host is localhost/loopback.
+                # The external FQDN would cause FastMCP to return 421 Misdirected Request.
+                rewritten_headers = [
+                    (k, b"localhost:8080") if k.lower() == b"host" else (k, v)
+                    for k, v in scope["headers"]
+                ]
                 clean_scope = {
                     "type": scope["type"],
                     "asgi": scope["asgi"],
@@ -553,7 +560,7 @@ if __name__ == "__main__":
                     "path": "/mcp",
                     "query_string": scope["query_string"],
                     "root_path": scope.get("root_path", ""),
-                    "headers": scope["headers"],  # Pass headers as-is
+                    "headers": rewritten_headers,  # Host rewritten to localhost:8080
                     "server": scope.get("server"),
                     "client": scope.get("client"),
                     "extensions": scope.get("extensions", {}),

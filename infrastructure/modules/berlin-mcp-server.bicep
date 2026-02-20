@@ -95,7 +95,7 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
       ingress: {
         external: true
         targetPort: 8080
-        transport: 'auto'
+        transport: 'http'
         allowInsecure: false
       }
       registries: empty(containerRegistry) ? [] : [

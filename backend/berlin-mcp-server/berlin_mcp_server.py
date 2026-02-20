@@ -35,7 +35,11 @@ if APPINSIGHTS_CONNECTION:
 # - Bearer token authentication (MCP_AUTH_TOKEN) enforced by BearerTokenAuthMiddleware
 # - Azure Container Apps network-level security (WAF, DDoS protection)
 # - This is an internal monitoring tool within Azure infrastructure
-app = FastMCP("berlin-monitoring")
+# stateless_http=True: each POST is handled independently without requiring
+# the mcp-session-id header round-trip. Required for Azure Container Apps which
+# strips custom response headers (including mcp-session-id) at the ingress layer,
+# preventing session continuity.
+app = FastMCP("berlin-monitoring", stateless_http=True)
 
 # Track MCP server metrics
 class MCPMetrics:
@@ -365,11 +369,8 @@ if __name__ == "__main__":
         logger.warning("Authentication disabled - MCP_AUTH_TOKEN not set")
     
     # Get the MCP Streamable-HTTP ASGI app in stateless mode.
-    # stateless_http=True: each POST is handled independently without requiring
-    # mcp-session-id header continuity. Required for Azure Container Apps which
-    # strips custom response headers (including mcp-session-id) at the ingress
-    # layer, breaking session continuity for stateful Streamable-HTTP mode.
-    mcp_http_app = app.streamable_http_app(stateless_http=True)
+    # stateless_http=True is set on the FastMCP constructor above.
+    mcp_http_app = app.streamable_http_app()
 
     # Flag to track whether the MCP session manager has been initialized
     _server_ready = False

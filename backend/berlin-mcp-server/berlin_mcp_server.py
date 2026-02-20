@@ -364,8 +364,12 @@ if __name__ == "__main__":
         print("⚠️  WARNING: Starting Berlin MCP Monitoring Server on port 8080 WITHOUT authentication")
         logger.warning("Authentication disabled - MCP_AUTH_TOKEN not set")
     
-    # Get the MCP Streamable-HTTP ASGI app
-    mcp_http_app = app.streamable_http_app()
+    # Get the MCP Streamable-HTTP ASGI app in stateless mode.
+    # stateless_http=True: each POST is handled independently without requiring
+    # mcp-session-id header continuity. Required for Azure Container Apps which
+    # strips custom response headers (including mcp-session-id) at the ingress
+    # layer, breaking session continuity for stateful Streamable-HTTP mode.
+    mcp_http_app = app.streamable_http_app(stateless_http=True)
 
     # Flag to track whether the MCP session manager has been initialized
     _server_ready = False

@@ -144,7 +144,7 @@ jobs:
 
           Write-Host "Installing dependencies..."
           cd $appDir
-          npm ci --only=production
+          npm ci --omit=dev
           
           Write-Host "Creating .env file..."
           @"
@@ -176,9 +176,17 @@ jobs:
           
           # Remove existing service if present
           Write-Host "Removing existing service if present..."
+          $existingSvc = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+          if ($existingSvc) {
+            if ($existingSvc.Status -eq 'Paused') {
+              Write-Host "Service is paused, resuming before stop..."
+              sc.exe continue $serviceName 2>$null
+              Start-Sleep -Seconds 3
+            }
+          }
           nssm stop $serviceName 2>$null
           nssm remove $serviceName confirm 2>$null
-          Start-Sleep -Seconds 3
+          Start-Sleep -Seconds 5
           
           Write-Host "Creating Windows service with NSSM..."
           $nodePath = "C:\Program Files\nodejs\node.exe"
@@ -194,16 +202,9 @@ jobs:
           nssm set $serviceName Start SERVICE_AUTO_START
           nssm set $serviceName Type SERVICE_WIN32_OWN_PROCESS
           
-          # Set environment variables
-          nssm set $serviceName AppEnvironmentExtra NODE_ENV=production
-          nssm set $serviceName AppEnvironmentExtra PORT=3002
-          nssm set $serviceName AppEnvironmentExtra "PARKING_NAME=Madrid Centro Parking"
-          nssm set $serviceName AppEnvironmentExtra PARKING_CITY=Madrid
-          nssm set $serviceName AppEnvironmentExtra "PARKING_LOCATION=Plaza Mayor, Madrid"
-          nssm set $serviceName AppEnvironmentExtra EVENT_LOG_SOURCE=MadridParkingAPI
-          nssm set $serviceName AppEnvironmentExtra EVENT_LOG_NAME=Application
-          nssm set $serviceName AppEnvironmentExtra "CERT_PATH=$appDir\madrid.crt"
-          nssm set $serviceName AppEnvironmentExtra "KEY_PATH=$appDir\madrid.key"
+          # Set environment variables (newline-separated; each nssm set call replaces, not appends)
+          $envVars = "NODE_ENV=production`nPORT=3002`nPARKING_NAME=Madrid Centro Parking`nPARKING_CITY=Madrid`nPARKING_LOCATION=Plaza Mayor, Madrid`nEVENT_LOG_SOURCE=MadridParkingAPI`nEVENT_LOG_NAME=Application`nCERT_PATH=$appDir\madrid.crt`nKEY_PATH=$appDir\madrid.key"
+          nssm set $serviceName AppEnvironmentExtra $envVars
           
           # Configure logging
           $logDir = Join-Path $appDir "logs"
@@ -219,10 +220,18 @@ jobs:
           
           Write-Host "Starting service..."
           nssm start $serviceName
-          Start-Sleep -Seconds 5
+          Start-Sleep -Seconds 8
+          
+          # If service ended up paused (stale SCM state), resume it
+          $serviceStatus = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+          if ($serviceStatus -and $serviceStatus.Status -eq 'Paused') {
+            Write-Host "Service is paused, attempting to resume..."
+            sc.exe continue $serviceName
+            Start-Sleep -Seconds 5
+            $serviceStatus = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+          }
           
           # Verify service is running
-          $serviceStatus = Get-Service -Name $serviceName
           Write-Host "Service status: $($serviceStatus.Status)"
           
           if ($serviceStatus.Status -ne "Running") {

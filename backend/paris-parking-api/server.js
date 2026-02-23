@@ -10,7 +10,7 @@ const createChaosMiddleware = require('../shared/chaosMiddleware');
 
 const app = express();
 const PORT = process.env.PORT || 3003;
-const DEPENDENCY_URL = process.env.PARIS_DEPENDENCY_URL || 'https://worldtimeapi.org/api/timezone/Europe/Paris';
+const DEPENDENCY_URL = process.env.PARIS_DEPENDENCY_URL || 'https://timeapi.io/api/time/current/zone?timeZone=Europe%2FParis';
 const DEPENDENCY_TIMEOUT_MS = Number(process.env.PARIS_DEPENDENCY_TIMEOUT_MS || 2500);
 const PARIS_SELF_PROBE_ENABLED = process.env.PARIS_SELF_PROBE_ENABLED !== 'false';
 const PARIS_SELF_PROBE_INTERVAL_MS = Number(process.env.PARIS_SELF_PROBE_INTERVAL_MS || 10000);
@@ -63,14 +63,14 @@ const fetchExternalDependency = async () => {
 
   const payload = response.data;
   return {
-    dependency: 'worldtimeapi',
+    dependency: 'timeapi',
     url: DEPENDENCY_URL,
     status: 'healthy',
     responseTimeMs: Date.now() - startedAt,
     data: {
-      datetime: payload.datetime,
-      timezone: payload.timezone,
-      utc_offset: payload.utc_offset
+      datetime: payload.dateTime,
+      timezone: payload.timeZone,
+      dstActive: payload.dstActive
     }
   };
 };

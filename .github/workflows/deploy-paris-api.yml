@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'backend/paris-parking-api/**'
+      - 'backend/shared/**'
       - '.github/workflows/deploy-paris-api.yml'
   workflow_dispatch:
 
@@ -33,11 +34,11 @@ jobs:
       - name: Create deployment package
         shell: bash
         run: |
-          # Create zip of Paris API
+          # Create zip of Paris API and shared directory (preserving relative structure)
           echo "Creating deployment package..."
-          cd backend/paris-parking-api
-          zip -r "../../paris-api-${{ github.run_id }}.zip" .
-          cd ../../
+          cd backend
+          zip -r "../paris-api-${{ github.run_id }}.zip" paris-parking-api/ shared/
+          cd ..
 
       - name: Upload deployment package to storage
         shell: bash
@@ -124,8 +125,9 @@ jobs:
           unzip -q "$TEMP_ZIP" -d $TEMP_EXTRACT
           
           echo "Copying application files..."
-          sudo cp -r $TEMP_EXTRACT/* $APP_DIR/
-          sudo chown -R $USER:$USER $APP_DIR
+          sudo cp -r $TEMP_EXTRACT/paris-parking-api/* $APP_DIR/
+          sudo cp -r $TEMP_EXTRACT/shared /opt/shared
+          sudo chown -R $USER:$USER $APP_DIR /opt/shared
           
           # Clean up
           rm -rf "$TEMP_ZIP" "$TEMP_EXTRACT"

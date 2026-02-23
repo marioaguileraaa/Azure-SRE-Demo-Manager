@@ -244,6 +244,7 @@ module lisbonApi 'modules/lisbon-api.bicep' = {
     logAnalyticsCustomerId: hub.outputs.logAnalyticsCustomerId
     containerImage: lisbonContainerImage
     containerRegistry: createContainerRegistry ? acr!.outputs.loginServer : containerRegistry
+    chaosControlUrl: chaosControl.outputs.containerAppUrl
     tags: tags
   }
 }

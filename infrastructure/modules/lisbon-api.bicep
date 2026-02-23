@@ -19,6 +19,9 @@ param containerImage string = 'mcr.microsoft.com/azuredocs/containerapps-hellowo
 @description('Container registry server (leave empty for public registries)')
 param containerRegistry string = ''
 
+@description('Chaos Control service URL for the chaos middleware to fetch fault configuration')
+param chaosControlUrl string = ''
+
 @description('Tags to apply to resources')
 param tags object = {}
 
@@ -98,8 +101,16 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
               value: logAnalyticsCustomerId
             }
             {
+              name: 'SHARED_KEY'
+              value: listKeys(logAnalyticsWorkspaceId, '2022-10-01').primarySharedKey
+            }
+            {
               name: 'LOG_TYPE'
               value: 'LisbonParkingLogs'
+            }
+            {
+              name: 'CHAOS_CONTROL_URL'
+              value: chaosControlUrl
             }
           ]
           probes: [

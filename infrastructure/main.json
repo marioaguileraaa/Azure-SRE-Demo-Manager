@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.40.2.10011",
-      "templateHash": "14131169974947338882"
+      "templateHash": "7785548734446002975"
     }
   },
   "parameters": {
@@ -52,6 +52,13 @@
       "defaultValue": "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest",
       "metadata": {
         "description": "Container image for Berlin API"
+      }
+    },
+    "chaosControlContainerImage": {
+      "type": "string",
+      "defaultValue": "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest",
+      "metadata": {
+        "description": "Container image for Chaos Control"
       }
     },
     "containerRegistry": {
@@ -170,6 +177,7 @@
     "madridRgName": "[format('rg-parking-madrid-{0}', parameters('environment'))]",
     "parisRgName": "[format('rg-parking-paris-{0}', parameters('environment'))]",
     "berlinRgName": "[format('rg-parking-berlin-{0}', parameters('environment'))]",
+    "chaosControlRgName": "[format('rg-parking-chaos-{0}', parameters('environment'))]",
     "berlinMcpRgName": "[format('rg-parking-berlin-mcp-{0}', parameters('environment'))]"
   },
   "resources": [
@@ -212,6 +220,13 @@
       "type": "Microsoft.Resources/resourceGroups",
       "apiVersion": "2023-07-01",
       "name": "[variables('berlinRgName')]",
+      "location": "[parameters('location')]",
+      "tags": "[variables('tags')]"
+    },
+    {
+      "type": "Microsoft.Resources/resourceGroups",
+      "apiVersion": "2023-07-01",
+      "name": "[variables('chaosControlRgName')]",
       "location": "[parameters('location')]",
       "tags": "[variables('tags')]"
     },
@@ -1320,6 +1335,9 @@
             "value": "[parameters('lisbonContainerImage')]"
           },
           "containerRegistry": "[if(parameters('createContainerRegistry'), createObject('value', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'container-registry-deployment'), '2025-04-01').outputs.loginServer.value), createObject('value', parameters('containerRegistry')))]",
+          "chaosControlUrl": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('chaosControlRgName')), 'Microsoft.Resources/deployments', 'chaos-control-deployment'), '2025-04-01').outputs.containerAppUrl.value]"
+          },
           "tags": {
             "value": "[variables('tags')]"
           }
@@ -1331,7 +1349,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.40.2.10011",
-              "templateHash": "949156612619927437"
+              "templateHash": "2431130882982345683"
             }
           },
           "parameters": {
@@ -1371,6 +1389,13 @@
               "defaultValue": "",
               "metadata": {
                 "description": "Container registry server (leave empty for public registries)"
+              }
+            },
+            "chaosControlUrl": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Chaos Control service URL for the chaos middleware to fetch fault configuration"
               }
             },
             "tags": {
@@ -1454,8 +1479,16 @@
                           "value": "[parameters('logAnalyticsCustomerId')]"
                         },
                         {
+                          "name": "SHARED_KEY",
+                          "value": "[listKeys(parameters('logAnalyticsWorkspaceId'), '2022-10-01').primarySharedKey]"
+                        },
+                        {
                           "name": "LOG_TYPE",
                           "value": "LisbonParkingLogs"
+                        },
+                        {
+                          "name": "CHAOS_CONTROL_URL",
+                          "value": "[parameters('chaosControlUrl')]"
                         }
                       ],
                       "probes": [
@@ -1531,6 +1564,7 @@
       },
       "dependsOn": [
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'container-registry-deployment')]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('chaosControlRgName')), 'Microsoft.Resources/deployments', 'chaos-control-deployment')]",
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'hub-deployment')]",
         "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('lisbonRgName'))]"
       ]
@@ -1893,6 +1927,295 @@
       ]
     },
     {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "chaos-control-deployment",
+      "resourceGroup": "[variables('chaosControlRgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "environment": {
+            "value": "[parameters('environment')]"
+          },
+          "containerSubnetId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'hub-deployment'), '2025-04-01').outputs.containerSubnetId.value]"
+          },
+          "containerImage": {
+            "value": "[parameters('chaosControlContainerImage')]"
+          },
+          "containerRegistry": "[if(parameters('createContainerRegistry'), createObject('value', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'container-registry-deployment'), '2025-04-01').outputs.loginServer.value), createObject('value', parameters('containerRegistry')))]",
+          "tags": {
+            "value": "[variables('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.40.2.10011",
+              "templateHash": "2213312805952927998"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Location for all Chaos Control resources"
+              }
+            },
+            "containerSubnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Container subnet ID from hub VNet"
+              }
+            },
+            "environment": {
+              "type": "string",
+              "defaultValue": "dev",
+              "metadata": {
+                "description": "Environment name (e.g., dev, test, prod)"
+              }
+            },
+            "containerImage": {
+              "type": "string",
+              "defaultValue": "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest",
+              "metadata": {
+                "description": "Container image name"
+              }
+            },
+            "containerRegistry": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Container registry server (leave empty for public registries)"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Tags to apply to resources"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.App/managedEnvironments",
+              "apiVersion": "2023-05-01",
+              "name": "cae-chaos-control",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "vnetConfiguration": {
+                  "infrastructureSubnetId": "[parameters('containerSubnetId')]"
+                },
+                "workloadProfiles": [
+                  {
+                    "name": "Consumption",
+                    "workloadProfileType": "Consumption"
+                  }
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.App/containerApps",
+              "apiVersion": "2023-05-01",
+              "name": "ca-chaos-control",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "properties": {
+                "environmentId": "[resourceId('Microsoft.App/managedEnvironments', 'cae-chaos-control')]",
+                "configuration": {
+                  "ingress": {
+                    "external": true,
+                    "targetPort": 3090,
+                    "transport": "auto",
+                    "allowInsecure": false
+                  },
+                  "registries": "[if(empty(parameters('containerRegistry')), createArray(), createArray(createObject('server', parameters('containerRegistry'), 'identity', 'system')))]"
+                },
+                "template": {
+                  "containers": [
+                    {
+                      "name": "chaos-control",
+                      "image": "[parameters('containerImage')]",
+                      "resources": {
+                        "cpu": "[json('0.25')]",
+                        "memory": "0.5Gi"
+                      },
+                      "env": [
+                        {
+                          "name": "PORT",
+                          "value": "3090"
+                        },
+                        {
+                          "name": "NODE_ENV",
+                          "value": "production"
+                        },
+                        {
+                          "name": "CHAOS_ENVIRONMENT",
+                          "value": "[parameters('environment')]"
+                        }
+                      ],
+                      "probes": [
+                        {
+                          "type": "liveness",
+                          "httpGet": {
+                            "path": "/health",
+                            "port": 3090
+                          },
+                          "initialDelaySeconds": 10,
+                          "periodSeconds": 30
+                        },
+                        {
+                          "type": "readiness",
+                          "httpGet": {
+                            "path": "/health",
+                            "port": 3090
+                          },
+                          "initialDelaySeconds": 5,
+                          "periodSeconds": 10
+                        }
+                      ]
+                    }
+                  ],
+                  "scale": {
+                    "minReplicas": 1,
+                    "maxReplicas": 2,
+                    "rules": [
+                      {
+                        "name": "http-scaling",
+                        "http": {
+                          "metadata": {
+                            "concurrentRequests": "20"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.App/managedEnvironments', 'cae-chaos-control')]"
+              ]
+            }
+          ],
+          "outputs": {
+            "containerAppName": {
+              "type": "string",
+              "value": "ca-chaos-control"
+            },
+            "containerAppFqdn": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.App/containerApps', 'ca-chaos-control'), '2023-05-01').configuration.ingress.fqdn]"
+            },
+            "containerAppUrl": {
+              "type": "string",
+              "value": "[format('https://{0}', reference(resourceId('Microsoft.App/containerApps', 'ca-chaos-control'), '2023-05-01').configuration.ingress.fqdn)]"
+            },
+            "containerAppEnvironmentName": {
+              "type": "string",
+              "value": "cae-chaos-control"
+            },
+            "containerAppEnvironmentId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.App/managedEnvironments', 'cae-chaos-control')]"
+            },
+            "containerAppPrincipalId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.App/containerApps', 'ca-chaos-control'), '2023-05-01', 'full').identity.principalId]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'container-registry-deployment')]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('chaosControlRgName'))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'hub-deployment')]"
+      ]
+    },
+    {
+      "condition": "[parameters('createContainerRegistry')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "chaos-control-acr-access",
+      "resourceGroup": "[variables('hubRgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "principalId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('chaosControlRgName')), 'Microsoft.Resources/deployments', 'chaos-control-deployment'), '2025-04-01').outputs.containerAppPrincipalId.value]"
+          },
+          "acrName": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'container-registry-deployment'), '2025-04-01').outputs.registryName.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.40.2.10011",
+              "templateHash": "10110345623886929941"
+            }
+          },
+          "parameters": {
+            "principalId": {
+              "type": "string",
+              "metadata": {
+                "description": "Principal ID of the managed identity"
+              }
+            },
+            "acrName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the Azure Container Registry"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]",
+              "name": "[guid(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), 'AcrPull')]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')]",
+                "principalId": "[parameters('principalId')]",
+                "principalType": "ServicePrincipal"
+              }
+            }
+          ],
+          "outputs": {
+            "roleAssignmentId": {
+              "type": "string",
+              "value": "[extensionResourceId(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), 'AcrPull'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'container-registry-deployment')]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('chaosControlRgName')), 'Microsoft.Resources/deployments', 'chaos-control-deployment')]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('hubRgName'))]"
+      ]
+    },
+    {
       "condition": "[parameters('deployBerlinMcp')]",
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2025-04-01",
@@ -1931,7 +2254,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.40.2.10011",
-              "templateHash": "2758760415799505854"
+              "templateHash": "10139767130881042491"
             }
           },
           "parameters": {
@@ -1972,6 +2295,13 @@
               "defaultValue": "",
               "metadata": {
                 "description": "Container registry server (leave empty for public registries)"
+              }
+            },
+            "mcpAuthToken": {
+              "type": "securestring",
+              "defaultValue": "",
+              "metadata": {
+                "description": "MCP authentication token (Bearer token)"
               }
             },
             "tags": {
@@ -2057,7 +2387,7 @@
                   "ingress": {
                     "external": true,
                     "targetPort": 8080,
-                    "transport": "auto",
+                    "transport": "http",
                     "allowInsecure": false
                   },
                   "registries": "[if(empty(parameters('containerRegistry')), createArray(), createArray(createObject('server', parameters('containerRegistry'), 'identity', 'system')))]"
@@ -2079,13 +2409,65 @@
                         {
                           "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
                           "value": "[reference(resourceId('Microsoft.Insights/components', 'appi-parking-berlin-mcp'), '2020-02-02').ConnectionString]"
+                        },
+                        {
+                          "name": "MCP_AUTH_TOKEN",
+                          "value": "[parameters('mcpAuthToken')]"
+                        }
+                      ],
+                      "probes": [
+                        {
+                          "type": "Startup",
+                          "httpGet": {
+                            "path": "/startup",
+                            "port": 8080,
+                            "scheme": "HTTP"
+                          },
+                          "initialDelaySeconds": 5,
+                          "periodSeconds": 5,
+                          "timeoutSeconds": 3,
+                          "failureThreshold": 12
+                        },
+                        {
+                          "type": "Readiness",
+                          "httpGet": {
+                            "path": "/health",
+                            "port": 8080,
+                            "scheme": "HTTP"
+                          },
+                          "initialDelaySeconds": 5,
+                          "periodSeconds": 5,
+                          "timeoutSeconds": 3,
+                          "failureThreshold": 6
+                        },
+                        {
+                          "type": "Liveness",
+                          "httpGet": {
+                            "path": "/health",
+                            "port": 8080,
+                            "scheme": "HTTP"
+                          },
+                          "initialDelaySeconds": 30,
+                          "periodSeconds": 10,
+                          "timeoutSeconds": 5,
+                          "failureThreshold": 3
                         }
                       ]
                     }
                   ],
                   "scale": {
                     "minReplicas": 1,
-                    "maxReplicas": 3
+                    "maxReplicas": 3,
+                    "rules": [
+                      {
+                        "name": "http-scaling",
+                        "http": {
+                          "metadata": {
+                            "concurrentRequests": "10"
+                          }
+                        }
+                      }
+                    ]
                   }
                 }
               },
@@ -3134,6 +3516,10 @@
       "type": "string",
       "value": "[variables('berlinRgName')]"
     },
+    "chaosControlResourceGroup": {
+      "type": "string",
+      "value": "[variables('chaosControlRgName')]"
+    },
     "berlinMcpResourceGroup": {
       "type": "string",
       "value": "[if(parameters('deployBerlinMcp'), variables('berlinMcpRgName'), '')]"
@@ -3189,6 +3575,14 @@
     "berlinApiUrl": {
       "type": "string",
       "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('berlinRgName')), 'Microsoft.Resources/deployments', 'berlin-api-deployment'), '2025-04-01').outputs.containerAppUrl.value]"
+    },
+    "chaosControlUrl": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('chaosControlRgName')), 'Microsoft.Resources/deployments', 'chaos-control-deployment'), '2025-04-01').outputs.containerAppUrl.value]"
+    },
+    "chaosControlContainerAppName": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('chaosControlRgName')), 'Microsoft.Resources/deployments', 'chaos-control-deployment'), '2025-04-01').outputs.containerAppName.value]"
     },
     "berlinMcpServerUrl": {
       "type": "string",

@@ -13,19 +13,20 @@ const backendConfig = {
   lisbon: process.env.REACT_APP_LISBON_API_URL || 'http://10.0.1.4:3001',
   madrid: process.env.REACT_APP_MADRID_API_URL || 'https://10.0.1.5:3002',
   paris: process.env.REACT_APP_PARIS_API_URL || 'https://10.0.1.6:3003',
-  berlin: process.env.REACT_APP_BERLIN_API_URL || 'http://localhost:3004'
+  berlin: process.env.REACT_APP_BERLIN_API_URL || 'http://localhost:3004',
+  chaosControl: process.env.REACT_APP_CHAOS_CONTROL_URL || 'http://localhost:3090'
 };
 
 console.log('Frontend server with proxy running on port', PORT);
 console.log('Backend Configuration:', backendConfig);
 
 // Create proxy middleware with timeout handling
-const createProxy = (target, city) => createProxyMiddleware({
+const createProxy = (target, city, rewritePath) => createProxyMiddleware({
   target,
   changeOrigin: true,
   secure: false, // Accept self-signed certificates
   logLevel: 'warn',
-  pathRewrite: (pathReq) => pathReq.replace(/^\/api\/(lisbon|madrid|paris|berlin)/, '/api'),
+  pathRewrite: rewritePath || ((pathReq) => pathReq.replace(/^\/api\/(lisbon|madrid|paris|berlin)/, '/api')),
   
   // Timeout configuration (5 seconds for same Azure region)
   proxyTimeout: 5000, // Timeout for the proxy request to backend
@@ -73,6 +74,11 @@ app.use('/api/lisbon', createProxy(backendConfig.lisbon, 'Lisbon'));
 app.use('/api/madrid', createProxy(backendConfig.madrid, 'Madrid'));
 app.use('/api/paris', createProxy(backendConfig.paris, 'Paris'));
 app.use('/api/berlin', createProxy(backendConfig.berlin, 'Berlin'));
+app.use('/api/chaos-control', createProxy(
+  backendConfig.chaosControl,
+  'ChaosControl',
+  (pathReq) => pathReq.replace(/^\/api\/chaos-control/, '/api/chaos')
+));
 
 // Disable CSP entirely (allow all sources)
 app.use((req, res, next) => {

@@ -45,3 +45,35 @@ export interface LevelInfo {
   occupiedSlots: number;
   occupancyRate: string;
 }
+
+export type ChaosFaultType =
+  | 'latency'
+  | 'httpError'
+  | 'dependencyFailure'
+  | 'exception'
+  | 'disconnect'
+  | 'timeout'
+  | 'badPayload'
+  | 'httpsError'
+  | 'highCpu'
+  | 'highMemory';
+
+export interface ChaosServiceConfig {
+  enabled: boolean;
+  faultType: ChaosFaultType;
+  probability: number;
+  delayMs: number;
+  cpuBurnMs: number;
+  memoryMb: number;
+  maxMemoryHolds: number;
+  statusCode: number;
+  errorMessage: string;
+  pathPattern: string;
+  method: string;
+}
+
+export interface ChaosState {
+  globalEnabled: boolean;
+  updatedAt: string;
+  services: Record<string, ChaosServiceConfig>;
+}

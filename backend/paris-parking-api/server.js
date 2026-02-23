@@ -5,9 +5,14 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const SyslogLogger = require('./syslogLogger');
+const createChaosMiddleware = require('../shared/chaosMiddleware');
 
 const app = express();
 const PORT = process.env.PORT || 3003;
+const DEPENDENCY_URL = process.env.PARIS_DEPENDENCY_URL || 'https://worldtimeapi.org/api/timezone/Europe/Paris';
+const DEPENDENCY_TIMEOUT_MS = Number(process.env.PARIS_DEPENDENCY_TIMEOUT_MS || 2500);
+const PARIS_SELF_PROBE_ENABLED = process.env.PARIS_SELF_PROBE_ENABLED !== 'false';
+const PARIS_SELF_PROBE_INTERVAL_MS = Number(process.env.PARIS_SELF_PROBE_INTERVAL_MS || 10000);
 
 // HTTPS Configuration
 let server;
@@ -45,16 +50,103 @@ let parkingState = {
   lastUpdated: new Date().toISOString()
 };
 
+const fetchExternalDependency = async () => {
+  const startedAt = Date.now();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), DEPENDENCY_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(DEPENDENCY_URL, {
+      method: 'GET',
+      signal: controller.signal,
+      headers: {
+        Accept: 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Dependency returned status ${response.status}`);
+    }
+
+    const payload = await response.json();
+    return {
+      dependency: 'worldtimeapi',
+      url: DEPENDENCY_URL,
+      status: 'healthy',
+      responseTimeMs: Date.now() - startedAt,
+      data: {
+        datetime: payload.datetime,
+        timezone: payload.timezone,
+        utc_offset: payload.utc_offset
+      }
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
+const runSelfDependencyProbe = async () => {
+  if (!PARIS_SELF_PROBE_ENABLED || useHttps) {
+    return;
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 4000);
+
+  try {
+    const response = await fetch(`http://127.0.0.1:${PORT}/api/parking/dependency`, {
+      method: 'GET',
+      signal: controller.signal,
+      headers: {
+        'x-chaos-probe': 'paris-dependency'
+      }
+    });
+
+    if (!response.ok) {
+      logger.logWarning('DEPENDENCY_SELF_PROBE_FAILED', {
+        statusCode: response.status,
+        path: '/api/parking/dependency'
+      });
+    }
+  } catch (error) {
+    logger.logError('DEPENDENCY_SELF_PROBE_ERROR', error, {
+      path: '/api/parking/dependency'
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
 // Request logging middleware
 app.use((req, res, next) => {
+  const startTime = Date.now();
+
   logger.logInfo('HTTP Request', {
     method: req.method,
     path: req.path,
     ip: req.ip,
     city: parkingState.city
   });
+
+  res.on('finish', () => {
+    const responseTimeMs = Date.now() - startTime;
+    logger.logInfo('HTTP Response', {
+      method: req.method,
+      path: req.path,
+      statusCode: res.statusCode,
+      responseTimeMs,
+      city: parkingState.city
+    });
+  });
+
   next();
 });
+
+app.use(createChaosMiddleware('paris', {
+  onChaosInject: (details) => {
+    logger.logWarning('CHAOS_INJECTED', details);
+  }
+}));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -104,6 +196,26 @@ app.get('/api/parking/metrics', async (req, res) => {
   } catch (error) {
     logger.logError('GET_METRICS', error);
     res.status(500).json({ success: false, error: 'Failed to retrieve metrics' });
+  }
+});
+
+// Dummy external dependency check (for chaos dependency fault testing)
+app.get('/api/parking/dependency', async (req, res) => {
+  try {
+    const dependency = await fetchExternalDependency();
+    logger.logOperation('GET_EXTERNAL_DEPENDENCY', parkingState.id, dependency);
+    res.json({ success: true, data: dependency });
+  } catch (error) {
+    logger.logError('GET_EXTERNAL_DEPENDENCY', error, {
+      url: DEPENDENCY_URL,
+      timeoutMs: DEPENDENCY_TIMEOUT_MS
+    });
+
+    res.status(502).json({
+      success: false,
+      error: 'External dependency call failed',
+      details: error.message
+    });
   }
 });
 
@@ -237,6 +349,24 @@ const simulateParkingActivity = () => {
 // Start parking simulation (update every 5 seconds)
 setInterval(simulateParkingActivity, 5000);
 
+// Trigger periodic dependency probe to exercise dependency chaos scenarios
+setInterval(runSelfDependencyProbe, PARIS_SELF_PROBE_INTERVAL_MS);
+
+app.use((err, req, res, next) => {
+  logger.logError('UNHANDLED_API_ERROR', err);
+  if (res.headersSent) {
+    return next(err);
+  }
+
+  const isChaosException = Boolean(err?.isChaosException || err?.chaosFaultType === 'exception');
+  return res.status(500).json({
+    success: false,
+    error: 'Internal server error',
+    chaos: isChaosException,
+    stackTrace: isChaosException ? err.stack : undefined
+  });
+});
+
 // Start server
 if (useHttps) {
   const options = {
@@ -251,6 +381,7 @@ if (useHttps) {
     console.log(`🐧 Platform: ${process.platform}`);
     console.log(`📝 Syslog: ${logger.isAvailable() ? 'Enabled' : 'Not available (using console logging)'}`);
     console.log(`🎲 Parking activity simulation: Enabled (updates every 5 seconds)`);
+    console.log(`🔎 Dependency self-probe: ${PARIS_SELF_PROBE_ENABLED && !useHttps ? `Enabled (${PARIS_SELF_PROBE_INTERVAL_MS}ms)` : 'Disabled'}`);
     
     // Log server start
     logger.logOperation('SERVER_START', parkingState.id, { 
@@ -269,6 +400,7 @@ if (useHttps) {
     console.log(`🐧 Platform: ${process.platform}`);
     console.log(`📝 Syslog: ${logger.isAvailable() ? 'Enabled' : 'Not available (using console logging)'}`);
     console.log(`🎲 Parking activity simulation: Enabled (updates every 5 seconds)`);
+    console.log(`🔎 Dependency self-probe: ${PARIS_SELF_PROBE_ENABLED && !useHttps ? `Enabled (${PARIS_SELF_PROBE_INTERVAL_MS}ms)` : 'Disabled'}`);
     
     // Log server start
     logger.logOperation('SERVER_START', parkingState.id, { 

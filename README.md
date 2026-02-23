@@ -113,6 +113,17 @@ Azure-SRE-Demo-Manager/
 
 ## Quick Start
 
+### One-command local chaos stack (recommended)
+
+Starts: `chaos-control`, Lisbon, Madrid, Paris, Berlin APIs, and frontend proxy server.
+
+```bash
+./scripts/start-chaos-stack.sh
+```
+
+Then open `http://localhost:8080` and use the **Chaos Backoffice** panel.
+Press `Ctrl+C` in the terminal running the script to stop everything.
+
 ### Prerequisites
 - **Node.js 18+**
 - **Docker** (for containerized APIs like Lisbon)

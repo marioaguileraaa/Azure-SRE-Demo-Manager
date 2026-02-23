@@ -5,6 +5,7 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const WindowsEventLogger = require('./windowsEventLogger');
+const createChaosMiddleware = require('../shared/chaosMiddleware');
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -47,14 +48,34 @@ let parkingState = {
 
 // Request logging middleware
 app.use((req, res, next) => {
+  const startTime = Date.now();
+
   logger.logInfo('HTTP Request', {
     method: req.method,
     path: req.path,
     ip: req.ip,
     city: parkingState.city
   });
+
+  res.on('finish', () => {
+    const responseTimeMs = Date.now() - startTime;
+    logger.logInfo('HTTP Response', {
+      method: req.method,
+      path: req.path,
+      statusCode: res.statusCode,
+      responseTimeMs,
+      city: parkingState.city
+    });
+  });
+
   next();
 });
+
+app.use(createChaosMiddleware('madrid', {
+  onChaosInject: (details) => {
+    logger.logWarning('CHAOS_INJECTED', details);
+  }
+}));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -236,6 +257,21 @@ const simulateParkingActivity = () => {
 
 // Start parking simulation (update every 5 seconds)
 setInterval(simulateParkingActivity, 5000);
+
+app.use((err, req, res, next) => {
+  logger.logError('UNHANDLED_API_ERROR', err);
+  if (res.headersSent) {
+    return next(err);
+  }
+
+  const isChaosException = Boolean(err?.isChaosException || err?.chaosFaultType === 'exception');
+  return res.status(500).json({
+    success: false,
+    error: 'Internal server error',
+    chaos: isChaosException,
+    stackTrace: isChaosException ? err.stack : undefined
+  });
+});
 
 // Start server
 if (useHttps) {

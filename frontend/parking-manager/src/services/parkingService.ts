@@ -1,4 +1,4 @@
-import { ParkingAPI, ParkingInfo, ParkingMetrics, LevelInfo } from '../types';
+import { ChaosServiceConfig, ChaosState, ParkingAPI, ParkingInfo, ParkingMetrics, LevelInfo } from '../types';
 
 class ParkingService {
   private apis: ParkingAPI[] = [];
@@ -108,6 +108,57 @@ class ParkingService {
     if (!response.ok) {
       throw new Error(`Failed to update parking config in ${apiUrl}`);
     }
+    const data = await response.json();
+    return data.data;
+  }
+
+  async probeDependency(apiUrl: string): Promise<void> {
+    await this.initialize();
+    const response = await fetch(`${apiUrl}/parking/dependency`);
+    if (!response.ok) {
+      throw new Error(`Dependency probe failed for ${apiUrl} with status ${response.status}`);
+    }
+  }
+
+  async getChaosState(): Promise<ChaosState> {
+    const response = await fetch('/api/chaos-control/state');
+    if (!response.ok) {
+      throw new Error('Failed to fetch chaos state');
+    }
+    const data = await response.json();
+    return data.data;
+  }
+
+  async setChaosGlobal(enabled: boolean): Promise<ChaosState> {
+    const response = await fetch('/api/chaos-control/global', {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ enabled })
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to update global chaos switch');
+    }
+
+    const state = await this.getChaosState();
+    return state;
+  }
+
+  async updateChaosService(serviceName: string, config: ChaosServiceConfig): Promise<ChaosServiceConfig> {
+    const response = await fetch(`/api/chaos-control/services/${serviceName}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(config)
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to update chaos config for ${serviceName}`);
+    }
+
     const data = await response.json();
     return data.data;
   }

@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const MetricsTracker = require('./metricsTracker');
+const createChaosMiddleware = require('../shared/chaosMiddleware');
 
 const app = express();
 const PORT = process.env.PORT || 3004;
@@ -45,6 +46,8 @@ app.use((req, res, next) => {
   res.on('finish', () => {
     const responseTime = Date.now() - startTime;
     metricsTracker.trackResponseTime(req.path, responseTime);
+
+    console.log(`[${new Date().toISOString()}] RESPONSE ${req.method} ${req.path} - Status: ${res.statusCode} - responseTimeMs: ${responseTime}`);
     
     if (res.statusCode >= 400) {
       metricsTracker.trackError(res.statusCode);
@@ -53,6 +56,12 @@ app.use((req, res, next) => {
   
   next();
 });
+
+app.use(createChaosMiddleware('berlin', {
+  onChaosInject: (details) => {
+    console.error('[CHAOS_INJECTED]', JSON.stringify(details));
+  }
+}));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -259,6 +268,21 @@ const simulateParkingActivity = () => {
 
 // Start parking simulation (update every 5 seconds)
 setInterval(simulateParkingActivity, 5000);
+
+app.use((err, req, res, next) => {
+  console.error('Unhandled API error:', err.message);
+  if (res.headersSent) {
+    return next(err);
+  }
+
+  const isChaosException = Boolean(err?.isChaosException || err?.chaosFaultType === 'exception');
+  return res.status(500).json({
+    success: false,
+    error: 'Internal server error',
+    chaos: isChaosException,
+    stackTrace: isChaosException ? err.stack : undefined
+  });
+});
 
 // Start server
 app.listen(PORT, () => {

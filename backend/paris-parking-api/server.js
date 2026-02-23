@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const axios = require('axios');
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
@@ -52,37 +53,26 @@ let parkingState = {
 
 const fetchExternalDependency = async () => {
   const startedAt = Date.now();
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), DEPENDENCY_TIMEOUT_MS);
 
-  try {
-    const response = await fetch(DEPENDENCY_URL, {
-      method: 'GET',
-      signal: controller.signal,
-      headers: {
-        Accept: 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`Dependency returned status ${response.status}`);
+  const response = await axios.get(DEPENDENCY_URL, {
+    timeout: DEPENDENCY_TIMEOUT_MS,
+    headers: {
+      Accept: 'application/json'
     }
+  });
 
-    const payload = await response.json();
-    return {
-      dependency: 'worldtimeapi',
-      url: DEPENDENCY_URL,
-      status: 'healthy',
-      responseTimeMs: Date.now() - startedAt,
-      data: {
-        datetime: payload.datetime,
-        timezone: payload.timezone,
-        utc_offset: payload.utc_offset
-      }
-    };
-  } finally {
-    clearTimeout(timeout);
-  }
+  const payload = response.data;
+  return {
+    dependency: 'worldtimeapi',
+    url: DEPENDENCY_URL,
+    status: 'healthy',
+    responseTimeMs: Date.now() - startedAt,
+    data: {
+      datetime: payload.datetime,
+      timezone: payload.timezone,
+      utc_offset: payload.utc_offset
+    }
+  };
 };
 
 const runSelfDependencyProbe = async () => {
@@ -90,19 +80,15 @@ const runSelfDependencyProbe = async () => {
     return;
   }
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 4000);
-
   try {
-    const response = await fetch(`http://127.0.0.1:${PORT}/api/parking/dependency`, {
-      method: 'GET',
-      signal: controller.signal,
+    const response = await axios.get(`http://127.0.0.1:${PORT}/api/parking/dependency`, {
+      timeout: 4000,
       headers: {
         'x-chaos-probe': 'paris-dependency'
       }
     });
 
-    if (!response.ok) {
+    if (response.status < 200 || response.status >= 300) {
       logger.logWarning('DEPENDENCY_SELF_PROBE_FAILED', {
         statusCode: response.status,
         path: '/api/parking/dependency'
@@ -112,8 +98,6 @@ const runSelfDependencyProbe = async () => {
     logger.logError('DEPENDENCY_SELF_PROBE_ERROR', error, {
       path: '/api/parking/dependency'
     });
-  } finally {
-    clearTimeout(timeout);
   }
 };
 

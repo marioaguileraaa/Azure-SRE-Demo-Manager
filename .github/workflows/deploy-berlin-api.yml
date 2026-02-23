@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'backend/berlin-parking-api/**'
+      - 'backend/shared/**'
       - '.github/workflows/deploy-berlin-api.yml'
   workflow_dispatch:
 
@@ -35,12 +36,12 @@ jobs:
           az acr login --name ${{ env.AZURE_CONTAINER_REGISTRY }}
 
       - name: Build and push Docker image
-        working-directory: backend/berlin-parking-api
+        working-directory: backend
         run: |
           IMAGE_TAG=${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
           IMAGE_TAG_LATEST=${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/${{ env.IMAGE_NAME }}:latest
           
-          docker build -t $IMAGE_TAG -t $IMAGE_TAG_LATEST .
+          docker build -f berlin-parking-api/Dockerfile -t $IMAGE_TAG -t $IMAGE_TAG_LATEST .
           docker push $IMAGE_TAG
           docker push $IMAGE_TAG_LATEST
           

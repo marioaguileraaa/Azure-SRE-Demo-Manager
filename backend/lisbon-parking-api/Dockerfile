@@ -4,13 +4,16 @@ FROM node:18-alpine
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY lisbon-parking-api/package*.json ./
 
 # Install dependencies
 RUN npm ci --only=production
 
 # Copy application files
-COPY . .
+COPY lisbon-parking-api/ .
+
+# Copy shared module
+COPY shared/ /shared/
 
 # Expose port
 EXPOSE 3001

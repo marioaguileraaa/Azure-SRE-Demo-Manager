@@ -411,6 +411,7 @@ module frontend 'modules/frontend.bicep' = {
     madridApiUrl: madridApi.outputs.apiUrl
     parisApiUrl: parisApi.outputs.apiUrl
     berlinApiUrl: berlinApi.outputs.containerAppUrl
+    chaosControlUrl: chaosControl.outputs.containerAppUrl
     tags: tags
   }
 }

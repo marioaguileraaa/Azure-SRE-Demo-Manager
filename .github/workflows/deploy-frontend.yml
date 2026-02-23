@@ -39,6 +39,7 @@ jobs:
           REACT_APP_LISBON_API_URL: ${{ vars.LISBON_API_URL }}
           REACT_APP_MADRID_API_URL: ${{ vars.MADRID_API_URL }}
           REACT_APP_PARIS_API_URL: ${{ vars.PARIS_API_URL }}
+          REACT_APP_CHAOS_CONTROL_URL: ${{ vars.CHAOS_CONTROL_URL }}
         run: |
           # Create production build with API URLs
           npm run build

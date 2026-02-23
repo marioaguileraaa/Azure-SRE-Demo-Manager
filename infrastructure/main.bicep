@@ -25,6 +25,9 @@ param lisbonContainerImage string = 'mcr.microsoft.com/azuredocs/containerapps-h
 @description('Container image for Berlin API')
 param berlinContainerImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
 
+@description('Container image for Chaos Control')
+param chaosControlContainerImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
+
 @description('Container registry server (if using private registry)')
 param containerRegistry string = ''
 
@@ -86,6 +89,7 @@ var lisbonRgName = 'rg-parking-lisbon-${environment}'
 var madridRgName = 'rg-parking-madrid-${environment}'
 var parisRgName = 'rg-parking-paris-${environment}'
 var berlinRgName = 'rg-parking-berlin-${environment}'
+var chaosControlRgName = 'rg-parking-chaos-${environment}'
 var berlinMcpRgName = 'rg-parking-berlin-mcp-${environment}'
 
 // ========================================
@@ -124,6 +128,12 @@ resource parisRg 'Microsoft.Resources/resourceGroups@2023-07-01' = {
 
 resource berlinRg 'Microsoft.Resources/resourceGroups@2023-07-01' = {
   name: berlinRgName
+  location: location
+  tags: tags
+}
+
+resource chaosControlRg 'Microsoft.Resources/resourceGroups@2023-07-01' = {
+  name: chaosControlRgName
   location: location
   tags: tags
 }
@@ -275,6 +285,33 @@ module berlinAcrAccess 'modules/acr-role-assignment.bicep' = if (createContainer
 }
 
 // ========================================
+// Chaos Control (Container App)
+// ========================================
+
+module chaosControl 'modules/chaos-control.bicep' = {
+  scope: chaosControlRg
+  name: 'chaos-control-deployment'
+  params: {
+    location: location
+    environment: environment
+    containerSubnetId: hub.outputs.containerSubnetId
+    containerImage: chaosControlContainerImage
+    containerRegistry: createContainerRegistry ? acr!.outputs.loginServer : containerRegistry
+    tags: tags
+  }
+}
+
+// Grant Container App access to ACR
+module chaosControlAcrAccess 'modules/acr-role-assignment.bicep' = if (createContainerRegistry) {
+  scope: hubRg
+  name: 'chaos-control-acr-access'
+  params: {
+    principalId: chaosControl.outputs.containerAppPrincipalId
+    acrName: acr!.outputs.registryName
+  }
+}
+
+// ========================================
 // Berlin MCP Server (Container App for monitoring Berlin API)
 // ========================================
 
@@ -388,6 +425,7 @@ output lisbonResourceGroup string = lisbonRg.name
 output madridResourceGroup string = madridRg.name
 output parisResourceGroup string = parisRg.name
 output berlinResourceGroup string = berlinRg.name
+output chaosControlResourceGroup string = chaosControlRg.name
 output berlinMcpResourceGroup string = deployBerlinMcp ? berlinMcpRg!.name : ''
 
 output vnetName string = hub.outputs.vnetName
@@ -407,6 +445,8 @@ output lisbonApiUrl string = lisbonApi.outputs.containerAppUrl
 output madridApiUrl string = madridApi.outputs.apiUrl
 output parisApiUrl string = parisApi.outputs.apiUrl
 output berlinApiUrl string = berlinApi.outputs.containerAppUrl
+output chaosControlUrl string = chaosControl.outputs.containerAppUrl
+output chaosControlContainerAppName string = chaosControl.outputs.containerAppName
 output berlinMcpServerUrl string = deployBerlinMcp ? berlinMcpServer!.outputs.mcpServerUrl : ''
 output berlinMcpAppInsightsName string = deployBerlinMcp ? berlinMcpServer!.outputs.appInsightsName : ''
 output berlinMcpLogAnalyticsWorkspaceName string = deployBerlinMcp ? berlinMcpServer!.outputs.logAnalyticsWorkspaceName : ''

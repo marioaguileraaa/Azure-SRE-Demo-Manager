@@ -17,6 +17,7 @@ env:
   RESOURCE_GROUP: ${{ vars.MADRID_RESOURCE_GROUP }}
   STORAGE_ACCOUNT: ${{ vars.DEPLOYMENT_STORAGE_ACCOUNT }}
   STORAGE_RG: ${{ vars.HUB_RESOURCE_GROUP }}
+  CHAOS_CONTROL_URL: ${{ vars.CHAOS_CONTROL_URL }}
 
 jobs:
   deploy:
@@ -84,6 +85,7 @@ jobs:
           $serviceName = "${{ env.SERVICE_NAME }}"
           $appDir = "${{ env.APP_DIR }}"
           $blobUrl = "${{ env.BLOB_URL }}"
+          $chaosControlUrl = "${{ env.CHAOS_CONTROL_URL }}"
           
           Write-Host "Stopping service if exists..."
           $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
@@ -166,6 +168,7 @@ jobs:
           EVENT_LOG_SOURCE=MadridParkingAPI
           EVENT_LOG_NAME=Application
           NODE_ENV=production
+          CHAOS_CONTROL_URL=$chaosControlUrl
           "@ | Out-File -FilePath "$appDir\.env" -Encoding UTF8
           
           Write-Host "Installing Windows Event Log source..."

@@ -17,6 +17,7 @@ env:
   RESOURCE_GROUP: ${{ vars.PARIS_RESOURCE_GROUP }}
   STORAGE_ACCOUNT: ${{ vars.DEPLOYMENT_STORAGE_ACCOUNT }}
   STORAGE_RG: ${{ vars.HUB_RESOURCE_GROUP }}
+  CHAOS_CONTROL_URL: ${{ vars.CHAOS_CONTROL_URL }}
 
 jobs:
   deploy:
@@ -161,6 +162,7 @@ jobs:
           NODE_ENV=production
           CERT_PATH=$APP_DIR/paris.crt
           KEY_PATH=$APP_DIR/paris.key
+          CHAOS_CONTROL_URL=$CHAOS_CONTROL_URL
           EOF
           
           echo "Creating systemd service file..."

@@ -46,6 +46,8 @@ app.use((req, res, next) => {
   res.on('finish', () => {
     const responseTime = Date.now() - startTime;
     metricsTracker.trackResponseTime(req.path, responseTime);
+
+    console.log(`[${new Date().toISOString()}] RESPONSE ${req.method} ${req.path} - Status: ${res.statusCode} - responseTimeMs: ${responseTime}`);
     
     if (res.statusCode >= 400) {
       metricsTracker.trackError(res.statusCode);
@@ -55,7 +57,11 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(createChaosMiddleware('berlin'));
+app.use(createChaosMiddleware('berlin', {
+  onChaosInject: (details) => {
+    console.error('[CHAOS_INJECTED]', JSON.stringify(details));
+  }
+}));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -268,10 +274,13 @@ app.use((err, req, res, next) => {
   if (res.headersSent) {
     return next(err);
   }
+
+  const isChaosException = Boolean(err?.isChaosException || err?.chaosFaultType === 'exception');
   return res.status(500).json({
     success: false,
     error: 'Internal server error',
-    chaos: true
+    chaos: isChaosException,
+    stackTrace: isChaosException ? err.stack : undefined
   });
 });
 

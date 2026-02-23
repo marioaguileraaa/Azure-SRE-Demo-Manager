@@ -38,6 +38,8 @@ let parkingState = {
 
 // Request logging middleware
 app.use((req, res, next) => {
+  const startTime = Date.now();
+
   const logData = {
     timestamp: new Date().toISOString(),
     method: req.method,
@@ -47,10 +49,29 @@ app.use((req, res, next) => {
     level: 'INFO'
   };
   logger.sendLog([logData]).catch(err => console.error('Logging error:', err));
+
+  res.on('finish', () => {
+    const responseTimeMs = Date.now() - startTime;
+    logger.sendLog([{
+      timestamp: new Date().toISOString(),
+      method: req.method,
+      path: req.path,
+      statusCode: res.statusCode,
+      responseTimeMs,
+      city: parkingState.city,
+      level: 'INFO',
+      operation: 'HTTP_RESPONSE'
+    }]).catch(err => console.error('Logging error:', err));
+  });
+
   next();
 });
 
-app.use(createChaosMiddleware('lisbon'));
+app.use(createChaosMiddleware('lisbon', {
+  onChaosInject: async (details) => {
+    await logger.logError('CHAOS_INJECTED', details.errorMessage || details.faultType, details);
+  }
+}));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -236,10 +257,13 @@ app.use((err, req, res, next) => {
   if (res.headersSent) {
     return next(err);
   }
+
+  const isChaosException = Boolean(err?.isChaosException || err?.chaosFaultType === 'exception');
   return res.status(500).json({
     success: false,
     error: 'Internal server error',
-    chaos: true
+    chaos: isChaosException,
+    stackTrace: isChaosException ? err.stack : undefined
   });
 });
 

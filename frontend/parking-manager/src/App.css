@@ -90,6 +90,30 @@
   margin-bottom: 24px;
 }
 
+.chaos-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.chaos-help-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: none;
+  background-color: #667eea;
+  color: white;
+  font-size: 22px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.chaos-help-btn:hover {
+  background-color: #5565d0;
+  transform: translateY(-2px);
+}
+
 .chaos-panel-header h2 {
   margin: 0;
   color: #333;
@@ -111,10 +135,50 @@
   margin: 0 0 12px 0;
 }
 
+.chaos-warning {
+  margin: 0 0 16px 0;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background-color: #fff3cd;
+  color: #7a5b00;
+  border: 1px solid #ffe08a;
+  font-size: 14px;
+}
+
 .chaos-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
   gap: 24px;
+}
+
+.chaos-help-page {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 24px;
+}
+
+.chaos-help-card {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.chaos-help-card h3 {
+  margin: 0 0 12px 0;
+  font-size: 22px;
+  color: #333;
+}
+
+.chaos-help-card ul {
+  margin: 0;
+  padding-left: 20px;
+  color: #666;
+  line-height: 1.5;
+}
+
+.chaos-help-card li + li {
+  margin-top: 8px;
 }
 
 .chaos-card {

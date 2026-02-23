@@ -46,5 +46,6 @@ tmp/
 temp/
 
 # Custom
+.runtime-logs/
 MYLOG.md
 zzMYLOG.md

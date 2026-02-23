@@ -49,17 +49,23 @@ export interface LevelInfo {
 export type ChaosFaultType =
   | 'latency'
   | 'httpError'
+  | 'dependencyFailure'
   | 'exception'
   | 'disconnect'
   | 'timeout'
   | 'badPayload'
-  | 'httpsError';
+  | 'httpsError'
+  | 'highCpu'
+  | 'highMemory';
 
 export interface ChaosServiceConfig {
   enabled: boolean;
   faultType: ChaosFaultType;
   probability: number;
   delayMs: number;
+  cpuBurnMs: number;
+  memoryMb: number;
+  maxMemoryHolds: number;
   statusCode: number;
   errorMessage: string;
   pathPattern: string;

@@ -112,6 +112,14 @@ class ParkingService {
     return data.data;
   }
 
+  async probeDependency(apiUrl: string): Promise<void> {
+    await this.initialize();
+    const response = await fetch(`${apiUrl}/parking/dependency`);
+    if (!response.ok) {
+      throw new Error(`Dependency probe failed for ${apiUrl} with status ${response.status}`);
+    }
+  }
+
   async getChaosState(): Promise<ChaosState> {
     const response = await fetch('/api/chaos-control/state');
     if (!response.ok) {

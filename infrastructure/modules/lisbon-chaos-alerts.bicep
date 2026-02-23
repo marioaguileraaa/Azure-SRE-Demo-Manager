@@ -1,7 +1,7 @@
 @description('Azure region for scheduled query rules (usually same region as Log Analytics workspace).')
 param location string
 
-@description('Log Analytics workspace resource ID that stores Lisbon custom logs.')
+@description('Fully qualified ARM resource ID of the Log Analytics workspace that stores Lisbon custom logs. Must start with /subscriptions/. Do not use the workspace customer ID (GUID).')
 param logAnalyticsWorkspaceId string
 
 @description('Action Group resource ID to notify when alerts fire. Leave empty to create rules without action groups.')

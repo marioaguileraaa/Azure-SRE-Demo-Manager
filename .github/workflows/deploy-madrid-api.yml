@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'backend/madrid-parking-api/**'
+      - 'backend/shared/**'
       - '.github/workflows/deploy-madrid-api.yml'
   workflow_dispatch:
 
@@ -43,7 +44,13 @@ jobs:
         shell: pwsh
         run: |
           Write-Host "Creating deployment package..."
-          Compress-Archive -Path "backend\madrid-parking-api\*" -DestinationPath "madrid-api-${{ github.run_id }}.zip" -Force
+          $tempDir = "$env:TEMP\madrid-deploy-${{ github.run_id }}"
+          New-Item -ItemType Directory -Path "$tempDir\madrid-parking-api" -Force | Out-Null
+          New-Item -ItemType Directory -Path "$tempDir\shared" -Force | Out-Null
+          Copy-Item -Path "backend\madrid-parking-api\*" -Destination "$tempDir\madrid-parking-api" -Recurse -Force
+          Copy-Item -Path "backend\shared\*" -Destination "$tempDir\shared" -Recurse -Force
+          Compress-Archive -Path "$tempDir\*" -DestinationPath "madrid-api-${{ github.run_id }}.zip" -Force
+          Remove-Item $tempDir -Recurse -Force
 
       - name: Upload to storage via private endpoint
         shell: pwsh
@@ -109,7 +116,11 @@ jobs:
             Expand-Archive -Path $tempZip -DestinationPath $tempExtract -Force
             
             Write-Host "Copying files..."
-            Copy-Item -Path "$tempExtract\*" -Destination $appDir -Recurse -Force
+            Copy-Item -Path "$tempExtract\madrid-parking-api\*" -Destination $appDir -Recurse -Force
+            
+            $sharedDir = Join-Path (Split-Path $appDir -Parent) "shared"
+            if (-not (Test-Path $sharedDir)) { New-Item -ItemType Directory -Path $sharedDir -Force | Out-Null }
+            Copy-Item -Path "$tempExtract\shared\*" -Destination $sharedDir -Recurse -Force
             
             Remove-Item $tempZip -Force
             Remove-Item $tempExtract -Recurse -Force

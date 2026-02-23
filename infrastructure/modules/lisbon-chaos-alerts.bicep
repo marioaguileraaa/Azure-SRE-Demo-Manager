@@ -177,7 +177,7 @@ LisbonParkingLogs_CL
     query: '''
 LisbonParkingLogs_CL
 | extend operation = tostring(coalesce(column_ifexists('operation_s', ''), column_ifexists('operation', '')))
-| extend statusCode = toint(coalesce(column_ifexists('statusCode_d', int(null)), column_ifexists('statusCode', int(null))))
+| extend statusCode = coalesce(toint(column_ifexists('statusCode_d', real(null))), toint(column_ifexists('statusCode', int(null))))
 | where operation == 'HTTP_RESPONSE'
 | where statusCode == 429
 | summarize count() by bin(TimeGenerated, 5m)

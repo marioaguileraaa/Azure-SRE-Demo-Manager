@@ -42,7 +42,7 @@ LisbonParkingLogs_CL
   }
   {
     key: 'http-error'
-    severity: 2
+    severity: 0
     threshold: 0
     query: '''
 LisbonParkingLogs_CL

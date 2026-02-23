@@ -9,9 +9,10 @@ The project uses multiple deployment workflows:
 2. **Lisbon API** - Container App deployment
 3. **Berlin API** - Container App deployment
 4. **Chaos Control** - Container App deployment
-5. **Madrid API** - Windows VM deployment (self-hosted runner)
-6. **Paris API** - Linux VM deployment (self-hosted runner)
-7. **Frontend** - Azure App Service deployment
+5. **Lisbon Chaos Alerts** - Azure Monitor scheduled query alerts deployment
+6. **Madrid API** - Windows VM deployment (self-hosted runner)
+7. **Paris API** - Linux VM deployment (self-hosted runner)
+8. **Frontend** - Azure App Service deployment
 
 ---
 
@@ -200,7 +201,27 @@ Deploys the Chaos Control service to Azure Container Apps using Docker.
 
 ---
 
-### 5. Madrid API Deployment (Windows VM)
+### 5. Lisbon Chaos Alerts Deployment (Azure Monitor)
+
+**File:** `.github/workflows/deploy-lisbon-chaos-alerts.yml`
+
+Deploys Azure Monitor scheduled query alerts from `infrastructure/modules/lisbon-chaos-alerts.bicep`.
+
+**Required Variables:**
+- `HUB_RESOURCE_GROUP` - Resource group where alert rules are deployed (e.g., `rg-parking-hub-dev`)
+- `LISBON_LOG_ANALYTICS_WORKSPACE_ID` - Full Log Analytics workspace resource ID used by Lisbon logs
+- `LISBON_CHAOS_ALERTS_ACTION_GROUP_ID` - Full Action Group resource ID for notifications (optional)
+
+**Required Secrets:**
+- `AZURE_CREDENTIALS` - Service principal JSON
+
+**Triggers:**
+- Push to `main` affecting `infrastructure/modules/lisbon-chaos-alerts.bicep`
+- Manual dispatch with custom `location`, `enabled`, `evaluationFrequency`, `windowSize`, `namePrefix`
+
+---
+
+### 6. Madrid API Deployment (Windows VM)
 
 **File:** `.github/workflows/deploy-madrid-api.yml`
 
@@ -212,7 +233,7 @@ Deploys the Madrid Parking API to Windows VM using a self-hosted runner.
 
 ---
 
-### 6. Paris API Deployment (Linux VM)
+### 7. Paris API Deployment (Linux VM)
 
 **File:** `.github/workflows/deploy-paris-api.yml`
 
@@ -278,6 +299,9 @@ Configure these variables in **Settings → Secrets and variables → Actions �
 - `BERLIN_RESOURCE_GROUP` - Resource group for Berlin API (e.g., `rg-parking-berlin-dev`)
 - `CHAOS_CONTROL_RESOURCE_GROUP` - Resource group for Chaos Control Container App
 - `CHAOS_CONTROL_CONTAINER_APP_NAME` - Container App name for Chaos Control (e.g., `ca-chaos-control`)
+- `HUB_RESOURCE_GROUP` - Resource group where Lisbon chaos alerts are deployed (e.g., `rg-parking-hub-dev`)
+- `LISBON_LOG_ANALYTICS_WORKSPACE_ID` - Full resource ID of Log Analytics workspace used by Lisbon logs
+- `LISBON_CHAOS_ALERTS_ACTION_GROUP_ID` - Full resource ID of Action Group for alert notifications (optional)
 - `AZURE_WEBAPP_NAME` - App Service name (e.g., `app-parking-frontend-yd5hvpxzlffke`)
 - `FRONTEND_RESOURCE_GROUP` - Resource group for frontend (e.g., `rg-parking-frontend-dev`)
 

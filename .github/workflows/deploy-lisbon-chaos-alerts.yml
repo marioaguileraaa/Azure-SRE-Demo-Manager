@@ -67,6 +67,14 @@ jobs:
             exit 1
           fi
 
+          if [[ "${{ env.LOG_ANALYTICS_WORKSPACE_ID }}" != /subscriptions/* ]]; then
+            echo "❌ LOG_ANALYTICS_WORKSPACE_ID must be a fully qualified ARM resource ID starting with '/subscriptions/'"
+            echo "   Got: ${{ env.LOG_ANALYTICS_WORKSPACE_ID }}"
+            echo "   Expected format: /subscriptions/{subscriptionId}/resourceGroups/{resourceGroup}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}"
+            echo "   Note: Do not use the Log Analytics workspace customer ID (GUID). Use the full ARM resource ID."
+            exit 1
+          fi
+
           echo "✅ Required variables are present"
 
       - name: Deploy Lisbon chaos alerts

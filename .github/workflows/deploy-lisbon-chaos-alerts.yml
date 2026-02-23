@@ -37,7 +37,7 @@ on:
 
 env:
   HUB_RESOURCE_GROUP: ${{ vars.HUB_RESOURCE_GROUP }}
-  LOG_ANALYTICS_WORKSPACE_ID: ${{ vars.LOG_ANALYTICS_WORKSPACE_RESOURCE_ID }}
+  LOG_ANALYTICS_WORKSPACE_RESOURCE_ID: ${{ vars.LOG_ANALYTICS_WORKSPACE_RESOURCE_ID }}
   ACTION_GROUP_RESOURCE_ID: ${{ vars.ACTION_GROUP_RESOURCE_ID }}
 
 jobs:
@@ -62,14 +62,14 @@ jobs:
             exit 1
           fi
 
-          if [ -z "${{ env.LOG_ANALYTICS_WORKSPACE_ID }}" ]; then
-            echo "❌ Missing GitHub variable: LOG_ANALYTICS_WORKSPACE_ID"
+          if [ -z "${{ env.LOG_ANALYTICS_WORKSPACE_RESOURCE_ID }}" ]; then
+            echo "❌ Missing GitHub variable: LOG_ANALYTICS_WORKSPACE_RESOURCE_ID"
             exit 1
           fi
 
-          if [[ "${{ env.LOG_ANALYTICS_WORKSPACE_ID }}" != /subscriptions/* ]]; then
-            echo "❌ LOG_ANALYTICS_WORKSPACE_ID must be a fully qualified ARM resource ID starting with '/subscriptions/'"
-            echo "   Got: ${{ env.LOG_ANALYTICS_WORKSPACE_ID }}"
+          if [[ "${{ env.LOG_ANALYTICS_WORKSPACE_RESOURCE_ID }}" != /subscriptions/* ]]; then
+            echo "❌ LOG_ANALYTICS_WORKSPACE_RESOURCE_ID must be a fully qualified ARM resource ID starting with '/subscriptions/'"
+            echo "   Got: ${{ env.LOG_ANALYTICS_WORKSPACE_RESOURCE_ID }}"
             echo "   Expected format: /subscriptions/{subscriptionId}/resourceGroups/{resourceGroup}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}"
             echo "   Note: Do not use the Log Analytics workspace customer ID (GUID). Use the full ARM resource ID."
             exit 1
@@ -84,7 +84,7 @@ jobs:
             --template-file infrastructure/modules/lisbon-chaos-alerts.bicep \
             --parameters \
               location="${{ inputs.location || 'swedencentral' }}" \
-              logAnalyticsWorkspaceId="${{ env.LOG_ANALYTICS_WORKSPACE_ID }}" \
+              logAnalyticsWorkspaceId="${{ env.LOG_ANALYTICS_WORKSPACE_RESOURCE_ID }}" \
               actionGroupResourceId="${{ env.ACTION_GROUP_RESOURCE_ID }}" \
               enabled="${{ inputs.enabled || 'true' }}" \
               evaluationFrequency="${{ inputs.evaluationFrequency || 'PT5M' }}" \

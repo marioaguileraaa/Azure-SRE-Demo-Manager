@@ -5,6 +5,7 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const WindowsEventLogger = require('./windowsEventLogger');
+const createChaosMiddleware = require('../shared/chaosMiddleware');
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -55,6 +56,8 @@ app.use((req, res, next) => {
   });
   next();
 });
+
+app.use(createChaosMiddleware('madrid'));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -236,6 +239,18 @@ const simulateParkingActivity = () => {
 
 // Start parking simulation (update every 5 seconds)
 setInterval(simulateParkingActivity, 5000);
+
+app.use((err, req, res, next) => {
+  logger.logError('UNHANDLED_API_ERROR', err);
+  if (res.headersSent) {
+    return next(err);
+  }
+  return res.status(500).json({
+    success: false,
+    error: 'Internal server error',
+    chaos: true
+  });
+});
 
 // Start server
 if (useHttps) {

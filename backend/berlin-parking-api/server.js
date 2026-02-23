@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const MetricsTracker = require('./metricsTracker');
+const createChaosMiddleware = require('../shared/chaosMiddleware');
 
 const app = express();
 const PORT = process.env.PORT || 3004;
@@ -53,6 +54,8 @@ app.use((req, res, next) => {
   
   next();
 });
+
+app.use(createChaosMiddleware('berlin'));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -259,6 +262,18 @@ const simulateParkingActivity = () => {
 
 // Start parking simulation (update every 5 seconds)
 setInterval(simulateParkingActivity, 5000);
+
+app.use((err, req, res, next) => {
+  console.error('Unhandled API error:', err.message);
+  if (res.headersSent) {
+    return next(err);
+  }
+  return res.status(500).json({
+    success: false,
+    error: 'Internal server error',
+    chaos: true
+  });
+});
 
 // Start server
 app.listen(PORT, () => {

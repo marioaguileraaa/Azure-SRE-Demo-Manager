@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const AzureLogAnalytics = require('./azureLogger');
+const createChaosMiddleware = require('../shared/chaosMiddleware');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -48,6 +49,8 @@ app.use((req, res, next) => {
   logger.sendLog([logData]).catch(err => console.error('Logging error:', err));
   next();
 });
+
+app.use(createChaosMiddleware('lisbon'));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -227,6 +230,18 @@ const simulateParkingActivity = () => {
 
 // Start parking simulation (update every 5 seconds)
 setInterval(simulateParkingActivity, 5000);
+
+app.use((err, req, res, next) => {
+  logger.logError('UNHANDLED_API_ERROR', err);
+  if (res.headersSent) {
+    return next(err);
+  }
+  return res.status(500).json({
+    success: false,
+    error: 'Internal server error',
+    chaos: true
+  });
+});
 
 // Start server
 app.listen(PORT, () => {

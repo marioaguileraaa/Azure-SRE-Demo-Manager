@@ -11,6 +11,20 @@ npm run start
 
 Default port: `3090`
 
+## Run with Docker
+
+Build image:
+
+```bash
+docker build -t chaos-control ./backend/chaos-control
+```
+
+Run container:
+
+```bash
+docker run --rm -p 3090:3090 --name chaos-control chaos-control
+```
+
 ## Run full local stack
 
 From repository root:
@@ -163,3 +177,44 @@ Expected response shape:
 1. Set `Global Chaos` ON, but keep one service at a time with low probability (`0.1` to `0.2`).
 2. Start with non-destructive faults (`latency`) before moving to `disconnect`, `timeout`, `highMemory`.
 3. Increase intensity gradually and monitor API/Frontend behavior and logs.
+
+## Azure Monitor alerts for Lisbon chaos faults
+
+Lisbon emits custom logs to the `LisbonParkingLogs_CL` table. The module below creates scheduled query alerts for each chaos fault type plus latency/high-memory operational signals.
+
+### Included alert rules
+
+- `lisbon-chaos-generic`
+- `lisbon-chaos-http-error`
+- `lisbon-chaos-dependency-failure`
+- `lisbon-chaos-https-error`
+- `lisbon-chaos-exception`
+- `lisbon-chaos-disconnect`
+- `lisbon-chaos-timeout`
+- `lisbon-chaos-bad-payload`
+- `lisbon-chaos-high-cpu`
+- `lisbon-chaos-high-memory`
+- `lisbon-chaos-latency-performance`
+- `lisbon-chaos-high-memory-guard-429`
+
+### Bicep module
+
+`infrastructure/modules/lisbon-chaos-alerts.bicep`
+
+### Example deployment
+
+```bash
+az deployment group create \
+  --resource-group rg-parking-hub-dev \
+  --template-file infrastructure/modules/lisbon-chaos-alerts.bicep \
+  --parameters \
+    location=swedencentral \
+    logAnalyticsWorkspaceId="/subscriptions/<subId>/resourceGroups/rg-parking-hub-dev/providers/Microsoft.OperationalInsights/workspaces/law-parking-hub" \
+    actionGroupResourceId="/subscriptions/<subId>/resourceGroups/<rg>/providers/Microsoft.Insights/actionGroups/<agName>"
+```
+
+Notes:
+
+- `actionGroupResourceId` is optional (alerts can be created without notification wiring).
+- Tune `latencyThresholdMs`, `evaluationFrequency`, and `windowSize` to match your SLO policy.
+- `highMemory429Threshold` controls sensitivity of the high-memory guard alert.

@@ -5,6 +5,7 @@ This document explains the GitHub Actions workflows configured for the Azure SRE
 ## Overview
 
 The project uses multiple deployment workflows:
+
 1. **Infrastructure** - Azure infrastructure provisioning using Bicep (IaC)
 2. **Lisbon API** - Container App deployment
 3. **Berlin API** - Container App deployment
@@ -24,19 +25,23 @@ The project uses multiple deployment workflows:
 
 Runs a preview analysis of infrastructure changes for pull requests without making any actual deployments.
 
-**Purpose:** 
+**Purpose:**
+
 - Validates Bicep templates before merging
 - Shows what resources will be created, modified, or deleted
 - Prevents accidental infrastructure changes
 
-**Triggers:** 
+**Triggers:**
+
 - Pull requests affecting `infrastructure/**` paths
 - Changes to the workflow file itself
 
 **Required Secrets:**
+
 - `AZURE_CREDENTIALS` - Service principal JSON (same as other workflows)
 
 **How it works:**
+
 1. Detects changes to infrastructure files
 2. Runs `az deployment sub what-if` command
 3. Posts analysis results to the PR summary
@@ -53,6 +58,7 @@ Runs a preview analysis of infrastructure changes for pull requests without maki
 Manually deploys Azure infrastructure using Bicep templates at subscription scope.
 
 **Purpose:**
+
 - Deploy all infrastructure resources (VMs, networking, Container Apps, App Services, ACR)
 - Support multiple environments (dev, test, prod)
 - Provide safe, auditable infrastructure changes
@@ -60,15 +66,18 @@ Manually deploys Azure infrastructure using Bicep templates at subscription scop
 **Trigger:** Manual only (`workflow_dispatch`)
 
 **Required Secrets:**
+
 - `AZURE_CREDENTIALS` - Service principal JSON
 
 **Workflow Inputs:**
+
 - `environment` - Environment to deploy (dev/test/prod) - **Required**
 - `location` - Azure region (default: westeurope) - **Required**
 - `parametersFile` - Path to parameters file (default: infrastructure/main.parameters.json) - **Required**
 - `confirmDeployment` - Type "DEPLOY" to confirm - **Required**
 
 **How to run:**
+
 1. Go to **Actions** tab in GitHub
 2. Select **Deploy Infrastructure to Azure**
 3. Click **Run workflow**
@@ -81,16 +90,19 @@ Manually deploys Azure infrastructure using Bicep templates at subscription scop
 
 **GitHub Environments:**
 This workflow supports GitHub environment protection rules. You can configure:
+
 - Environment-specific approvals
 - Environment-specific secrets/variables
 - Deployment branches restrictions
 
 To set up environments:
+
 1. Go to **Settings** → **Environments**
 2. Create environments: `dev`, `test`, `prod`
 3. Add protection rules (e.g., require reviewers for `prod`)
 
 **What it deploys:**
+
 - Resource groups for each component (hub, frontend, Lisbon, Madrid, Paris)
 - VNet and networking (hub infrastructure)
 - Log Analytics workspace
@@ -102,6 +114,7 @@ To set up environments:
 
 **Deployment Outputs:**
 The workflow captures and displays:
+
 - Resource group names
 - VNet and networking details
 - Container Registry URL and credentials
@@ -125,6 +138,7 @@ CHAOS_CONTROL_CONTAINER_APP_NAME=ca-chaos-control
 ```
 
 Notes:
+
 - `CHAOS_CONTROL_RESOURCE_GROUP` should be the resource group where your Chaos Control Container App exists.
 - `CHAOS_CONTROL_CONTAINER_APP_NAME` must match the existing Container App name used by `.github/workflows/deploy-chaos-control.yml`.
 
@@ -139,10 +153,12 @@ Notes:
 Deploys the Lisbon Parking API to Azure Container Apps using Docker.
 
 **Required Variables:**
+
 - `AZURE_CONTAINER_REGISTRY` - Your ACR name (e.g., `acrparkingdev725vs7xw6g7qg`)
 - `LISBON_RESOURCE_GROUP` - Resource group name (e.g., `rg-parking-lisbon-dev`)
 
 **Required Secrets:**
+
 - `AZURE_CREDENTIALS` - Service principal JSON
 
 **Triggers:** Push to `main` affecting `backend/lisbon-parking-api/**`
@@ -156,10 +172,12 @@ Deploys the Lisbon Parking API to Azure Container Apps using Docker.
 Deploys the Berlin Parking API to Azure Container Apps using Docker.
 
 **Required Variables:**
+
 - `AZURE_CONTAINER_REGISTRY` - Your ACR name (e.g., `acrparkingdev725vs7xw6g7qg`)
 - `BERLIN_RESOURCE_GROUP` - Resource group name (e.g., `rg-parking-berlin-dev`)
 
 **Required Secrets:**
+
 - `AZURE_CREDENTIALS` - Service principal JSON
 
 **Triggers:** Push to `main` affecting `backend/berlin-parking-api/**`

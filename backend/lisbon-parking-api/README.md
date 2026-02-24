@@ -54,6 +54,7 @@ cp .env.example .env
 ```
 
 Required variables:
+
 - `WORKSPACE_ID` - Azure Log Analytics Workspace ID (optional, will log to console if not set)
 - `SHARED_KEY` - Azure Log Analytics Shared Key (optional)
 - `LOG_TYPE` - Log type name in Azure (default: LisbonParkingLogs)
@@ -146,6 +147,7 @@ curl -X PUT http://localhost:3001/api/parking/config \
 ## Azure Log Analytics
 
 The API sends custom logs to Azure Log Analytics including:
+
 - API requests (method, path, timestamp, city)
 - Parking operations (level updates, config changes)
 - Error tracking

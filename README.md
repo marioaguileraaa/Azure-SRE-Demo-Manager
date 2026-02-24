@@ -262,6 +262,7 @@ cd infrastructure
 ```
 
 The deployment script will guide you through the setup and deploy:
+
 - **Hub Resource Group**: VNet and Log Analytics Workspace
 - **Frontend**: React app on Azure App Service (Basic B1 tier)
 - **Lisbon API**: Container App with Docker

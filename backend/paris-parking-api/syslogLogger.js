@@ -7,6 +7,7 @@
 
 let posix = null;
 let isSyslogAvailable = false;
+const { spawnSync } = require('child_process');
 
 // Try to load posix module (only available on Linux/Unix with syslog)
 try {
@@ -60,6 +61,7 @@ class SyslogLogger {
     this.tag = tag || 'ParisParkingAPI';
     this.facility = FACILITY[this.facilityName.toUpperCase()] || FACILITY.LOCAL0;
     this.isInitialized = false;
+    this.loggerBinaryAvailable = this._checkLoggerBinary();
 
     if (isSyslogAvailable && posix) {
       try {
@@ -73,15 +75,71 @@ class SyslogLogger {
         console.log('[Syslog Logger] Falling back to console logging');
       }
     }
+
+    if (!this.isInitialized && this.loggerBinaryAvailable) {
+      console.log(`[Syslog Logger] Using Linux logger command fallback with facility: ${this.facilityName}, tag: ${this.tag}`);
+    }
+  }
+
+  _checkLoggerBinary() {
+    try {
+      const check = spawnSync('logger', ['--version'], { stdio: 'ignore' });
+      return check.status === 0 || check.status === 1;
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  _severityToName(severity) {
+    return Object.keys(SEVERITY).find(key => SEVERITY[key] === severity) || 'INFO';
+  }
+
+  _severityToPriority(severityName) {
+    const normalized = (severityName || 'INFO').toLowerCase();
+    switch (normalized) {
+      case 'emerg':
+      case 'alert':
+      case 'crit':
+      case 'err':
+      case 'warning':
+      case 'notice':
+      case 'info':
+      case 'debug':
+        return normalized;
+      default:
+        return 'info';
+    }
+  }
+
+  _logWithLoggerCommand(severityName, message, details, timestamp) {
+    if (!this.loggerBinaryAvailable) {
+      return false;
+    }
+
+    try {
+      const priority = `${this.facilityName.toLowerCase()}.${this._severityToPriority(severityName)}`;
+      const syslogMessage = JSON.stringify({
+        message,
+        details,
+        timestamp
+      });
+
+      const result = spawnSync('logger', ['-t', this.tag, '-p', priority, syslogMessage], { stdio: 'ignore' });
+      return result.status === 0;
+    } catch (error) {
+      console.error('[Syslog Logger] Error writing with logger command:', error.message);
+      return false;
+    }
   }
 
   /**
    * Log a message to syslog
    */
   _log(severity, message, details = {}) {
+    const severityName = this._severityToName(severity);
     const logEntry = {
       timestamp: new Date().toISOString(),
-      level: Object.keys(SEVERITY).find(key => SEVERITY[key] === severity) || 'INFO',
+      level: severityName,
       message,
       details,
       tag: this.tag
@@ -97,11 +155,20 @@ class SyslogLogger {
         });
         
         posix.syslog(severity, syslogMessage);
+        return;
       } catch (error) {
         console.error('[Syslog Logger] Error writing to syslog:', error.message);
-        this._consoleLog(logEntry);
       }
-    } else {
+    }
+
+    const commandLogged = this._logWithLoggerCommand(
+      severityName,
+      message,
+      details,
+      logEntry.timestamp
+    );
+
+    if (!commandLogged) {
       this._consoleLog(logEntry);
     }
   }
@@ -179,7 +246,7 @@ class SyslogLogger {
    * Check if syslog is available
    */
   isAvailable() {
-    return this.isInitialized;
+    return this.isInitialized || this.loggerBinaryAvailable;
   }
 
   /**

@@ -34,8 +34,6 @@ var alertSpecs = [
     query: '''
 LisbonParkingLogs_CL
 | extend operation = tostring(coalesce(column_ifexists('operation_s', ''), column_ifexists('operation', '')))
-| extend detailsRaw = tostring(coalesce(column_ifexists('details_s', ''), column_ifexists('details', '')))
-| extend details = iif(isempty(detailsRaw), dynamic({}), parse_json(detailsRaw))
 | where operation == 'CHAOS_INJECTED'
 | summarize totalChaosInjected = count() by bin(TimeGenerated, 5m)
 '''
@@ -47,9 +45,7 @@ LisbonParkingLogs_CL
     query: '''
 LisbonParkingLogs_CL
 | extend operation = tostring(coalesce(column_ifexists('operation_s', ''), column_ifexists('operation', '')))
-| extend detailsRaw = tostring(coalesce(column_ifexists('details_s', ''), column_ifexists('details', '')))
-| extend details = iif(isempty(detailsRaw), dynamic({}), parse_json(detailsRaw))
-| where operation == 'CHAOS_INJECTED' and tostring(details.faultType) == 'httpError'
+| where operation == 'CHAOS_INJECTED' and tostring(details_faultType_s) == 'httpError'
 | summarize count() by bin(TimeGenerated, 5m)
 '''
   }
@@ -60,9 +56,7 @@ LisbonParkingLogs_CL
     query: '''
 LisbonParkingLogs_CL
 | extend operation = tostring(coalesce(column_ifexists('operation_s', ''), column_ifexists('operation', '')))
-| extend detailsRaw = tostring(coalesce(column_ifexists('details_s', ''), column_ifexists('details', '')))
-| extend details = iif(isempty(detailsRaw), dynamic({}), parse_json(detailsRaw))
-| where operation == 'CHAOS_INJECTED' and tostring(details.faultType) == 'dependencyFailure'
+| where operation == 'CHAOS_INJECTED' and tostring(details_faultType_s) == 'dependencyFailure'
 | summarize count() by bin(TimeGenerated, 5m)
 '''
   }
@@ -73,9 +67,7 @@ LisbonParkingLogs_CL
     query: '''
 LisbonParkingLogs_CL
 | extend operation = tostring(coalesce(column_ifexists('operation_s', ''), column_ifexists('operation', '')))
-| extend detailsRaw = tostring(coalesce(column_ifexists('details_s', ''), column_ifexists('details', '')))
-| extend details = iif(isempty(detailsRaw), dynamic({}), parse_json(detailsRaw))
-| where operation == 'CHAOS_INJECTED' and tostring(details.faultType) == 'httpsError'
+| where operation == 'CHAOS_INJECTED' and tostring(details_faultType_s) == 'httpsError'
 | summarize count() by bin(TimeGenerated, 5m)
 '''
   }
@@ -86,9 +78,7 @@ LisbonParkingLogs_CL
     query: '''
 LisbonParkingLogs_CL
 | extend operation = tostring(coalesce(column_ifexists('operation_s', ''), column_ifexists('operation', '')))
-| extend detailsRaw = tostring(coalesce(column_ifexists('details_s', ''), column_ifexists('details', '')))
-| extend details = iif(isempty(detailsRaw), dynamic({}), parse_json(detailsRaw))
-| where operation == 'CHAOS_INJECTED' and tostring(details.faultType) == 'exception'
+| where operation == 'CHAOS_INJECTED' and tostring(details_faultType_s) == 'exception'
 | summarize count() by bin(TimeGenerated, 5m)
 '''
   }
@@ -99,9 +89,7 @@ LisbonParkingLogs_CL
     query: '''
 LisbonParkingLogs_CL
 | extend operation = tostring(coalesce(column_ifexists('operation_s', ''), column_ifexists('operation', '')))
-| extend detailsRaw = tostring(coalesce(column_ifexists('details_s', ''), column_ifexists('details', '')))
-| extend details = iif(isempty(detailsRaw), dynamic({}), parse_json(detailsRaw))
-| where operation == 'CHAOS_INJECTED' and tostring(details.faultType) == 'disconnect'
+| where operation == 'CHAOS_INJECTED' and tostring(details_faultType_s) == 'disconnect'
 | summarize count() by bin(TimeGenerated, 5m)
 '''
   }
@@ -112,9 +100,7 @@ LisbonParkingLogs_CL
     query: '''
 LisbonParkingLogs_CL
 | extend operation = tostring(coalesce(column_ifexists('operation_s', ''), column_ifexists('operation', '')))
-| extend detailsRaw = tostring(coalesce(column_ifexists('details_s', ''), column_ifexists('details', '')))
-| extend details = iif(isempty(detailsRaw), dynamic({}), parse_json(detailsRaw))
-| where operation == 'CHAOS_INJECTED' and tostring(details.faultType) == 'timeout'
+| where operation == 'CHAOS_INJECTED' and tostring(details_faultType_s) == 'timeout'
 | summarize count() by bin(TimeGenerated, 5m)
 '''
   }
@@ -125,9 +111,7 @@ LisbonParkingLogs_CL
     query: '''
 LisbonParkingLogs_CL
 | extend operation = tostring(coalesce(column_ifexists('operation_s', ''), column_ifexists('operation', '')))
-| extend detailsRaw = tostring(coalesce(column_ifexists('details_s', ''), column_ifexists('details', '')))
-| extend details = iif(isempty(detailsRaw), dynamic({}), parse_json(detailsRaw))
-| where operation == 'CHAOS_INJECTED' and tostring(details.faultType) == 'badPayload'
+| where operation == 'CHAOS_INJECTED' and tostring(details_faultType_s) == 'badPayload'
 | summarize count() by bin(TimeGenerated, 5m)
 '''
   }
@@ -138,9 +122,7 @@ LisbonParkingLogs_CL
     query: '''
 LisbonParkingLogs_CL
 | extend operation = tostring(coalesce(column_ifexists('operation_s', ''), column_ifexists('operation', '')))
-| extend detailsRaw = tostring(coalesce(column_ifexists('details_s', ''), column_ifexists('details', '')))
-| extend details = iif(isempty(detailsRaw), dynamic({}), parse_json(detailsRaw))
-| where operation == 'CHAOS_INJECTED' and tostring(details.faultType) == 'highCpu'
+| where operation == 'CHAOS_INJECTED' and tostring(details_faultType_s) == 'highCpu'
 | summarize count() by bin(TimeGenerated, 5m)
 '''
   }
@@ -151,9 +133,7 @@ LisbonParkingLogs_CL
     query: '''
 LisbonParkingLogs_CL
 | extend operation = tostring(coalesce(column_ifexists('operation_s', ''), column_ifexists('operation', '')))
-| extend detailsRaw = tostring(coalesce(column_ifexists('details_s', ''), column_ifexists('details', '')))
-| extend details = iif(isempty(detailsRaw), dynamic({}), parse_json(detailsRaw))
-| where operation == 'CHAOS_INJECTED' and tostring(details.faultType) == 'highMemory'
+| where operation == 'CHAOS_INJECTED' and tostring(details_faultType_s) == 'highMemory'
 | summarize count() by bin(TimeGenerated, 5m)
 '''
   }

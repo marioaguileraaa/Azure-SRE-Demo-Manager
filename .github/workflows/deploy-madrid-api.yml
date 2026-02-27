@@ -157,7 +157,13 @@ jobs:
 
           Write-Host "Installing dependencies..."
           cd $appDir
-          npm ci --omit=dev
+          npm ci --omit=dev --include=optional
+
+          if (-not (Test-Path "$appDir\node_modules\node-windows")) {
+            Write-Host "ERROR: node-windows package was not installed; Windows Event Viewer logging will not work."
+            Write-Host "Check npm config for omitted optional dependencies and registry connectivity."
+            exit 1
+          }
           
           Write-Host "Creating .env file..."
           @"

@@ -85,7 +85,17 @@ app.get('/health', (req, res) => {
     service: 'madrid-parking-api',
     city: parkingState.city,
     platform: process.platform,
-    windowsEventLogging: logger.isAvailable()
+    windowsEventLogging: logger.isAvailable(),
+    loggingBackend: logger.getBackend()
+  });
+});
+
+app.get('/health/logging', (req, res) => {
+  res.json({
+    loggingBackend: logger.getBackend(),
+    windowsEventLogging: logger.isAvailable(),
+    platform: process.platform,
+    timestamp: new Date().toISOString()
   });
 });
 

@@ -7,6 +7,8 @@
 
 let EventLogger = null;
 let isWindowsLoggingAvailable = false;
+const { spawnSync } = require('child_process');
+const isWindows = process.platform === 'win32';
 
 // Try to load node-windows module (only available on Windows)
 try {
@@ -14,8 +16,13 @@ try {
   isWindowsLoggingAvailable = true;
   console.log('[Event Logger] Windows Event Viewer logging is available');
 } catch (error) {
-  console.log('[Event Logger] Windows Event Viewer not available (not running on Windows)');
-  console.log('[Event Logger] Falling back to console logging');
+  if (isWindows) {
+    console.log(`[Event Logger] node-windows module unavailable on Windows: ${error.message}`);
+    console.log('[Event Logger] Will attempt fallback logging via eventcreate.exe');
+  } else {
+    console.log('[Event Logger] Windows Event Viewer not available (not running on Windows)');
+    console.log('[Event Logger] Falling back to console logging');
+  }
 }
 
 class WindowsEventLogger {
@@ -23,10 +30,21 @@ class WindowsEventLogger {
     this.eventSource = eventSource || 'MadridParkingAPI';
     this.eventLog = eventLog || 'Application';
     this.logger = null;
+    this.hasEventCreate = false;
+
+    if (isWindows) {
+      this.hasEventCreate = this._canUseEventCreate();
+    }
+
+    this.activeBackend = 'console';
+    if (this.hasEventCreate) {
+      this.activeBackend = 'eventcreate';
+    }
 
     if (isWindowsLoggingAvailable) {
       try {
         this.logger = new EventLogger(this.eventSource);
+        this.activeBackend = 'node-windows';
         console.log(`[Event Logger] Initialized with source: ${this.eventSource}`);
       } catch (error) {
         console.error('[Event Logger] Failed to initialize Windows Event Logger:', error.message);
@@ -48,16 +66,7 @@ class WindowsEventLogger {
       source: this.eventSource
     };
 
-    if (this.logger) {
-      try {
-        this.logger.info(JSON.stringify(logEntry, null, 2));
-      } catch (error) {
-        console.error('[Event Logger] Error writing to Event Viewer:', error.message);
-        this._consoleLog(logEntry);
-      }
-    } else {
-      this._consoleLog(logEntry);
-    }
+    this._writeLog(logEntry, 'info');
   }
 
   /**
@@ -72,16 +81,7 @@ class WindowsEventLogger {
       source: this.eventSource
     };
 
-    if (this.logger) {
-      try {
-        this.logger.warn(JSON.stringify(logEntry, null, 2));
-      } catch (error) {
-        console.error('[Event Logger] Error writing to Event Viewer:', error.message);
-        this._consoleLog(logEntry);
-      }
-    } else {
-      this._consoleLog(logEntry);
-    }
+    this._writeLog(logEntry, 'warn');
   }
 
   /**
@@ -98,16 +98,7 @@ class WindowsEventLogger {
       source: this.eventSource
     };
 
-    if (this.logger) {
-      try {
-        this.logger.error(JSON.stringify(logEntry, null, 2));
-      } catch (err) {
-        console.error('[Event Logger] Error writing to Event Viewer:', err.message);
-        this._consoleLog(logEntry);
-      }
-    } else {
-      this._consoleLog(logEntry);
-    }
+    this._writeLog(logEntry, 'error');
   }
 
   /**
@@ -116,6 +107,72 @@ class WindowsEventLogger {
   logOperation(operation, parkId, details = {}) {
     const message = `Parking Operation: ${operation}`;
     this.logInfo(message, { operation, parkId, ...details });
+  }
+
+  _writeLog(logEntry, levelMethod) {
+    if (this.logger) {
+      try {
+        this.logger[levelMethod](JSON.stringify(logEntry, null, 2));
+        this.activeBackend = 'node-windows';
+        return;
+      } catch (error) {
+        console.error('[Event Logger] Error writing to Event Viewer via node-windows:', error.message);
+      }
+    }
+
+    if (this._writeViaEventCreate(logEntry)) {
+      this.activeBackend = 'eventcreate';
+      return;
+    }
+
+    this.activeBackend = 'console';
+    this._consoleLog(logEntry);
+  }
+
+  _writeViaEventCreate(logEntry) {
+    if (!isWindows || !this.hasEventCreate) {
+      return false;
+    }
+
+    const levelMap = {
+      INFO: 'INFORMATION',
+      WARNING: 'WARNING',
+      ERROR: 'ERROR'
+    };
+
+    const eventIdMap = {
+      INFO: '1000',
+      WARNING: '1001',
+      ERROR: '1002'
+    };
+
+    const entryType = levelMap[logEntry.level] || 'INFORMATION';
+    const eventId = eventIdMap[logEntry.level] || '1000';
+    const payload = JSON.stringify(logEntry);
+    const maxMessageLength = 30000;
+    const message = payload.length > maxMessageLength
+      ? `${payload.slice(0, maxMessageLength)}...`
+      : payload;
+
+    const result = spawnSync(
+      'eventcreate',
+      [
+        '/L', this.eventLog,
+        '/SO', this.eventSource,
+        '/T', entryType,
+        '/ID', eventId,
+        '/D', message
+      ],
+      { windowsHide: true, encoding: 'utf8' }
+    );
+
+    if (result.status === 0) {
+      return true;
+    }
+
+    const errorOutput = (result.stderr || result.stdout || '').trim();
+    console.error('[Event Logger] eventcreate fallback failed:', errorOutput || 'Unknown error');
+    return false;
   }
 
   /**
@@ -140,7 +197,16 @@ class WindowsEventLogger {
    * Check if Windows Event Viewer logging is available
    */
   isAvailable() {
-    return this.logger !== null;
+    return this.logger !== null || this.hasEventCreate;
+  }
+
+  getBackend() {
+    return this.activeBackend;
+  }
+
+  _canUseEventCreate() {
+    const check = spawnSync('where', ['eventcreate'], { windowsHide: true, encoding: 'utf8' });
+    return check.status === 0;
   }
 }
 

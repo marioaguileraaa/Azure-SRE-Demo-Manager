@@ -196,17 +196,49 @@ jobs:
           
           # Remove existing service if present
           Write-Host "Removing existing service if present..."
+          function Wait-UntilServiceDeleted {
+            param(
+              [string]$Name,
+              [int]$TimeoutSeconds = 90
+            )
+
+            $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+            while ((Get-Date) -lt $deadline) {
+              $svc = Get-Service -Name $Name -ErrorAction SilentlyContinue
+              if (-not $svc) {
+                return $true
+              }
+
+              Start-Sleep -Seconds 2
+            }
+
+            return $false
+          }
+
           $existingSvc = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
           if ($existingSvc) {
             if ($existingSvc.Status -eq 'Paused') {
               Write-Host "Service is paused, resuming before stop..."
               sc.exe continue $serviceName 2>$null
-              Start-Sleep -Seconds 3
+              Start-Sleep -Seconds 2
+            }
+
+            Write-Host "Stopping existing service..."
+            Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
+            nssm stop $serviceName 2>$null
+            sc.exe stop $serviceName 2>$null | Out-Null
+            Start-Sleep -Seconds 3
+
+            Write-Host "Removing existing service..."
+            nssm remove $serviceName confirm 2>$null
+            sc.exe delete $serviceName 2>$null | Out-Null
+
+            if (-not (Wait-UntilServiceDeleted -Name $serviceName -TimeoutSeconds 90)) {
+              Write-Host "ERROR: Service '$serviceName' is still marked for deletion after timeout."
+              Write-Host "A process may still hold a handle to the service."
+              exit 1
             }
           }
-          nssm stop $serviceName 2>$null
-          nssm remove $serviceName confirm 2>$null
-          Start-Sleep -Seconds 5
           
           Write-Host "Creating Windows service with NSSM..."
           $nodePath = "C:\Program Files\nodejs\node.exe"
@@ -214,6 +246,10 @@ jobs:
           
           # Install service
           nssm install $serviceName $nodePath $serverPath
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "ERROR: Failed to create service '$serviceName'."
+            exit 1
+          }
           
           # Set service parameters
           nssm set $serviceName AppDirectory $appDir
@@ -221,6 +257,10 @@ jobs:
           nssm set $serviceName Description "Madrid Parking API Service"
           nssm set $serviceName Start SERVICE_AUTO_START
           nssm set $serviceName Type SERVICE_WIN32_OWN_PROCESS
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "ERROR: Failed to configure service '$serviceName'."
+            exit 1
+          }
           
           # Set environment variables (newline-separated; each nssm set call replaces, not appends)
           $envVars = "NODE_ENV=production`nPORT=3002`nPARKING_NAME=Madrid Centro Parking`nPARKING_CITY=Madrid`nPARKING_LOCATION=Plaza Mayor, Madrid`nEVENT_LOG_SOURCE=MadridParkingAPI`nEVENT_LOG_NAME=Application`nCERT_PATH=$appDir\madrid.crt`nKEY_PATH=$appDir\madrid.key"

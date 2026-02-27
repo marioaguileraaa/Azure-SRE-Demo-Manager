@@ -377,6 +377,46 @@ module parisApi 'modules/paris-api.bicep' = {
 }
 
 // ========================================
+// VM Log Collection (AMA + DCR)
+// ========================================
+
+module vmLogCollection 'modules/data-collection-rules.bicep' = {
+  scope: hubRg
+  name: 'vm-log-collection-deployment'
+  params: {
+    location: location
+    logAnalyticsWorkspaceId: hub.outputs.logAnalyticsWorkspaceId
+    deployMadridVm: deployMadridVm
+    deployParisVm: deployParisVm
+    tags: tags
+  }
+}
+
+module madridDcrAssociation 'modules/vm-dcr-association.bicep' = if (deployMadridVm) {
+  scope: madridRg
+  name: 'madrid-dcr-association-deployment'
+  params: {
+    vmName: 'vm-madrid-api'
+    associationName: 'assoc-madrid-windows-events'
+    associationDescription: 'Collect Madrid Windows Event Viewer logs to Log Analytics'
+    dataCollectionRuleId: vmLogCollection.outputs.madridWindowsEventsDcrId
+    dataCollectionEndpointId: vmLogCollection.outputs.dataCollectionEndpointId
+  }
+}
+
+module parisDcrAssociation 'modules/vm-dcr-association.bicep' = if (deployParisVm) {
+  scope: parisRg
+  name: 'paris-dcr-association-deployment'
+  params: {
+    vmName: 'vm-paris-api'
+    associationName: 'assoc-paris-syslog'
+    associationDescription: 'Collect Paris Linux syslog logs to Log Analytics'
+    dataCollectionRuleId: vmLogCollection.outputs.parisSyslogDcrId
+    dataCollectionEndpointId: vmLogCollection.outputs.dataCollectionEndpointId
+  }
+}
+
+// ========================================
 // Storage Role Assignments for VMs
 // ========================================
 
@@ -461,3 +501,7 @@ output madridFqdn string = madridApi.outputs.fqdn
 output parisVmName string = parisApi.outputs.vmName
 output parisPublicIp string = parisApi.outputs.publicIpAddress
 output parisFqdn string = parisApi.outputs.fqdn
+
+output dataCollectionEndpointId string = vmLogCollection.outputs.dataCollectionEndpointId
+output madridWindowsEventsDcrId string = vmLogCollection.outputs.madridWindowsEventsDcrId
+output parisSyslogDcrId string = vmLogCollection.outputs.parisSyslogDcrId

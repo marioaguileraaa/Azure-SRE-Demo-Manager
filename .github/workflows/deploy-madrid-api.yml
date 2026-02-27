@@ -194,12 +194,10 @@ jobs:
           choco install nssm -y --no-progress
           $env:Path = "C:\Program Files (x86)\NSSM\nssm\win64;" + $env:Path
           
-          # Remove existing service if present
-          Write-Host "Removing existing service if present..."
-          function Wait-UntilServiceDeleted {
+          function Wait-UntilServiceStopped {
             param(
               [string]$Name,
-              [int]$TimeoutSeconds = 90
+              [int]$TimeoutSeconds = 60
             )
 
             $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
@@ -209,49 +207,79 @@ jobs:
                 return $true
               }
 
+              if ($svc.Status -eq 'Stopped') {
+                return $true
+              }
+
               Start-Sleep -Seconds 2
             }
 
             return $false
           }
 
-          $existingSvc = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
-          if ($existingSvc) {
-            if ($existingSvc.Status -eq 'Paused') {
-              Write-Host "Service is paused, resuming before stop..."
-              sc.exe continue $serviceName 2>$null
+          function Wait-UntilServiceUsable {
+            param(
+              [string]$Name,
+              [int]$TimeoutSeconds = 60
+            )
+
+            $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+            while ((Get-Date) -lt $deadline) {
+              $scOutput = (sc.exe qc $Name 2>&1 | Out-String)
+
+              if ($scOutput -match 'OpenService FAILED 1060') {
+                return $true
+              }
+
+              if ($scOutput -notmatch 'marked for deletion') {
+                return $true
+              }
+
               Start-Sleep -Seconds 2
             }
 
-            Write-Host "Stopping existing service..."
+            return $false
+          }
+
+          if (-not (Wait-UntilServiceUsable -Name $serviceName -TimeoutSeconds 60)) {
+            Write-Host "ERROR: Service '$serviceName' remains marked for deletion before configuration."
+            Write-Host "Reboot the VM to clear stale SCM handles, then rerun deployment."
+            exit 1
+          }
+
+          $existingSvc = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+          if ($existingSvc) {
+            Write-Host "Service exists - stopping before reconfiguration..."
+            if ($existingSvc.Status -eq 'Paused') {
+              sc.exe continue $serviceName 2>$null | Out-Null
+              Start-Sleep -Seconds 2
+            }
+
             Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
             nssm stop $serviceName 2>$null
             sc.exe stop $serviceName 2>$null | Out-Null
-            Start-Sleep -Seconds 3
 
-            Write-Host "Removing existing service..."
-            nssm remove $serviceName confirm 2>$null
-            sc.exe delete $serviceName 2>$null | Out-Null
+            if (-not (Wait-UntilServiceStopped -Name $serviceName -TimeoutSeconds 60)) {
+              Write-Host "ERROR: Service '$serviceName' did not stop in time."
+              exit 1
+            }
+          }
 
-            if (-not (Wait-UntilServiceDeleted -Name $serviceName -TimeoutSeconds 90)) {
-              Write-Host "ERROR: Service '$serviceName' is still marked for deletion after timeout."
-              Write-Host "A process may still hold a handle to the service."
+          Write-Host "Ensuring Windows service exists with NSSM..."
+          $nodePath = "C:\Program Files\nodejs\node.exe"
+          $serverPath = Join-Path $appDir "server.js"
+
+          if (-not (Get-Service -Name $serviceName -ErrorAction SilentlyContinue)) {
+            nssm install $serviceName $nodePath $serverPath
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host "ERROR: Failed to create service '$serviceName'."
               exit 1
             }
           }
           
-          Write-Host "Creating Windows service with NSSM..."
-          $nodePath = "C:\Program Files\nodejs\node.exe"
-          $serverPath = Join-Path $appDir "server.js"
-          
-          # Install service
-          nssm install $serviceName $nodePath $serverPath
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "ERROR: Failed to create service '$serviceName'."
-            exit 1
-          }
-          
           # Set service parameters
+          nssm set $serviceName Application $nodePath
+          nssm set $serviceName AppParameters $serverPath
           nssm set $serviceName AppDirectory $appDir
           nssm set $serviceName DisplayName "Madrid Parking API"
           nssm set $serviceName Description "Madrid Parking API Service"

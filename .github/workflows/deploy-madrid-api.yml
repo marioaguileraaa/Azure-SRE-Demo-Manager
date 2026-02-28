@@ -217,6 +217,17 @@ jobs:
             return $false
           }
 
+          function Get-ServiceProcessId {
+            param([string]$Name)
+
+            $svcInfo = Get-CimInstance Win32_Service -Filter "Name='$Name'" -ErrorAction SilentlyContinue
+            if ($svcInfo -and $svcInfo.ProcessId -and $svcInfo.ProcessId -gt 0) {
+              return [int]$svcInfo.ProcessId
+            }
+
+            return $null
+          }
+
           function Wait-UntilServiceUsable {
             param(
               [string]$Name,
@@ -259,9 +270,18 @@ jobs:
             nssm stop $serviceName 2>$null
             sc.exe stop $serviceName 2>$null | Out-Null
 
-            if (-not (Wait-UntilServiceStopped -Name $serviceName -TimeoutSeconds 60)) {
-              Write-Host "ERROR: Service '$serviceName' did not stop in time."
-              exit 1
+            if (-not (Wait-UntilServiceStopped -Name $serviceName -TimeoutSeconds 20)) {
+              $servicePid = Get-ServiceProcessId -Name $serviceName
+              if ($servicePid) {
+                Write-Host "Service did not stop gracefully, force-killing PID $servicePid..."
+                Stop-Process -Id $servicePid -Force -ErrorAction SilentlyContinue
+                taskkill /PID $servicePid /F 2>$null | Out-Null
+              }
+
+              if (-not (Wait-UntilServiceStopped -Name $serviceName -TimeoutSeconds 40)) {
+                Write-Host "ERROR: Service '$serviceName' did not stop in time."
+                exit 1
+              }
             }
           }
 

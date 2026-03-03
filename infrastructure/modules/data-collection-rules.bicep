@@ -40,7 +40,7 @@ resource madridWindowsEventsDcr 'Microsoft.Insights/dataCollectionRules@2022-06-
 						'Microsoft-Event'
 					]
 					xPathQueries: [
-						'Application!*[System[(Level=1 or Level=2 or Level=3)]]'
+						'Application!*[System[*]]'
 						'System!*[System[(Level=1 or Level=2 or Level=3)]]'
 						'Security!*[System[(Level=1 or Level=2 or Level=3)]]'
 					]

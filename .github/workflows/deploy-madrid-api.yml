@@ -173,6 +173,7 @@ jobs:
           PARKING_LOCATION=Plaza Mayor, Madrid
           EVENT_LOG_SOURCE=MadridParkingAPI
           EVENT_LOG_NAME=Application
+          EVENT_LOG_BACKEND=eventcreate
           NODE_ENV=production
           CHAOS_CONTROL_URL=$chaosControlUrl
           "@ | Out-File -FilePath "$appDir\.env" -Encoding UTF8
@@ -311,7 +312,7 @@ jobs:
           }
           
           # Set environment variables (newline-separated; each nssm set call replaces, not appends)
-          $envVars = "NODE_ENV=production`nPORT=3002`nPARKING_NAME=Madrid Centro Parking`nPARKING_CITY=Madrid`nPARKING_LOCATION=Plaza Mayor, Madrid`nEVENT_LOG_SOURCE=MadridParkingAPI`nEVENT_LOG_NAME=Application`nCERT_PATH=$appDir\madrid.crt`nKEY_PATH=$appDir\madrid.key"
+          $envVars = "NODE_ENV=production`nPORT=3002`nPARKING_NAME=Madrid Centro Parking`nPARKING_CITY=Madrid`nPARKING_LOCATION=Plaza Mayor, Madrid`nEVENT_LOG_SOURCE=MadridParkingAPI`nEVENT_LOG_NAME=Application`nEVENT_LOG_BACKEND=eventcreate`nCERT_PATH=$appDir\madrid.crt`nKEY_PATH=$appDir\madrid.key"
           nssm set $serviceName AppEnvironmentExtra $envVars
           
           # Configure logging

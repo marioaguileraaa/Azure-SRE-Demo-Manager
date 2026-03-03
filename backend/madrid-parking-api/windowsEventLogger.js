@@ -31,6 +31,7 @@ class WindowsEventLogger {
     this.eventLog = eventLog || 'Application';
     this.logger = null;
     this.hasEventCreate = false;
+    this.preferredBackend = (process.env.EVENT_LOG_BACKEND || 'auto').toLowerCase();
 
     if (isWindows) {
       this.hasEventCreate = this._canUseEventCreate();
@@ -41,7 +42,7 @@ class WindowsEventLogger {
       this.activeBackend = 'eventcreate';
     }
 
-    if (isWindowsLoggingAvailable) {
+    if (isWindowsLoggingAvailable && this.preferredBackend !== 'eventcreate' && this.preferredBackend !== 'console') {
       try {
         this.logger = new EventLogger(this.eventSource);
         this.activeBackend = 'node-windows';
@@ -51,6 +52,14 @@ class WindowsEventLogger {
         console.log('[Event Logger] Falling back to console logging');
         this.logger = null;
       }
+    }
+
+    if (!this.logger && this.preferredBackend === 'node-windows') {
+      console.error('[Event Logger] EVENT_LOG_BACKEND=node-windows but node-windows backend is unavailable');
+    }
+
+    if (!isWindows && (this.preferredBackend === 'node-windows' || this.preferredBackend === 'eventcreate')) {
+      console.warn('[Event Logger] Requested Windows-only backend on non-Windows platform; falling back to console');
     }
   }
 
@@ -110,6 +119,39 @@ class WindowsEventLogger {
   }
 
   _writeLog(logEntry, levelMethod) {
+    if (this.preferredBackend === 'console') {
+      this.activeBackend = 'console';
+      this._consoleLog(logEntry);
+      return;
+    }
+
+    if (this.preferredBackend === 'eventcreate') {
+      if (this._writeViaEventCreate(logEntry)) {
+        this.activeBackend = 'eventcreate';
+        return;
+      }
+
+      this.activeBackend = 'console';
+      this._consoleLog(logEntry);
+      return;
+    }
+
+    if (this.preferredBackend === 'node-windows') {
+      if (this.logger) {
+        try {
+          this.logger[levelMethod](JSON.stringify(logEntry, null, 2));
+          this.activeBackend = 'node-windows';
+          return;
+        } catch (error) {
+          console.error('[Event Logger] Error writing to Event Viewer via node-windows:', error.message);
+        }
+      }
+
+      this.activeBackend = 'console';
+      this._consoleLog(logEntry);
+      return;
+    }
+
     if (this.logger) {
       try {
         this.logger[levelMethod](JSON.stringify(logEntry, null, 2));

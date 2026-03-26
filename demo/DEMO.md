@@ -33,6 +33,7 @@ Validate backend APIs for /subscriptions/748249dd-5217-464b-a3f4-91dfa5abc2f4/re
 ## Chat 2 - Alerts - Open Alert, check results + promp "abre issue no github"
 
 ```prompt
+Use the learnings from this issue to create a github issue on the connected repository and assign it to github copilot.
 ```
 
 ## Chat 3 - App Dependencies - prompt "conhecer as dependencias da aplicacao"

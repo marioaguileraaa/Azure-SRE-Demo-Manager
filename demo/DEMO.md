@@ -45,3 +45,9 @@ Generate a Mermaid diagram with number of calls and average response time.
 
 Summarize this in a table.
 ```
+
+## Chat 4 - 3rd Party API – prompt “call 3rd party service to know status”
+
+```prompt
+Please assess the Berlin Park API right now. Check health, latency, throughput, error rate, and availability for the last 60 minutes. Use SLO thresholds: p95 < 100 ms, error rate < 1%, availability ≥ 99.9%. Summarize results in one table with columns: Category | Metric | Value | Threshold | Status. Then add: 1) a 2–3 sentence summary, 2) key evidence with timestamps, 3) likely causes/hypotheses, 4) recommended actions, 5) follow-ups/requests. If SLOs are failing, clearly call it out. If any data is unavailable, state the gaps. Include the latest parking occupancy snapshot if available.
+```

@@ -13,6 +13,10 @@ Use this skill when diagnosing telemetry, collecting metrics,dependency analysis
 - The frontend runs on Azure App Service.
 - The frontend is connected to Application Insights.
 
+## Paris API
+
+When refering to Paris API, the resource is an Azure VM with the tags `role=api` and `service=paris`. The API logs are stored in the Syslog table of the connected Log Analytics workspace, and the relevant logs have the process name 'parisparkingapi' (case insensitive).
+
 ## Hard Requirement
 - Frontend dependencies to backend APIs must be validated from Application Insights.
 - Treat Application Insights as the source of truth for frontend-to-backend call visibility.

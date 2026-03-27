@@ -71,3 +71,36 @@ Also check external dependencies status of Paris API in the last 24h and summari
 ```prompt
 Please assess the Berlin Park API right now. Check health, latency, throughput, error rate, and availability for the last 60 minutes. Use SLO thresholds: p95 < 100 ms, error rate < 1%, availability ≥ 99.9%. Summarize results in one table with columns: Category | Metric | Value | Threshold | Status. Then add: 1) a 2–3 sentence summary, 2) key evidence with timestamps, 3) likely causes/hypotheses, 4) recommended actions, 5) follow-ups/requests. If SLOs are failing, clearly call it out. If any data is unavailable, state the gaps. Include the latest parking occupancy snapshot if available.
 ```
+Remember the importance of a good prompt. Azure SRE still is a LLM and needs good prompt engineering.
+
+```prompt
+You are an observability assistant. Assess the Berlin Park API for the last 60 minutes.
+
+Inputs:
+
+SLOs: p95 latency < 100 ms; error rate < 1%; availability ≥ 99.9%
+Metrics to compute/report: health, p95 latency (ms), throughput (requests/min and total), error rate (%), availability (%)
+Also include: latest parking occupancy snapshot (total, available, occupied, % occupied, per-level if present)
+Output format (strict):
+
+First render a GitHub‑flavored Markdown table with EXACT columns: | Category | Metric | Value | Threshold | Status |
+Populate rows for Health, Latency (p95), Throughput, Error Rate, Availability.
+Status must be one of: PASS, FAIL, INFO.
+Use ISO8601 UTC timestamps where relevant in Value.
+If a metric is unavailable, use N/A and explain in Data gaps later.
+Do not include any text before the table.
+Then add these sections in order:
+Summary (2–3 sentences, concise, call out SLO breaches clearly if any)
+Key evidence (bulleted list with timestamps and concrete values)
+Likely causes/hypotheses (bulleted, 2–4 items)
+Recommended actions (bulleted, prioritized, concrete)
+Follow-ups/requests (bulleted)
+Data gaps (bulleted; list any unavailable data)
+Rules:
+
+If any SLO is failing, add a single line “SLOs FAILING” immediately after the table.
+No emojis. Keep numbers to 2 decimal places where applicable.
+Use UTC timestamps (ISO8601).
+Throughput row should show both rpm and total (e.g., “5 rpm (total 1,887)”).
+Example table header (use this exact header): | Category | Metric | Value | Threshold | Status |
+```

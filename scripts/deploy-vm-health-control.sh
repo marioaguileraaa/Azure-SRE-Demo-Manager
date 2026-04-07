@@ -115,6 +115,23 @@ if [ $? -ne 0 ]; then
 fi
 print_info "Custom table created."
 
+# --- Step 1b: deploy alert rules in hub RG ---
+ALERTS_DEPLOYMENT_NAME="vm-health-alerts-$(date +%Y%m%d-%H%M%S)"
+print_info "Creating VM health alert rules in $HUB_RG..."
+az deployment group create \
+  --name "$ALERTS_DEPLOYMENT_NAME" \
+  --resource-group "$HUB_RG" \
+  --template-file "$INFRA_DIR/modules/vm-health-alerts.bicep" \
+  --parameters \
+    location="$LOCATION" \
+    logAnalyticsWorkspaceId="$LA_WORKSPACE_ID"
+
+if [ $? -ne 0 ]; then
+  print_warning "Alert rules deployment failed — continuing with container app deployment."
+else
+  print_info "Alert rules created."
+fi
+
 # --- Step 2: deploy container app + DCR in chaos RG (placeholder image first) ---
 echo ""
 DEPLOYMENT_NAME="vm-health-control-$(date +%Y%m%d-%H%M%S)"

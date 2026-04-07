@@ -351,6 +351,17 @@ module vmHealthControlAcrAccess 'modules/acr-role-assignment.bicep' = if (create
   }
 }
 
+// VM Health Alerts (scheduled query rules on VMHealthStatus_CL)
+module vmHealthAlerts 'modules/vm-health-alerts.bicep' = {
+  scope: hubRg
+  name: 'vm-health-alerts-deployment'
+  dependsOn: [ vmHealthTable ]
+  params: {
+    location: location
+    logAnalyticsWorkspaceId: hub.outputs.logAnalyticsWorkspaceId
+  }
+}
+
 // ========================================
 // Berlin MCP Server (Container App for monitoring Berlin API)
 // ========================================

@@ -134,5 +134,6 @@ resource parisSyslogDcr 'Microsoft.Insights/dataCollectionRules@2022-06-01' = if
 }
 
 output dataCollectionEndpointId string = dataCollectionEndpoint.id
+output dataCollectionEndpointLogsUri string = dataCollectionEndpoint.properties.logsIngestion.endpoint
 output madridWindowsEventsDcrId string = deployMadridVm ? madridWindowsEventsDcr!.id : ''
 output parisSyslogDcrId string = deployParisVm ? parisSyslogDcr!.id : ''

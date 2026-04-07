@@ -28,6 +28,9 @@ param berlinContainerImage string = 'mcr.microsoft.com/azuredocs/containerapps-h
 @description('Container image for Chaos Control')
 param chaosControlContainerImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
 
+@description('Container image for VM Health Control')
+param vmHealthControlContainerImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
+
 @description('Container registry server (if using private registry)')
 param containerRegistry string = ''
 
@@ -313,6 +316,42 @@ module chaosControlAcrAccess 'modules/acr-role-assignment.bicep' = if (createCon
 }
 
 // ========================================
+// VM Health Control (Container App)
+// ========================================
+
+module vmHealthTable 'modules/vm-health-table.bicep' = {
+  scope: hubRg
+  name: 'vm-health-table-deployment'
+  params: {
+    workspaceName: hub.outputs.logAnalyticsWorkspaceName
+  }
+}
+
+module vmHealthControl 'modules/vm-health-control.bicep' = {
+  scope: chaosControlRg
+  name: 'vm-health-control-deployment'
+  dependsOn: [ vmHealthTable ]
+  params: {
+    location: location
+    containerAppEnvironmentId: chaosControl.outputs.containerAppEnvironmentId
+    containerImage: vmHealthControlContainerImage
+    containerRegistry: createContainerRegistry ? acr!.outputs.loginServer : containerRegistry
+    logAnalyticsWorkspaceId: hub.outputs.logAnalyticsWorkspaceId
+    tags: tags
+  }
+}
+
+// Grant Container App access to ACR
+module vmHealthControlAcrAccess 'modules/acr-role-assignment.bicep' = if (createContainerRegistry) {
+  scope: hubRg
+  name: 'vm-health-control-acr-access'
+  params: {
+    principalId: vmHealthControl.outputs.containerAppPrincipalId
+    acrName: acr!.outputs.registryName
+  }
+}
+
+// ========================================
 // Berlin MCP Server (Container App for monitoring Berlin API)
 // ========================================
 
@@ -453,6 +492,7 @@ module frontend 'modules/frontend.bicep' = {
     parisApiUrl: parisApi.outputs.apiUrl
     berlinApiUrl: berlinApi.outputs.containerAppUrl
     chaosControlUrl: chaosControl.outputs.containerAppUrl
+    vmHealthControlUrl: vmHealthControl.outputs.containerAppUrl
     tags: tags
   }
 }
@@ -489,6 +529,8 @@ output parisApiUrl string = parisApi.outputs.apiUrl
 output berlinApiUrl string = berlinApi.outputs.containerAppUrl
 output chaosControlUrl string = chaosControl.outputs.containerAppUrl
 output chaosControlContainerAppName string = chaosControl.outputs.containerAppName
+output vmHealthControlUrl string = vmHealthControl.outputs.containerAppUrl
+output vmHealthControlContainerAppName string = vmHealthControl.outputs.containerAppName
 output berlinMcpServerUrl string = deployBerlinMcp ? berlinMcpServer!.outputs.mcpServerUrl : ''
 output berlinMcpAppInsightsName string = deployBerlinMcp ? berlinMcpServer!.outputs.appInsightsName : ''
 output berlinMcpLogAnalyticsWorkspaceName string = deployBerlinMcp ? berlinMcpServer!.outputs.logAnalyticsWorkspaceName : ''

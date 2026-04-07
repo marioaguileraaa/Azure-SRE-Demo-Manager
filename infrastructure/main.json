@@ -4,8 +4,8 @@
   "metadata": {
     "_generator": {
       "name": "bicep",
-      "version": "0.40.2.10011",
-      "templateHash": "7785548734446002975"
+      "version": "0.38.33.27573",
+      "templateHash": "2928258461249034"
     }
   },
   "parameters": {
@@ -59,6 +59,13 @@
       "defaultValue": "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest",
       "metadata": {
         "description": "Container image for Chaos Control"
+      }
+    },
+    "vmHealthControlContainerImage": {
+      "type": "string",
+      "defaultValue": "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest",
+      "metadata": {
+        "description": "Container image for VM Health Control"
       }
     },
     "containerRegistry": {
@@ -274,8 +281,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "15979375976132433706"
+              "version": "0.38.33.27573",
+              "templateHash": "17690009358630070878"
             }
           },
           "parameters": {
@@ -681,8 +688,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "4662753585367315612"
+              "version": "0.38.33.27573",
+              "templateHash": "12530932876367506038"
             }
           },
           "parameters": {
@@ -858,8 +865,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "10512169515366197914"
+              "version": "0.38.33.27573",
+              "templateHash": "185852612899822830"
             }
           },
           "parameters": {
@@ -975,8 +982,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "6055505188232495796"
+              "version": "0.38.33.27573",
+              "templateHash": "17498475635471516356"
             }
           },
           "parameters": {
@@ -1122,8 +1129,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "9399521860001630483"
+              "version": "0.38.33.27573",
+              "templateHash": "16714604538621567723"
             }
           },
           "parameters": {
@@ -1206,8 +1213,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "15542309609651875845"
+              "version": "0.38.33.27573",
+              "templateHash": "7580079684313953900"
             }
           },
           "parameters": {
@@ -1348,8 +1355,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "2431130882982345683"
+              "version": "0.38.33.27573",
+              "templateHash": "1807054221077234571"
             }
           },
           "parameters": {
@@ -1594,8 +1601,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "10110345623886929941"
+              "version": "0.38.33.27573",
+              "templateHash": "7239364955348035886"
             }
           },
           "parameters": {
@@ -1616,7 +1623,7 @@
             {
               "type": "Microsoft.Authorization/roleAssignments",
               "apiVersion": "2022-04-01",
-              "scope": "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]",
+              "scope": "[format('Microsoft.ContainerRegistry/registries/{0}', parameters('acrName'))]",
               "name": "[guid(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), 'AcrPull')]",
               "properties": {
                 "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')]",
@@ -1670,8 +1677,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "6025811491089791001"
+              "version": "0.38.33.27573",
+              "templateHash": "16953242303859215706"
             }
           },
           "parameters": {
@@ -1881,8 +1888,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "10110345623886929941"
+              "version": "0.38.33.27573",
+              "templateHash": "7239364955348035886"
             }
           },
           "parameters": {
@@ -1903,7 +1910,7 @@
             {
               "type": "Microsoft.Authorization/roleAssignments",
               "apiVersion": "2022-04-01",
-              "scope": "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]",
+              "scope": "[format('Microsoft.ContainerRegistry/registries/{0}', parameters('acrName'))]",
               "name": "[guid(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), 'AcrPull')]",
               "properties": {
                 "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')]",
@@ -1960,8 +1967,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "2213312805952927998"
+              "version": "0.38.33.27573",
+              "templateHash": "18248275963403466511"
             }
           },
           "parameters": {
@@ -2170,8 +2177,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "10110345623886929941"
+              "version": "0.38.33.27573",
+              "templateHash": "7239364955348035886"
             }
           },
           "parameters": {
@@ -2192,7 +2199,7 @@
             {
               "type": "Microsoft.Authorization/roleAssignments",
               "apiVersion": "2022-04-01",
-              "scope": "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]",
+              "scope": "[format('Microsoft.ContainerRegistry/registries/{0}', parameters('acrName'))]",
               "name": "[guid(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), 'AcrPull')]",
               "properties": {
                 "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')]",
@@ -2213,6 +2220,509 @@
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'container-registry-deployment')]",
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('chaosControlRgName')), 'Microsoft.Resources/deployments', 'chaos-control-deployment')]",
         "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('hubRgName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "vm-health-table-deployment",
+      "resourceGroup": "[variables('hubRgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "workspaceName": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'hub-deployment'), '2025-04-01').outputs.logAnalyticsWorkspaceName.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.38.33.27573",
+              "templateHash": "17632239383979605501"
+            }
+          },
+          "parameters": {
+            "workspaceName": {
+              "type": "string",
+              "metadata": {
+                "description": "Log Analytics workspace name"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.OperationalInsights/workspaces/tables",
+              "apiVersion": "2022-10-01",
+              "name": "[format('{0}/{1}', parameters('workspaceName'), 'VMHealthStatus_CL')]",
+              "properties": {
+                "schema": {
+                  "name": "VMHealthStatus_CL",
+                  "columns": [
+                    {
+                      "name": "TimeGenerated",
+                      "type": "datetime"
+                    },
+                    {
+                      "name": "vmName",
+                      "type": "string"
+                    },
+                    {
+                      "name": "city",
+                      "type": "string"
+                    },
+                    {
+                      "name": "healthState",
+                      "type": "string"
+                    },
+                    {
+                      "name": "previousState",
+                      "type": "string"
+                    },
+                    {
+                      "name": "severity",
+                      "type": "string"
+                    },
+                    {
+                      "name": "source",
+                      "type": "string"
+                    },
+                    {
+                      "name": "message",
+                      "type": "string"
+                    },
+                    {
+                      "name": "resourceGroup",
+                      "type": "string"
+                    },
+                    {
+                      "name": "subscriptionId",
+                      "type": "string"
+                    },
+                    {
+                      "name": "resourceType",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "retentionInDays": 30
+              }
+            }
+          ],
+          "outputs": {
+            "tableName": {
+              "type": "string",
+              "value": "VMHealthStatus_CL"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'hub-deployment')]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('hubRgName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "vm-health-control-deployment",
+      "resourceGroup": "[variables('chaosControlRgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "containerAppEnvironmentId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('chaosControlRgName')), 'Microsoft.Resources/deployments', 'chaos-control-deployment'), '2025-04-01').outputs.containerAppEnvironmentId.value]"
+          },
+          "containerImage": {
+            "value": "[parameters('vmHealthControlContainerImage')]"
+          },
+          "containerRegistry": "[if(parameters('createContainerRegistry'), createObject('value', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'container-registry-deployment'), '2025-04-01').outputs.loginServer.value), createObject('value', parameters('containerRegistry')))]",
+          "logAnalyticsWorkspaceId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'hub-deployment'), '2025-04-01').outputs.logAnalyticsWorkspaceId.value]"
+          },
+          "tags": {
+            "value": "[variables('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.38.33.27573",
+              "templateHash": "17523862689586698386"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Location for all VM Health Control resources"
+              }
+            },
+            "containerAppEnvironmentId": {
+              "type": "string",
+              "metadata": {
+                "description": "Existing Container App Environment ID (shared with chaos-control)"
+              }
+            },
+            "containerImage": {
+              "type": "string",
+              "defaultValue": "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest",
+              "metadata": {
+                "description": "Container image name"
+              }
+            },
+            "containerRegistry": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Container registry server (leave empty for public registries)"
+              }
+            },
+            "logAnalyticsWorkspaceId": {
+              "type": "string",
+              "metadata": {
+                "description": "Log Analytics workspace resource ID for the DCR destination"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Tags to apply to resources"
+              }
+            }
+          },
+          "variables": {
+            "monitoringMetricsPublisherRoleId": "3913510d-42f4-4e42-8a64-420c390055eb"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Insights/dataCollectionEndpoints",
+              "apiVersion": "2022-06-01",
+              "name": "dce-vm-health-status",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "networkAcls": {
+                  "publicNetworkAccess": "Enabled"
+                }
+              }
+            },
+            {
+              "type": "Microsoft.Insights/dataCollectionRules",
+              "apiVersion": "2022-06-01",
+              "name": "dcr-vm-health-status",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "dataCollectionEndpointId": "[resourceId('Microsoft.Insights/dataCollectionEndpoints', 'dce-vm-health-status')]",
+                "streamDeclarations": {
+                  "Custom-VMHealthStatus_CL": {
+                    "columns": [
+                      {
+                        "name": "TimeGenerated",
+                        "type": "datetime"
+                      },
+                      {
+                        "name": "vmName",
+                        "type": "string"
+                      },
+                      {
+                        "name": "city",
+                        "type": "string"
+                      },
+                      {
+                        "name": "healthState",
+                        "type": "string"
+                      },
+                      {
+                        "name": "previousState",
+                        "type": "string"
+                      },
+                      {
+                        "name": "severity",
+                        "type": "string"
+                      },
+                      {
+                        "name": "source",
+                        "type": "string"
+                      },
+                      {
+                        "name": "message",
+                        "type": "string"
+                      },
+                      {
+                        "name": "resourceGroup",
+                        "type": "string"
+                      },
+                      {
+                        "name": "subscriptionId",
+                        "type": "string"
+                      },
+                      {
+                        "name": "resourceType",
+                        "type": "string"
+                      }
+                    ]
+                  }
+                },
+                "destinations": {
+                  "logAnalytics": [
+                    {
+                      "name": "la-vm-health",
+                      "workspaceResourceId": "[parameters('logAnalyticsWorkspaceId')]"
+                    }
+                  ]
+                },
+                "dataFlows": [
+                  {
+                    "streams": [
+                      "Custom-VMHealthStatus_CL"
+                    ],
+                    "destinations": [
+                      "la-vm-health"
+                    ],
+                    "outputStream": "Custom-VMHealthStatus_CL",
+                    "transformKql": "source"
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Insights/dataCollectionEndpoints', 'dce-vm-health-status')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[format('Microsoft.Insights/dataCollectionRules/{0}', 'dcr-vm-health-status')]",
+              "name": "[guid(resourceId('Microsoft.Insights/dataCollectionRules', 'dcr-vm-health-status'), resourceId('Microsoft.App/containerApps', 'ca-vm-health-control'), variables('monitoringMetricsPublisherRoleId'))]",
+              "properties": {
+                "principalId": "[reference(resourceId('Microsoft.App/containerApps', 'ca-vm-health-control'), '2023-05-01', 'full').identity.principalId]",
+                "principalType": "ServicePrincipal",
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('monitoringMetricsPublisherRoleId'))]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.App/containerApps', 'ca-vm-health-control')]",
+                "[resourceId('Microsoft.Insights/dataCollectionRules', 'dcr-vm-health-status')]"
+              ]
+            },
+            {
+              "type": "Microsoft.App/containerApps",
+              "apiVersion": "2023-05-01",
+              "name": "ca-vm-health-control",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "properties": {
+                "environmentId": "[parameters('containerAppEnvironmentId')]",
+                "configuration": {
+                  "ingress": {
+                    "external": true,
+                    "targetPort": 3095,
+                    "transport": "auto",
+                    "allowInsecure": false
+                  },
+                  "registries": "[if(empty(parameters('containerRegistry')), createArray(), createArray(createObject('server', parameters('containerRegistry'), 'identity', 'system')))]"
+                },
+                "template": {
+                  "containers": [
+                    {
+                      "name": "vm-health-control",
+                      "image": "[parameters('containerImage')]",
+                      "resources": {
+                        "cpu": "[json('0.25')]",
+                        "memory": "0.5Gi"
+                      },
+                      "env": [
+                        {
+                          "name": "PORT",
+                          "value": "3095"
+                        },
+                        {
+                          "name": "NODE_ENV",
+                          "value": "production"
+                        },
+                        {
+                          "name": "DCE_ENDPOINT",
+                          "value": "[reference(resourceId('Microsoft.Insights/dataCollectionEndpoints', 'dce-vm-health-status'), '2022-06-01').logsIngestion.endpoint]"
+                        },
+                        {
+                          "name": "DCR_RULE_ID",
+                          "value": "[reference(resourceId('Microsoft.Insights/dataCollectionRules', 'dcr-vm-health-status'), '2022-06-01').immutableId]"
+                        },
+                        {
+                          "name": "DCR_STREAM_NAME",
+                          "value": "Custom-VMHealthStatus_CL"
+                        }
+                      ],
+                      "probes": [
+                        {
+                          "type": "liveness",
+                          "httpGet": {
+                            "path": "/health",
+                            "port": 3095
+                          },
+                          "initialDelaySeconds": 10,
+                          "periodSeconds": 30
+                        },
+                        {
+                          "type": "readiness",
+                          "httpGet": {
+                            "path": "/health",
+                            "port": 3095
+                          },
+                          "initialDelaySeconds": 5,
+                          "periodSeconds": 10
+                        }
+                      ]
+                    }
+                  ],
+                  "scale": {
+                    "minReplicas": 1,
+                    "maxReplicas": 2,
+                    "rules": [
+                      {
+                        "name": "http-scaling",
+                        "http": {
+                          "metadata": {
+                            "concurrentRequests": "20"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Insights/dataCollectionEndpoints', 'dce-vm-health-status')]",
+                "[resourceId('Microsoft.Insights/dataCollectionRules', 'dcr-vm-health-status')]"
+              ]
+            }
+          ],
+          "outputs": {
+            "containerAppName": {
+              "type": "string",
+              "value": "ca-vm-health-control"
+            },
+            "containerAppFqdn": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.App/containerApps', 'ca-vm-health-control'), '2023-05-01').configuration.ingress.fqdn]"
+            },
+            "containerAppUrl": {
+              "type": "string",
+              "value": "[format('https://{0}', reference(resourceId('Microsoft.App/containerApps', 'ca-vm-health-control'), '2023-05-01').configuration.ingress.fqdn)]"
+            },
+            "containerAppPrincipalId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.App/containerApps', 'ca-vm-health-control'), '2023-05-01', 'full').identity.principalId]"
+            },
+            "dcrRuleId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Insights/dataCollectionRules', 'dcr-vm-health-status'), '2022-06-01').immutableId]"
+            },
+            "dceEndpointId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Insights/dataCollectionEndpoints', 'dce-vm-health-status')]"
+            },
+            "dceLogsUri": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Insights/dataCollectionEndpoints', 'dce-vm-health-status'), '2022-06-01').logsIngestion.endpoint]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'container-registry-deployment')]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('chaosControlRgName')), 'Microsoft.Resources/deployments', 'chaos-control-deployment')]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('chaosControlRgName'))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'hub-deployment')]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'vm-health-table-deployment')]"
+      ]
+    },
+    {
+      "condition": "[parameters('createContainerRegistry')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "vm-health-control-acr-access",
+      "resourceGroup": "[variables('hubRgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "principalId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('chaosControlRgName')), 'Microsoft.Resources/deployments', 'vm-health-control-deployment'), '2025-04-01').outputs.containerAppPrincipalId.value]"
+          },
+          "acrName": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'container-registry-deployment'), '2025-04-01').outputs.registryName.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.38.33.27573",
+              "templateHash": "7239364955348035886"
+            }
+          },
+          "parameters": {
+            "principalId": {
+              "type": "string",
+              "metadata": {
+                "description": "Principal ID of the managed identity"
+              }
+            },
+            "acrName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the Azure Container Registry"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[format('Microsoft.ContainerRegistry/registries/{0}', parameters('acrName'))]",
+              "name": "[guid(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), 'AcrPull')]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')]",
+                "principalId": "[parameters('principalId')]",
+                "principalType": "ServicePrincipal"
+              }
+            }
+          ],
+          "outputs": {
+            "roleAssignmentId": {
+              "type": "string",
+              "value": "[extensionResourceId(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), 'AcrPull'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'container-registry-deployment')]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('hubRgName'))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('chaosControlRgName')), 'Microsoft.Resources/deployments', 'vm-health-control-deployment')]"
       ]
     },
     {
@@ -2253,8 +2763,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "10139767130881042491"
+              "version": "0.38.33.27573",
+              "templateHash": "11833751532690082500"
             }
           },
           "parameters": {
@@ -2545,8 +3055,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "10110345623886929941"
+              "version": "0.38.33.27573",
+              "templateHash": "7239364955348035886"
             }
           },
           "parameters": {
@@ -2567,7 +3077,7 @@
             {
               "type": "Microsoft.Authorization/roleAssignments",
               "apiVersion": "2022-04-01",
-              "scope": "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]",
+              "scope": "[format('Microsoft.ContainerRegistry/registries/{0}', parameters('acrName'))]",
               "name": "[guid(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), 'AcrPull')]",
               "properties": {
                 "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')]",
@@ -2629,8 +3139,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "1876282321700861213"
+              "version": "0.38.33.27573",
+              "templateHash": "8987415333394988064"
             }
           },
           "parameters": {
@@ -2895,8 +3405,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "4922745226047476224"
+              "version": "0.38.33.27573",
+              "templateHash": "1789761160882046084"
             }
           },
           "parameters": {
@@ -3123,6 +3633,430 @@
       ]
     },
     {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "vm-log-collection-deployment",
+      "resourceGroup": "[variables('hubRgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "logAnalyticsWorkspaceId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'hub-deployment'), '2025-04-01').outputs.logAnalyticsWorkspaceId.value]"
+          },
+          "deployMadridVm": {
+            "value": "[parameters('deployMadridVm')]"
+          },
+          "deployParisVm": {
+            "value": "[parameters('deployParisVm')]"
+          },
+          "tags": {
+            "value": "[variables('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.38.33.27573",
+              "templateHash": "12744835931254206772"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for monitoring resources"
+              }
+            },
+            "logAnalyticsWorkspaceId": {
+              "type": "string",
+              "metadata": {
+                "description": "Log Analytics workspace resource ID"
+              }
+            },
+            "deployMadridVm": {
+              "type": "bool",
+              "defaultValue": true,
+              "metadata": {
+                "description": "Deploy Madrid VM data collection association"
+              }
+            },
+            "deployParisVm": {
+              "type": "bool",
+              "defaultValue": true,
+              "metadata": {
+                "description": "Deploy Paris VM data collection association"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Tags to apply to monitoring resources"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Insights/dataCollectionEndpoints",
+              "apiVersion": "2022-06-01",
+              "name": "dce-parking-vm-logs",
+              "location": "[parameters('location')]",
+              "kind": "Linux",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "networkAcls": {
+                  "publicNetworkAccess": "Enabled"
+                }
+              }
+            },
+            {
+              "condition": "[parameters('deployMadridVm')]",
+              "type": "Microsoft.Insights/dataCollectionRules",
+              "apiVersion": "2022-06-01",
+              "name": "dcr-madrid-windows-events",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "dataCollectionEndpointId": "[resourceId('Microsoft.Insights/dataCollectionEndpoints', 'dce-parking-vm-logs')]",
+                "streamDeclarations": {},
+                "dataSources": {
+                  "windowsEventLogs": [
+                    {
+                      "name": "madrid-windows-events",
+                      "streams": [
+                        "Microsoft-Event"
+                      ],
+                      "xPathQueries": [
+                        "Application!*[System[*]]",
+                        "System!*[System[(Level=1 or Level=2 or Level=3)]]",
+                        "Security!*[System[(Level=1 or Level=2 or Level=3)]]"
+                      ]
+                    }
+                  ]
+                },
+                "destinations": {
+                  "logAnalytics": [
+                    {
+                      "name": "la-madrid-windows-events",
+                      "workspaceResourceId": "[parameters('logAnalyticsWorkspaceId')]"
+                    }
+                  ]
+                },
+                "dataFlows": [
+                  {
+                    "streams": [
+                      "Microsoft-Event"
+                    ],
+                    "destinations": [
+                      "la-madrid-windows-events"
+                    ]
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Insights/dataCollectionEndpoints', 'dce-parking-vm-logs')]"
+              ]
+            },
+            {
+              "condition": "[parameters('deployParisVm')]",
+              "type": "Microsoft.Insights/dataCollectionRules",
+              "apiVersion": "2022-06-01",
+              "name": "dcr-paris-syslog",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "dataCollectionEndpointId": "[resourceId('Microsoft.Insights/dataCollectionEndpoints', 'dce-parking-vm-logs')]",
+                "streamDeclarations": {},
+                "dataSources": {
+                  "syslog": [
+                    {
+                      "name": "paris-linux-syslog",
+                      "streams": [
+                        "Microsoft-Syslog"
+                      ],
+                      "facilityNames": [
+                        "auth",
+                        "authpriv",
+                        "cron",
+                        "daemon",
+                        "kern",
+                        "local0",
+                        "local1",
+                        "local2",
+                        "local3",
+                        "local4",
+                        "local5",
+                        "local6",
+                        "local7",
+                        "syslog",
+                        "user"
+                      ],
+                      "logLevels": [
+                        "Emergency",
+                        "Alert",
+                        "Critical",
+                        "Error",
+                        "Warning",
+                        "Notice",
+                        "Informational",
+                        "Debug"
+                      ]
+                    }
+                  ]
+                },
+                "destinations": {
+                  "logAnalytics": [
+                    {
+                      "name": "la-paris-syslog",
+                      "workspaceResourceId": "[parameters('logAnalyticsWorkspaceId')]"
+                    }
+                  ]
+                },
+                "dataFlows": [
+                  {
+                    "streams": [
+                      "Microsoft-Syslog"
+                    ],
+                    "destinations": [
+                      "la-paris-syslog"
+                    ]
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Insights/dataCollectionEndpoints', 'dce-parking-vm-logs')]"
+              ]
+            }
+          ],
+          "outputs": {
+            "dataCollectionEndpointId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Insights/dataCollectionEndpoints', 'dce-parking-vm-logs')]"
+            },
+            "dataCollectionEndpointLogsUri": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Insights/dataCollectionEndpoints', 'dce-parking-vm-logs'), '2022-06-01').logsIngestion.endpoint]"
+            },
+            "madridWindowsEventsDcrId": {
+              "type": "string",
+              "value": "[if(parameters('deployMadridVm'), resourceId('Microsoft.Insights/dataCollectionRules', 'dcr-madrid-windows-events'), '')]"
+            },
+            "parisSyslogDcrId": {
+              "type": "string",
+              "value": "[if(parameters('deployParisVm'), resourceId('Microsoft.Insights/dataCollectionRules', 'dcr-paris-syslog'), '')]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'hub-deployment')]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('hubRgName'))]"
+      ]
+    },
+    {
+      "condition": "[parameters('deployMadridVm')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "madrid-dcr-association-deployment",
+      "resourceGroup": "[variables('madridRgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "vmName": {
+            "value": "vm-madrid-api"
+          },
+          "associationName": {
+            "value": "assoc-madrid-windows-events"
+          },
+          "associationDescription": {
+            "value": "Collect Madrid Windows Event Viewer logs to Log Analytics"
+          },
+          "dataCollectionRuleId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'vm-log-collection-deployment'), '2025-04-01').outputs.madridWindowsEventsDcrId.value]"
+          },
+          "dataCollectionEndpointId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'vm-log-collection-deployment'), '2025-04-01').outputs.dataCollectionEndpointId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.38.33.27573",
+              "templateHash": "7243683384978409428"
+            }
+          },
+          "parameters": {
+            "vmName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the target virtual machine in this resource group"
+              }
+            },
+            "dataCollectionRuleId": {
+              "type": "string",
+              "metadata": {
+                "description": "Data Collection Rule resource ID"
+              }
+            },
+            "dataCollectionEndpointId": {
+              "type": "string",
+              "metadata": {
+                "description": "Data Collection Endpoint resource ID"
+              }
+            },
+            "associationName": {
+              "type": "string",
+              "metadata": {
+                "description": "Association resource name"
+              }
+            },
+            "associationDescription": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Association description"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Insights/dataCollectionRuleAssociations",
+              "apiVersion": "2022-06-01",
+              "scope": "[format('Microsoft.Compute/virtualMachines/{0}', parameters('vmName'))]",
+              "name": "[parameters('associationName')]",
+              "properties": {
+                "dataCollectionRuleId": "[parameters('dataCollectionRuleId')]",
+                "dataCollectionEndpointId": "[parameters('dataCollectionEndpointId')]",
+                "description": "[parameters('associationDescription')]"
+              }
+            }
+          ],
+          "outputs": {
+            "dcrAssociationId": {
+              "type": "string",
+              "value": "[extensionResourceId(resourceId('Microsoft.Compute/virtualMachines', parameters('vmName')), 'Microsoft.Insights/dataCollectionRuleAssociations', parameters('associationName'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('madridRgName'))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'vm-log-collection-deployment')]"
+      ]
+    },
+    {
+      "condition": "[parameters('deployParisVm')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "paris-dcr-association-deployment",
+      "resourceGroup": "[variables('parisRgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "vmName": {
+            "value": "vm-paris-api"
+          },
+          "associationName": {
+            "value": "assoc-paris-syslog"
+          },
+          "associationDescription": {
+            "value": "Collect Paris Linux syslog logs to Log Analytics"
+          },
+          "dataCollectionRuleId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'vm-log-collection-deployment'), '2025-04-01').outputs.parisSyslogDcrId.value]"
+          },
+          "dataCollectionEndpointId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'vm-log-collection-deployment'), '2025-04-01').outputs.dataCollectionEndpointId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.38.33.27573",
+              "templateHash": "7243683384978409428"
+            }
+          },
+          "parameters": {
+            "vmName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the target virtual machine in this resource group"
+              }
+            },
+            "dataCollectionRuleId": {
+              "type": "string",
+              "metadata": {
+                "description": "Data Collection Rule resource ID"
+              }
+            },
+            "dataCollectionEndpointId": {
+              "type": "string",
+              "metadata": {
+                "description": "Data Collection Endpoint resource ID"
+              }
+            },
+            "associationName": {
+              "type": "string",
+              "metadata": {
+                "description": "Association resource name"
+              }
+            },
+            "associationDescription": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Association description"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Insights/dataCollectionRuleAssociations",
+              "apiVersion": "2022-06-01",
+              "scope": "[format('Microsoft.Compute/virtualMachines/{0}', parameters('vmName'))]",
+              "name": "[parameters('associationName')]",
+              "properties": {
+                "dataCollectionRuleId": "[parameters('dataCollectionRuleId')]",
+                "dataCollectionEndpointId": "[parameters('dataCollectionEndpointId')]",
+                "description": "[parameters('associationDescription')]"
+              }
+            }
+          ],
+          "outputs": {
+            "dcrAssociationId": {
+              "type": "string",
+              "value": "[extensionResourceId(resourceId('Microsoft.Compute/virtualMachines', parameters('vmName')), 'Microsoft.Insights/dataCollectionRuleAssociations', parameters('associationName'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('parisRgName'))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'vm-log-collection-deployment')]"
+      ]
+    },
+    {
       "condition": "[parameters('deployMadridVm')]",
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2025-04-01",
@@ -3147,8 +4081,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "11130854200255065170"
+              "version": "0.38.33.27573",
+              "templateHash": "7745699788390878691"
             }
           },
           "parameters": {
@@ -3176,7 +4110,7 @@
             {
               "type": "Microsoft.Authorization/roleAssignments",
               "apiVersion": "2022-04-01",
-              "scope": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]",
+              "scope": "[format('Microsoft.Storage/storageAccounts/{0}', parameters('storageAccountName'))]",
               "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), parameters('principalId'), parameters('roleDefinitionId'))]",
               "properties": {
                 "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', parameters('roleDefinitionId'))]",
@@ -3224,8 +4158,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "11130854200255065170"
+              "version": "0.38.33.27573",
+              "templateHash": "7745699788390878691"
             }
           },
           "parameters": {
@@ -3253,7 +4187,7 @@
             {
               "type": "Microsoft.Authorization/roleAssignments",
               "apiVersion": "2022-04-01",
-              "scope": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]",
+              "scope": "[format('Microsoft.Storage/storageAccounts/{0}', parameters('storageAccountName'))]",
               "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), parameters('principalId'), parameters('roleDefinitionId'))]",
               "properties": {
                 "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', parameters('roleDefinitionId'))]",
@@ -3305,6 +4239,12 @@
           "berlinApiUrl": {
             "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('berlinRgName')), 'Microsoft.Resources/deployments', 'berlin-api-deployment'), '2025-04-01').outputs.containerAppUrl.value]"
           },
+          "chaosControlUrl": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('chaosControlRgName')), 'Microsoft.Resources/deployments', 'chaos-control-deployment'), '2025-04-01').outputs.containerAppUrl.value]"
+          },
+          "vmHealthControlUrl": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('chaosControlRgName')), 'Microsoft.Resources/deployments', 'vm-health-control-deployment'), '2025-04-01').outputs.containerAppUrl.value]"
+          },
           "tags": {
             "value": "[variables('tags')]"
           }
@@ -3315,8 +4255,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "14505130141564022684"
+              "version": "0.38.33.27573",
+              "templateHash": "443081395568853513"
             }
           },
           "parameters": {
@@ -3348,6 +4288,14 @@
               "defaultValue": ""
             },
             "berlinApiUrl": {
+              "type": "string",
+              "defaultValue": ""
+            },
+            "chaosControlUrl": {
+              "type": "string",
+              "defaultValue": ""
+            },
+            "vmHealthControlUrl": {
               "type": "string",
               "defaultValue": ""
             },
@@ -3436,6 +4384,14 @@
                       "value": "[parameters('berlinApiUrl')]"
                     },
                     {
+                      "name": "REACT_APP_CHAOS_CONTROL_URL",
+                      "value": "[parameters('chaosControlUrl')]"
+                    },
+                    {
+                      "name": "REACT_APP_VM_HEALTH_CONTROL_URL",
+                      "value": "[parameters('vmHealthControlUrl')]"
+                    },
+                    {
                       "name": "SCM_DO_BUILD_DURING_DEPLOYMENT",
                       "value": "true"
                     },
@@ -3483,11 +4439,13 @@
       },
       "dependsOn": [
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('berlinRgName')), 'Microsoft.Resources/deployments', 'berlin-api-deployment')]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('chaosControlRgName')), 'Microsoft.Resources/deployments', 'chaos-control-deployment')]",
         "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('frontendRgName'))]",
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'hub-deployment')]",
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('lisbonRgName')), 'Microsoft.Resources/deployments', 'lisbon-api-deployment')]",
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('madridRgName')), 'Microsoft.Resources/deployments', 'madrid-api-deployment')]",
-        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('parisRgName')), 'Microsoft.Resources/deployments', 'paris-api-deployment')]"
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('parisRgName')), 'Microsoft.Resources/deployments', 'paris-api-deployment')]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('chaosControlRgName')), 'Microsoft.Resources/deployments', 'vm-health-control-deployment')]"
       ]
     }
   ],
@@ -3584,6 +4542,14 @@
       "type": "string",
       "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('chaosControlRgName')), 'Microsoft.Resources/deployments', 'chaos-control-deployment'), '2025-04-01').outputs.containerAppName.value]"
     },
+    "vmHealthControlUrl": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('chaosControlRgName')), 'Microsoft.Resources/deployments', 'vm-health-control-deployment'), '2025-04-01').outputs.containerAppUrl.value]"
+    },
+    "vmHealthControlContainerAppName": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('chaosControlRgName')), 'Microsoft.Resources/deployments', 'vm-health-control-deployment'), '2025-04-01').outputs.containerAppName.value]"
+    },
     "berlinMcpServerUrl": {
       "type": "string",
       "value": "[if(parameters('deployBerlinMcp'), reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('berlinMcpRgName')), 'Microsoft.Resources/deployments', 'berlin-mcp-server-deployment'), '2025-04-01').outputs.mcpServerUrl.value, '')]"
@@ -3623,6 +4589,18 @@
     "parisFqdn": {
       "type": "string",
       "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('parisRgName')), 'Microsoft.Resources/deployments', 'paris-api-deployment'), '2025-04-01').outputs.fqdn.value]"
+    },
+    "dataCollectionEndpointId": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'vm-log-collection-deployment'), '2025-04-01').outputs.dataCollectionEndpointId.value]"
+    },
+    "madridWindowsEventsDcrId": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'vm-log-collection-deployment'), '2025-04-01').outputs.madridWindowsEventsDcrId.value]"
+    },
+    "parisSyslogDcrId": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('hubRgName')), 'Microsoft.Resources/deployments', 'vm-log-collection-deployment'), '2025-04-01').outputs.parisSyslogDcrId.value]"
     }
   }
 }

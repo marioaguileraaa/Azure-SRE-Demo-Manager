@@ -1,8 +1,8 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const crypto = require('crypto');
-const axios = require('axios');
+const { DefaultAzureCredential } = require('@azure/identity');
+const { LogsIngestionClient } = require('@azure/monitor-ingestion');
 
 const app = express();
 const PORT = process.env.PORT || 3095;
@@ -10,10 +10,21 @@ const PORT = process.env.PORT || 3095;
 app.use(cors());
 app.use(express.json());
 
-// Log Analytics configuration
-const LOG_ANALYTICS_WORKSPACE_ID = process.env.LOG_ANALYTICS_WORKSPACE_ID || '';
-const LOG_ANALYTICS_SHARED_KEY = process.env.LOG_ANALYTICS_SHARED_KEY || '';
-const LOG_TYPE = process.env.LOG_TYPE || 'VMHealthStatus';
+// Logs Ingestion API configuration (managed identity)
+const DCE_ENDPOINT = process.env.DCE_ENDPOINT || '';
+const DCR_RULE_ID = process.env.DCR_RULE_ID || '';
+const DCR_STREAM_NAME = process.env.DCR_STREAM_NAME || 'Custom-VMHealthStatus_CL';
+
+// Lazily initialised client (only when DCE is configured)
+let ingestionClient = null;
+
+function getIngestionClient() {
+  if (!ingestionClient && DCE_ENDPOINT) {
+    const credential = new DefaultAzureCredential();
+    ingestionClient = new LogsIngestionClient(DCE_ENDPOINT, credential);
+  }
+  return ingestionClient;
+}
 
 // In-memory state tracking
 const state = {
@@ -24,58 +35,19 @@ const state = {
   }
 };
 
-// --- Log Analytics helpers (same pattern as azureLogger.js) ---
-
-function buildSignature(workspaceId, sharedKey, date, contentLength, method, contentType, resource) {
-  const xHeaders = `x-ms-date:${date}`;
-  const stringToHash = `${method}\n${contentLength}\n${contentType}\n${xHeaders}\n${resource}`;
-  const bytesToHash = Buffer.from(stringToHash, 'utf8');
-  const keyBytes = Buffer.from(sharedKey, 'base64');
-  const hmac = crypto.createHmac('sha256', keyBytes);
-  hmac.update(bytesToHash);
-  const calculatedHash = hmac.digest('base64');
-  return `SharedKey ${workspaceId}:${calculatedHash}`;
-}
+// --- Log Analytics helper ---
 
 async function sendToLogAnalytics(logData) {
-  if (!LOG_ANALYTICS_WORKSPACE_ID || !LOG_ANALYTICS_SHARED_KEY) {
+  const client = getIngestionClient();
+  if (!client || !DCR_RULE_ID) {
     console.log('[Log Analytics] Not configured — log would be sent:', JSON.stringify(logData));
-    return { success: false, configured: false, message: 'Log Analytics not configured' };
+    return { success: false, configured: false, message: 'Logs Ingestion API not configured' };
   }
 
-  const body = JSON.stringify(logData);
-  const contentLength = Buffer.byteLength(body, 'utf8');
-  const rfc1123date = new Date().toUTCString();
-  const contentType = 'application/json';
-  const method = 'POST';
-  const resource = '/api/logs';
-
-  const signature = buildSignature(
-    LOG_ANALYTICS_WORKSPACE_ID,
-    LOG_ANALYTICS_SHARED_KEY,
-    rfc1123date,
-    contentLength,
-    method,
-    contentType,
-    resource
-  );
-
-  const uri = `https://${LOG_ANALYTICS_WORKSPACE_ID}.ods.opinsights.azure.com${resource}?api-version=2016-04-01`;
-
   try {
-    const response = await axios.post(uri, body, {
-      headers: {
-        'Content-Type': contentType,
-        'Authorization': signature,
-        'Log-Type': LOG_TYPE,
-        'x-ms-date': rfc1123date,
-        'time-generated-field': 'timestamp'
-      },
-      timeout: 10000
-    });
-
-    console.log(`[Log Analytics] Log sent successfully: ${response.status}`);
-    return { success: true, status: response.status };
+    await client.upload(DCR_RULE_ID, DCR_STREAM_NAME, logData);
+    console.log('[Log Analytics] Log sent successfully via Logs Ingestion API');
+    return { success: true };
   } catch (error) {
     console.error('[Log Analytics] Error sending log:', error.message);
     return { success: false, error: error.message };
@@ -121,7 +93,7 @@ app.patch('/api/vm-health/:vmName', async (req, res) => {
 
   // Build and send the log entry
   const logEntry = [{
-    timestamp: new Date().toISOString(),
+    TimeGenerated: new Date().toISOString(),
     vmName: `vm-parking-${vmName}`,
     city: vmName.charAt(0).toUpperCase() + vmName.slice(1),
     healthState: healthy ? 'Healthy' : 'Unhealthy',
@@ -152,6 +124,7 @@ app.patch('/api/vm-health/:vmName', async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`VM Health Control running on port ${PORT}`);
-  console.log(`Log Analytics workspace: ${LOG_ANALYTICS_WORKSPACE_ID ? 'configured' : 'NOT configured (dry-run mode)'}`);
-  console.log(`Custom log type: ${LOG_TYPE}_CL`);
+  console.log(`DCE endpoint: ${DCE_ENDPOINT || 'NOT configured (dry-run mode)'}`);
+  console.log(`DCR rule ID: ${DCR_RULE_ID || '<not set>'}`);
+  console.log(`Stream: ${DCR_STREAM_NAME}`);
 });

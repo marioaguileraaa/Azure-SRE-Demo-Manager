@@ -11,6 +11,7 @@ param madridApiUrl string = ''
 param parisApiUrl string = ''
 param berlinApiUrl string = ''
 param chaosControlUrl string = ''
+param vmHealthControlUrl string = ''
 
 @description('Tags to apply to resources')
 param tags object = {}
@@ -92,6 +93,10 @@ resource appService 'Microsoft.Web/sites@2023-01-01' = {
         {
           name: 'REACT_APP_CHAOS_CONTROL_URL'
           value: chaosControlUrl
+        }
+        {
+          name: 'REACT_APP_VM_HEALTH_CONTROL_URL'
+          value: vmHealthControlUrl
         }
         {
           name: 'SCM_DO_BUILD_DURING_DEPLOYMENT'

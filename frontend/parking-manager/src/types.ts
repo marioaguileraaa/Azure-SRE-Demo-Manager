@@ -77,3 +77,14 @@ export interface ChaosState {
   updatedAt: string;
   services: Record<string, ChaosServiceConfig>;
 }
+
+export interface VMHealthEntry {
+  healthy: boolean;
+  lastChanged: string | null;
+  lastLogSent: string | null;
+}
+
+export interface VMHealthState {
+  updatedAt: string;
+  vms: Record<string, VMHealthEntry>;
+}

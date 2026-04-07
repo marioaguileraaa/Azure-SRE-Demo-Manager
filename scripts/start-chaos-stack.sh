@@ -84,6 +84,7 @@ echo "   Workspace: $ROOT_DIR"
 CHAOS_URL="${CHAOS_CONTROL_URL:-http://localhost:3090}"
 
 ensure_dependencies "$ROOT_DIR/backend/chaos-control"
+ensure_dependencies "$ROOT_DIR/backend/vm-health-control"
 ensure_dependencies "$ROOT_DIR/backend/lisbon-parking-api"
 ensure_dependencies "$ROOT_DIR/backend/madrid-parking-api"
 ensure_dependencies "$ROOT_DIR/backend/paris-parking-api"
@@ -101,11 +102,12 @@ else
 fi
 
 start_service "chaos-control" "$ROOT_DIR/backend/chaos-control" "npm run start"
+start_service "vm-health-control" "$ROOT_DIR/backend/vm-health-control" "npm run start"
 start_service "lisbon-api" "$ROOT_DIR/backend/lisbon-parking-api" "CHAOS_CONTROL_URL='$CHAOS_URL' npm run start"
 start_service "madrid-api" "$ROOT_DIR/backend/madrid-parking-api" "CHAOS_CONTROL_URL='$CHAOS_URL' npm run start"
 start_service "paris-api" "$ROOT_DIR/backend/paris-parking-api" "CHAOS_CONTROL_URL='$CHAOS_URL' npm run start"
 start_service "berlin-api" "$ROOT_DIR/backend/berlin-parking-api" "CHAOS_CONTROL_URL='$CHAOS_URL' npm run start"
-start_service "frontend" "$FRONTEND_DIR" "REACT_APP_LISBON_API_URL='http://localhost:3001' REACT_APP_MADRID_API_URL='http://localhost:3002' REACT_APP_PARIS_API_URL='http://localhost:3003' REACT_APP_BERLIN_API_URL='http://localhost:3004' REACT_APP_CHAOS_CONTROL_URL='$CHAOS_URL' PORT='8080' node server.js"
+start_service "frontend" "$FRONTEND_DIR" "REACT_APP_LISBON_API_URL='http://localhost:3001' REACT_APP_MADRID_API_URL='http://localhost:3002' REACT_APP_PARIS_API_URL='http://localhost:3003' REACT_APP_BERLIN_API_URL='http://localhost:3004' REACT_APP_CHAOS_CONTROL_URL='$CHAOS_URL' REACT_APP_VM_HEALTH_CONTROL_URL='http://localhost:3095' PORT='8080' node server.js"
 
 echo
 

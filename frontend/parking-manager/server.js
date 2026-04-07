@@ -14,7 +14,8 @@ const backendConfig = {
   madrid: process.env.REACT_APP_MADRID_API_URL || 'https://10.0.1.5:3002',
   paris: process.env.REACT_APP_PARIS_API_URL || 'https://10.0.1.6:3003',
   berlin: process.env.REACT_APP_BERLIN_API_URL || 'http://localhost:3004',
-  chaosControl: process.env.REACT_APP_CHAOS_CONTROL_URL || 'http://localhost:3090'
+  chaosControl: process.env.REACT_APP_CHAOS_CONTROL_URL || 'http://localhost:3090',
+  vmHealthControl: process.env.REACT_APP_VM_HEALTH_CONTROL_URL || 'http://localhost:3095'
 };
 
 console.log('Frontend server with proxy running on port', PORT);
@@ -78,6 +79,11 @@ app.use('/api/chaos-control', createProxy(
   backendConfig.chaosControl,
   'ChaosControl',
   (pathReq) => pathReq.replace(/^\/api\/chaos-control/, '/api/chaos')
+));
+app.use('/api/vm-health-control', createProxy(
+  backendConfig.vmHealthControl,
+  'VMHealthControl',
+  (pathReq) => pathReq.replace(/^\/api\/vm-health-control/, '/api/vm-health')
 ));
 
 // Disable CSP entirely (allow all sources)

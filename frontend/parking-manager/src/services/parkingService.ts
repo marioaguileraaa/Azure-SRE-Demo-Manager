@@ -1,4 +1,4 @@
-import { ChaosServiceConfig, ChaosState, ParkingAPI, ParkingInfo, ParkingMetrics, LevelInfo } from '../types';
+import { ChaosServiceConfig, ChaosState, ParkingAPI, ParkingInfo, ParkingMetrics, LevelInfo, VMHealthState } from '../types';
 
 class ParkingService {
   private apis: ParkingAPI[] = [];
@@ -159,6 +159,28 @@ class ParkingService {
       throw new Error(`Failed to update chaos config for ${serviceName}`);
     }
 
+    const data = await response.json();
+    return data.data;
+  }
+
+  async getVMHealthState(): Promise<VMHealthState> {
+    const response = await fetch('/api/vm-health-control/state');
+    if (!response.ok) {
+      throw new Error('Failed to fetch VM health state');
+    }
+    const data = await response.json();
+    return data.data;
+  }
+
+  async setVMHealth(vmName: string, healthy: boolean): Promise<unknown> {
+    const response = await fetch(`/api/vm-health-control/${vmName}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ healthy })
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to update VM health for ${vmName}`);
+    }
     const data = await response.json();
     return data.data;
   }

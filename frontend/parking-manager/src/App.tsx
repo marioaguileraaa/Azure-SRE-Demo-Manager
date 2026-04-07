@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import './App.css';
 import parkingService from './services/parkingService';
-import { ChaosServiceConfig, ChaosState, ParkingMetrics, ParkingInfo, LevelInfo } from './types';
+import { ChaosServiceConfig, ChaosState, ParkingMetrics, ParkingInfo, LevelInfo, VMHealthState } from './types';
 import ParkingCard from './components/ParkingCard';
 import ParkingDetails from './components/ParkingDetails';
 
@@ -25,6 +25,10 @@ function App() {
   const [chaosSavingTarget, setChaosSavingTarget] = useState<string | null>(null);
   const [showChaosBackoffice, setShowChaosBackoffice] = useState(false);
   const [showChaosHelp, setShowChaosHelp] = useState(false);
+  const [showVMHealth, setShowVMHealth] = useState(false);
+  const [vmHealthState, setVMHealthState] = useState<VMHealthState | null>(null);
+  const [vmHealthError, setVMHealthError] = useState<string | null>(null);
+  const [vmHealthSaving, setVMHealthSaving] = useState<string | null>(null);
 
   const chaosFaultTypes = ['latency', 'httpError', 'dependencyFailure', 'exception', 'disconnect', 'timeout', 'badPayload', 'httpsError', 'highCpu', 'highMemory'];
 
@@ -36,6 +40,28 @@ function App() {
       setChaosError(null);
     } catch (error) {
       setChaosError(error instanceof Error ? error.message : 'Failed to load chaos configuration');
+    }
+  };
+
+  const loadVMHealthState = async () => {
+    try {
+      const state = await parkingService.getVMHealthState();
+      setVMHealthState(state);
+      setVMHealthError(null);
+    } catch (error) {
+      setVMHealthError(error instanceof Error ? error.message : 'Failed to load VM health state');
+    }
+  };
+
+  const handleVMHealthToggle = async (vmName: string, healthy: boolean) => {
+    try {
+      setVMHealthSaving(vmName);
+      await parkingService.setVMHealth(vmName, healthy);
+      await loadVMHealthState();
+    } catch (error) {
+      setVMHealthError(error instanceof Error ? error.message : `Failed to update ${vmName} VM health`);
+    } finally {
+      setVMHealthSaving(null);
     }
   };
 
@@ -108,7 +134,7 @@ function App() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([loadParkingData(), loadChaosState()]);
+    await Promise.all([loadParkingData(), loadChaosState(), loadVMHealthState()]);
     setRefreshing(false);
   };
 
@@ -159,6 +185,7 @@ function App() {
   useEffect(() => {
     loadParkingData();
     loadChaosState();
+    loadVMHealthState();
     // Auto-refresh every 3 seconds
     const interval = setInterval(loadParkingData, 3000);
     return () => clearInterval(interval);
@@ -179,17 +206,71 @@ function App() {
           </button>
           <button
             className="icon-btn"
-            onClick={() => setShowChaosBackoffice((prev) => !prev)}
+            onClick={() => { setShowChaosBackoffice((prev) => !prev); setShowVMHealth(false); }}
             aria-label={showChaosBackoffice ? 'Show parking dashboard' : 'Show chaos backoffice'}
             title={showChaosBackoffice ? 'Show parking dashboard' : 'Show chaos backoffice'}
           >
             {showChaosBackoffice ? '🏠' : '🧪'}
           </button>
+          <button
+            className="icon-btn"
+            onClick={() => { setShowVMHealth((prev) => !prev); setShowChaosBackoffice(false); }}
+            aria-label={showVMHealth ? 'Hide VM health panel' : 'Show VM health panel'}
+            title={showVMHealth ? 'Hide VM health panel' : 'Show VM health panel'}
+          >
+            {showVMHealth ? '🏠' : '💊'}
+          </button>
         </div>
       </header>
 
       <main className="App-main">
-        {showChaosBackoffice ? (
+        {showVMHealth ? (
+          <section className="vm-health-panel">
+            <div className="vm-health-panel-header">
+              <h2>💊 VM Health Control</h2>
+              <p className="vm-health-subtitle">Simulate unhealthy VM events &mdash; sends a log entry to a custom Log Analytics table</p>
+            </div>
+
+            {vmHealthError && <p className="chaos-error">{vmHealthError}</p>}
+
+            <div className="vm-health-grid">
+              {vmHealthState && Object.entries(vmHealthState.vms).map(([vmName, vm]) => (
+                <div className={`vm-health-card ${vm.healthy ? '' : 'vm-unhealthy'}`} key={vmName}>
+                  <div className="vm-health-card-header">
+                    <h3>{vmName.toUpperCase()}</h3>
+                    <span className={`vm-health-badge ${vm.healthy ? 'badge-healthy' : 'badge-unhealthy'}`}>
+                      {vm.healthy ? '✅ Healthy' : '❌ Unhealthy'}
+                    </span>
+                  </div>
+                  <p className="vm-health-name">vm-parking-{vmName}</p>
+                  {vm.lastChanged && (
+                    <p className="vm-health-meta">Last changed: {new Date(vm.lastChanged).toLocaleString()}</p>
+                  )}
+                  {vm.lastLogSent && (
+                    <p className="vm-health-meta">Last log sent: {new Date(vm.lastLogSent).toLocaleString()}</p>
+                  )}
+                  <div className="vm-health-actions">
+                    <button
+                      className="vm-health-btn vm-btn-unhealthy"
+                      disabled={!vm.healthy || vmHealthSaving === vmName}
+                      onClick={() => handleVMHealthToggle(vmName, false)}
+                    >
+                      {vmHealthSaving === vmName && !vm.healthy ? 'Sending...' : 'Mark Unhealthy'}
+                    </button>
+                    <button
+                      className="vm-health-btn vm-btn-healthy"
+                      disabled={vm.healthy || vmHealthSaving === vmName}
+                      onClick={() => handleVMHealthToggle(vmName, true)}
+                    >
+                      {vmHealthSaving === vmName && vm.healthy ? 'Sending...' : 'Mark Healthy'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {!vmHealthState && <p>Loading VM health state...</p>}
+            </div>
+          </section>
+        ) : showChaosBackoffice ? (
           <section className="chaos-panel">
             <div className="chaos-panel-header">
               <h2>{showChaosHelp ? '❓ Chaos Help' : '🧪 Chaos Backoffice'}</h2>

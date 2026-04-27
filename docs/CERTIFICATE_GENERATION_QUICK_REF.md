@@ -1,15 +1,15 @@
 # Quick Reference: Certificate Generation Commands
 
-## Madrid VM (Windows Server 2022 - 10.0.1.5)
+## Madrid VM (Windows Server 2022 - <madrid-vm-ip>)
 
 ### Step 1: Generate Certificate
 **Run in PowerShell as Administrator:**
 
 ```powershell
-cd C:\Users\azureuser\backend\madrid-parking-api
+cd C:\Users\azureadmin\backend\madrid-parking-api
 openssl genrsa -out madrid.key 2048
 openssl req -new -x509 -key madrid.key -out madrid.crt -days 365 `
-  -subj "/C=ES/ST=Madrid/L=Madrid/O=Parking/OU=API/CN=10.0.1.5"
+  -subj "/C=ES/ST=Madrid/L=Madrid/O=Parking/OU=API/CN=<madrid-vm-ip>"
 ```
 
 ### Step 2: Verify Files
@@ -22,14 +22,14 @@ Should show `madrid.crt` and `madrid.key`
 **Option A: Via .env file (recommended for services)**
 ```powershell
 # Create or edit .env in the Madrid API directory
-Add-Content -Path ".env" -Value "CERT_PATH=C:\Users\azureuser\backend\madrid-parking-api\madrid.crt"
-Add-Content -Path ".env" -Value "KEY_PATH=C:\Users\azureuser\backend\madrid-parking-api\madrid.key"
+Add-Content -Path ".env" -Value "CERT_PATH=C:\Users\azureadmin\backend\madrid-parking-api\madrid.crt"
+Add-Content -Path ".env" -Value "KEY_PATH=C:\Users\azureadmin\backend\madrid-parking-api\madrid.key"
 ```
 
 **Option B: Via System Environment**
 ```powershell
-[Environment]::SetEnvironmentVariable("CERT_PATH", "C:\Users\azureuser\backend\madrid-parking-api\madrid.crt", "Machine")
-[Environment]::SetEnvironmentVariable("KEY_PATH", "C:\Users\azureuser\backend\madrid-parking-api\madrid.key", "Machine")
+[Environment]::SetEnvironmentVariable("CERT_PATH", "C:\Users\azureadmin\backend\madrid-parking-api\madrid.crt", "Machine")
+[Environment]::SetEnvironmentVariable("KEY_PATH", "C:\Users\azureadmin\backend\madrid-parking-api\madrid.key", "Machine")
 ```
 
 ### Step 4: Restart Service
@@ -48,7 +48,7 @@ curl.exe --insecure https://localhost:3002/api/parking
 
 ---
 
-## Paris VM (Ubuntu 22.04 - 10.0.1.6)
+## Paris VM (Ubuntu 22.04 - <paris-vm-ip>)
 
 ### Step 1: Generate Certificate
 **Run in terminal (SSH):**
@@ -57,7 +57,7 @@ curl.exe --insecure https://localhost:3002/api/parking
 cd ~/backend/paris-parking-api
 openssl genrsa -out paris.key 2048
 openssl req -new -x509 -key paris.key -out paris.crt -days 365 \
-  -subj "/C=FR/ST=Paris/L=Paris/O=Parking/OU=API/CN=10.0.1.6"
+  -subj "/C=FR/ST=Paris/L=Paris/O=Parking/OU=API/CN=<paris-vm-ip>"
 chmod 600 paris.key
 chmod 644 paris.crt
 ```
@@ -73,16 +73,16 @@ Should show `paris.crt` and `paris.key`
 ```bash
 cat > ~/.env << 'EOF'
 PORT=3003
-CERT_PATH=/home/azureuser/backend/paris-parking-api/paris.crt
-KEY_PATH=/home/azureuser/backend/paris-parking-api/paris.key
+CERT_PATH=/home/azureadmin/backend/paris-parking-api/paris.crt
+KEY_PATH=/home/azureadmin/backend/paris-parking-api/paris.key
 NODE_ENV=development
 EOF
 ```
 
 **Or append to existing .env:**
 ```bash
-echo "CERT_PATH=/home/azureuser/backend/paris-parking-api/paris.crt" >> ~/.env
-echo "KEY_PATH=/home/azureuser/backend/paris-parking-api/paris.key" >> ~/.env
+echo "CERT_PATH=/home/azureadmin/backend/paris-parking-api/paris.crt" >> ~/.env
+echo "KEY_PATH=/home/azureadmin/backend/paris-parking-api/paris.key" >> ~/.env
 ```
 
 ### Step 4: Restart Service
@@ -111,8 +111,8 @@ curl --insecure https://localhost:3003/api/parking
 
 | Name | Value |
 |------|-------|
-| `REACT_APP_MADRID_API_URL` | `https://10.0.1.5:3002` |
-| `REACT_APP_PARIS_API_URL` | `https://10.0.1.4:3003` |
+| `REACT_APP_MADRID_API_URL` | `https://<madrid-vm-ip>:3002` |
+| `REACT_APP_PARIS_API_URL` | `https://<paris-vm-ip>:3003` |
 | `REACT_APP_LISBON_API_URL` | `<your-container-app-url>` |
 | `NODE_TLS_REJECT_UNAUTHORIZED` | `0` |
 
@@ -124,8 +124,8 @@ az webapp config appsettings set \
   --resource-group <rg-name> \
   --name <app-service-name> \
   --settings \
-    REACT_APP_MADRID_API_URL="https://10.0.1.5:3002" \
-    REACT_APP_PARIS_API_URL="https://10.0.1.4:3003" \
+    REACT_APP_MADRID_API_URL="https://<madrid-vm-ip>:3002" \
+    REACT_APP_PARIS_API_URL="https://<paris-vm-ip>:3003" \
     REACT_APP_LISBON_API_URL="<url>" \
     NODE_TLS_REJECT_UNAUTHORIZED="0"
 ```
@@ -165,11 +165,11 @@ curl --insecure https://localhost:3003/health
 ### From Local Machine:
 ```bash
 # Test backend directly (may not work if firewall blocks)
-curl --insecure https://10.0.1.5:3002/api/parking
-curl --insecure https://10.0.1.6:3003/api/parking
+curl --insecure https://<madrid-vm-ip>:3002/api/parking
+curl --insecure https://<paris-vm-ip>:3003/api/parking
 
 # Test frontend
-# Open browser to: https://app-parking-frontend-xxx.azurewebsites.net
+# Open browser to: https://<app-service-name>.azurewebsites.net
 # Check console (F12) for errors
 # Verify parking data displays
 ```
@@ -227,20 +227,3 @@ openssl x509 -in madrid.crt -text -noout | grep -A 2 "Subject:"
 - **Total:** ~30-45 minutes for complete setup
 
 ---
-
-## Next Actions (In Order)
-
-1. ✅ Code changes complete (DONE)
-2. 🔲 Generate certificates on Madrid VM
-3. 🔲 Generate certificates on Paris VM
-4. 🔲 Restart both services
-5. 🔲 Test backends from VMs
-6. 🔲 Commit code changes to Git
-7. 🔲 Push to GitHub (triggers workflow)
-8. 🔲 Wait for frontend deployment
-9. 🔲 Set App Service environment variables
-10. 🔲 Restart App Service
-11. 🔲 Test frontend URLs in browser
-12. 🔲 Verify parking data displays
-13. 🔲 Monitor logs for issues
-

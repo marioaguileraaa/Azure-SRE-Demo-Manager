@@ -2,26 +2,18 @@
 
 ## Summary
 
-The Paris API code is **correctly structured** and matches the working Madrid API. The certificates have been generated successfully. You just need to deploy and configure the API on the VM.
+The Paris API code is structured identically to the Madrid API. It uses HTTPS with self-signed certificates and Syslog for logging. Follow the steps below to deploy and configure it on the Linux VM.
 
-## ✅ What's Working
+## What's Included
 
-- ✓ Certificate generation script
-- ✓ Certificates generated successfully (valid for 365 days)
-- ✓ Paris API code structure (matches Madrid API)
-- ✓ Syslog logger implementation
-- ✓ HTTPS support configured
+- Certificate generation scripts (`scripts/generate-paris-certs.sh`)
+- Paris API code: HTTPS support, Syslog logger, all parking endpoints
+- Automated setup script: `scripts/setup-paris-api.sh`
+- Automated GitHub Actions deployment: `.github/workflows/deploy-paris-api.yml`
 
-## 🔧 What Needs to be Done
+## Quick Setup (Run on Paris VM)
 
-1. **Copy certificates to the correct location**
-2. **Deploy application code to the VM**
-3. **Install dependencies**
-4. **Start the service**
-
-## 🚀 Quick Setup (Run on Paris VM)
-
-### Option 1: Automated Setup (Recommended)
+### Option 1: Automated Setup
 
 ```bash
 # 1. Copy the setup script to the VM
@@ -39,7 +31,7 @@ chmod +x setup-paris-api.sh
 
 # This will:
 # - Create the API directory
-# - Copy certificates from /home/azureadmin/tmp
+# - Copy certificates from <tmp-cert-dir>
 # - Create .env file with correct paths
 # - Set up systemd service
 # - Configure firewall
@@ -92,7 +84,7 @@ node server.js
 # 📝 Syslog: Enabled
 ```
 
-## 🧪 Testing
+## Testing
 
 ```bash
 # Test health endpoint
@@ -115,7 +107,7 @@ curl --insecure https://localhost:3003/api/parking
 curl --insecure https://<paris-vm-public-ip>:3003/health
 ```
 
-## 📋 Systemd Service Setup
+## Systemd Service Setup
 
 ```bash
 # Create service file
@@ -149,7 +141,7 @@ sudo systemctl start paris-parking-api
 sudo systemctl status paris-parking-api
 ```
 
-## 📊 Monitoring
+## Monitoring
 
 ```bash
 # View service logs
@@ -162,7 +154,7 @@ sudo tail -f /var/log/syslog | grep ParisParkingAPI
 sudo systemctl status paris-parking-api
 ```
 
-## 🔥 Firewall
+## Firewall
 
 ```bash
 # Allow port 3003
@@ -172,7 +164,7 @@ sudo ufw allow 3003/tcp
 sudo ufw status
 ```
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Service won't start
 
@@ -218,7 +210,7 @@ npm install posix
 sudo systemctl status rsyslog
 ```
 
-## 📁 File Structure on VM
+## File Structure on VM
 
 ```
 /home/azureadmin/paris-parking-api/
@@ -232,7 +224,7 @@ sudo systemctl status rsyslog
 └── node_modules/          # Dependencies
 ```
 
-## ✅ Verification Checklist
+## Verification Checklist
 
 - [ ] Certificates copied to `~/paris-parking-api/`
 - [ ] `.env` file created with correct paths
@@ -245,7 +237,7 @@ sudo systemctl status rsyslog
 - [ ] Service enabled to start on boot
 - [ ] Firewall allows port 3003
 
-## 🎯 Expected State After Setup
+## Expected State After Setup
 
 ```bash
 # Service running
@@ -269,14 +261,14 @@ $ sudo tail /var/log/syslog | grep ParisParkingAPI
 Feb  5 11:20:15 paris-vm ParisParkingAPI[1234]: {"message":"Parking Operation: SERVER_START"...}
 ```
 
-## 🔗 Related Files
+## Related Files
 
 - Certificate generation: `scripts/generate-paris-certs.sh` ✅ (already run)
 - Setup script: `scripts/setup-paris-api.sh` ✅ (use this)
 - Environment template: `backend/paris-parking-api/.env.template`
 - Detailed instructions: `docs/paris-api-setup-instructions.md`
 
-## 📞 Common Commands
+## Common Commands
 
 ```bash
 # Start service

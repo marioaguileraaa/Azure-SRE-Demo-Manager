@@ -1,192 +1,164 @@
 # Parking Manager Frontend
 
-React-based frontend application for managing multiple parking facilities across different cities. Designed to run on Azure Web App.
+React-based frontend application for managing multiple parking facilities across different cities. Served by an Express proxy server on port 8080.
 
 ## Features
 
-- **Multi-City Management**: View and manage parking facilities across multiple cities
+- **Multi-City Management**: View and manage parking facilities for Lisbon, Madrid, Paris, and Berlin
+- **Chaos Backoffice**: Configure and trigger chaos scenarios (latency/error injection) per city
 - **Real-Time Updates**: Auto-refresh every 30 seconds
-- **Interactive Dashboard**: View occupancy rates, available slots, and facility information
+- **Interactive Dashboard**: Occupancy rates, available slots, and facility details
 - **Level Management**: Update availability for individual parking levels
 - **Responsive Design**: Works on desktop and mobile devices
 
 ## Architecture
 
-This frontend connects to multiple city-specific parking APIs:
-- Each API represents a single parking location (e.g., Lisbon, Porto)
-- The frontend aggregates data from all configured APIs
-- Each city's API can be running in a separate container
+The frontend consists of two parts:
 
-## Setup for Local Development
+1. **React application** (`src/`) — Builds to the `build/` directory
+2. **Express proxy server** (`server.js`) — Serves the React static files and proxies all `/api/*` routes to the backend services
+
+### Proxy routes
+
+| Frontend path | Backend service | Default port |
+|---------------|-----------------|--------------|
+| `/api/lisbon` | Lisbon Parking API | 3001 |
+| `/api/madrid` | Madrid Parking API | 3002 |
+| `/api/paris` | Paris Parking API | 3003 |
+| `/api/berlin` | Berlin Parking API | 3004 |
+| `/api/chaos-control` | Chaos Control | 3090 |
+| `/api/vm-health-control` | VM Health Control | 3095 |
+
+Backend URLs are configured via environment variables (see below). The proxy handles timeouts and surfaces meaningful errors when a backend service is unreachable.
+
+## Quick Start (Local)
+
+The easiest way to run the full local stack is:
+
+```bash
+# From the repository root
+./scripts/start-chaos-stack.sh
+```
+
+This starts all backend services and the frontend proxy. Open **http://localhost:8080**.
+Logs are written to `.runtime-logs/` in the repository root. Press `Ctrl+C` to stop everything.
+
+## Manual Setup for Local Development
 
 ### Prerequisites
 
-- Node.js 16+ 
-- Running parking API instances
+- Node.js 18+
+- Backend services running (see root [README.md](../../README.md))
 
 ### Installation
 
 ```bash
-# Install dependencies
 npm install
-
-# Copy environment variables
-cp .env.example .env
-
-# Update .env with your API URLs
 ```
 
 ### Environment Variables
 
-Configure the parking API URLs in `.env`:
+Configure backend API URLs in `.env` (copy from `.env.example`):
 
 ```bash
 REACT_APP_LISBON_API_URL=http://localhost:3001
-# Add more cities as needed
+REACT_APP_MADRID_API_URL=http://localhost:3002
+REACT_APP_PARIS_API_URL=http://localhost:3003
+REACT_APP_BERLIN_API_URL=http://localhost:3004
+REACT_APP_CHAOS_CONTROL_URL=http://localhost:3090
+REACT_APP_VM_HEALTH_CONTROL_URL=http://localhost:3095
 ```
 
-### Running Locally
+### Running in development mode
 
 ```bash
-# Development mode
-npm start
+npm start    # Hot-reload dev server on http://localhost:3000 (no proxy server)
+```
 
-# Production build
-npm run build
+### Running via the proxy server (production-like)
 
-# Run tests
+```bash
+npm run build          # Build the React app
+PORT=8080 node server.js   # Start Express proxy + static server
+```
+
+Open **http://localhost:8080**.
+
+### Run tests
+
+```bash
 npm test
 ```
 
-The app will open at http://localhost:3000
+## Azure App Service Deployment
 
-## Azure Web App Deployment
+The frontend is deployed as a Node.js App Service running `server.js`. The workflow in `.github/workflows/deploy-frontend.yml` handles CI/CD automatically on push to `main`.
 
-### Method 1: Direct Deployment from Build
+### Manual deployment
 
 ```bash
-# Build the production version
-npm run build
+npm install && npm run build
 
-# Deploy the 'build' folder to Azure Web App
-# Via Azure Portal, Azure CLI, or GitHub Actions
+az webapp up \
+  --name <app-service-name> \
+  --resource-group <resource-group> \
+  --runtime "NODE:18-lts" \
+  --src-path .
 ```
 
-### Method 2: Azure Web App Deployment Center
+### Application Settings in Azure
 
-1. In Azure Portal, go to your Web App
-2. Navigate to Deployment Center
-3. Connect your GitHub repository
-4. Configure build settings:
-   - **Build Provider**: Azure Pipelines or GitHub Actions
-   - **Framework**: React
-   - **App location**: `/frontend/parking-manager`
-   - **Build location**: `build`
-
-### Environment Variables in Azure
-
-Configure Application Settings in Azure Web App:
+Set the following Application Settings in the Azure App Service to configure backend URLs:
 
 ```
-REACT_APP_LISBON_API_URL=https://your-lisbon-api.azurewebsites.net
+REACT_APP_LISBON_API_URL=https://<lisbon-api-fqdn>
+REACT_APP_MADRID_API_URL=https://<madrid-api-fqdn>
+REACT_APP_PARIS_API_URL=https://<paris-api-fqdn>
+REACT_APP_BERLIN_API_URL=https://<berlin-api-fqdn>
+REACT_APP_CHAOS_CONTROL_URL=https://<chaos-control-fqdn>
+REACT_APP_VM_HEALTH_CONTROL_URL=https://<vm-health-control-fqdn>
 ```
 
-### Deployment Script
-
-Create `.github/workflows/azure-web-app.yml` for automated deployment:
-
-```yaml
-name: Deploy to Azure Web App
-
-on:
-  push:
-    branches: [ main ]
-    paths:
-      - 'frontend/parking-manager/**'
-
-jobs:
-  build-and-deploy:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-    
-    - name: Setup Node.js
-      uses: actions/setup-node@v2
-      with:
-        node-version: '18'
-    
-    - name: Install and Build
-      working-directory: ./frontend/parking-manager
-      run: |
-        npm ci
-        npm run build
-    
-    - name: Deploy to Azure Web App
-      uses: azure/webapps-deploy@v2
-      with:
-        app-name: 'your-app-name'
-        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-        package: ./frontend/parking-manager/build
-```
-
-## Adding New Cities
-
-To add a new city parking API:
-
-1. Deploy a new parking API instance for the city
-2. Update `src/services/parkingService.ts`:
-
-```typescript
-private apis: ParkingAPI[] = [
-  {
-    id: 'lisbon',
-    city: 'Lisbon',
-    apiUrl: process.env.REACT_APP_LISBON_API_URL || 'http://localhost:3001',
-    enabled: true
-  },
-  {
-    id: 'porto',
-    city: 'Porto',
-    apiUrl: process.env.REACT_APP_PORTO_API_URL || 'http://localhost:3002',
-    enabled: true
-  }
-];
-```
-
-3. Add the environment variable to `.env`
-4. Rebuild and redeploy
+For CI/CD setup, see [.github/workflows/README.md](../../.github/workflows/README.md).
 
 ## Project Structure
 
 ```
-src/
-├── components/         # React components
-│   ├── ParkingCard.tsx        # Card for each parking facility
-│   ├── ParkingDetails.tsx     # Detailed level view modal
-│   └── *.css                  # Component styles
-├── services/          # API services
-│   └── parkingService.ts      # Parking API client
-├── types.ts           # TypeScript interfaces
-├── App.tsx            # Main application component
-└── index.tsx          # Application entry point
+frontend/parking-manager/
+├── src/
+│   ├── components/          # React components
+│   │   ├── ParkingCard.tsx  # Card for each parking facility
+│   │   ├── ParkingDetails.tsx  # Detailed level view modal
+│   │   └── *.css
+│   ├── services/
+│   │   └── parkingService.ts   # API client
+│   ├── types.ts             # TypeScript interfaces
+│   ├── App.tsx              # Main application component
+│   └── index.tsx            # Entry point
+├── server.js                # Express proxy server
+├── public/                  # Static assets
+├── build/                   # React production build (generated)
+├── .env.example             # Environment variable template
+└── package.json
 ```
 
 ## API Integration
 
 The frontend expects each parking API to expose:
 
-- `GET /api/parking` - Full parking information
-- `GET /api/parking/metrics` - Metrics summary
-- `GET /api/parking/levels` - All levels information
-- `PATCH /api/parking/levels/:levelNumber` - Update level availability
-- `PUT /api/parking/config` - Update parking configuration
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/health` | Health check |
+| `GET` | `/api/parking` | Full parking information |
+| `GET` | `/api/parking/metrics` | Metrics summary |
+| `GET` | `/api/parking/dependency` | Dependency health (where supported) |
+| `GET` | `/api/parking/levels` | All parking levels |
+| `PATCH` | `/api/parking/levels/:levelNumber` | Update level availability |
+| `PUT` | `/api/parking/config` | Update parking configuration |
 
 ## Browser Support
 
-- Chrome (latest)
-- Firefox (latest)
-- Safari (latest)
-- Edge (latest)
+Chrome, Firefox, Safari, and Edge (latest stable versions).
 
 ## License
 

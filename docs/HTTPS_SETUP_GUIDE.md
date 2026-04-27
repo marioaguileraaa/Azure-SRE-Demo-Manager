@@ -6,7 +6,7 @@ This guide provides step-by-step instructions to generate self-signed certificat
 
 The parking APIs (Madrid on port 3002, Paris on port 3003) are being configured to use HTTPS with self-signed certificates. This allows:
 - Frontend React app (HTTPS) to communicate with backend APIs over HTTPS without mixed-content blocking
-- Private IP connectivity (10.0.1.5 for Madrid, 10.0.1.6 for Paris)
+- Private IP connectivity (<madrid-vm-ip> for Madrid, <paris-vm-ip> for Paris)
 - Development/testing with self-signed certificates
 
 ## Prerequisites
@@ -21,7 +21,7 @@ The parking APIs (Madrid on port 3002, Paris on port 3003) are being configured 
 
 **Connect to Madrid VM via RDP:**
 ```
-IP: 10.0.1.5
+IP: <madrid-vm-ip>
 Port: 3389
 ```
 
@@ -36,7 +36,7 @@ openssl genrsa -out madrid.key 2048
 
 # Generate self-signed certificate
 openssl req -new -x509 -key madrid.key -out madrid.crt -days 365 `
-  -subj "/C=ES/ST=Madrid/L=Madrid/O=Parking/OU=API/CN=10.0.1.5"
+  -subj "/C=ES/ST=Madrid/L=Madrid/O=Parking/OU=API/CN=<madrid-vm-ip>"
 ```
 
 **Alternative: Using Git Bash (if OpenSSL not in PATH):**
@@ -49,7 +49,7 @@ cd C:\path\to\backend\madrid-parking-api
 
 # Generate certificate
 "C:\Program Files\Git\usr\bin\openssl.exe" req -new -x509 -key madrid.key -out madrid.crt -days 365 \
-  -subj "/C=ES/ST=Madrid/L=Madrid/O=Parking/OU=API/CN=10.0.1.5"
+  -subj "/C=ES/ST=Madrid/L=Madrid/O=Parking/OU=API/CN=<madrid-vm-ip>"
 ```
 
 **Verify files created:**
@@ -62,20 +62,20 @@ dir madrid.*
 
 **Connect to Paris VM via SSH:**
 ```bash
-ssh -i <key.pem> azureuser@10.0.1.6
+ssh -i <key.pem> azureadmin@<paris-vm-ip>
 ```
 
 **Generate certificates:**
 ```bash
 # Navigate to Paris API directory
-cd /home/azureuser/backend/paris-parking-api
+cd /home/azureadmin/backend/paris-parking-api
 
 # Generate private key (valid for 365 days)
 openssl genrsa -out paris.key 2048
 
 # Generate self-signed certificate
 openssl req -new -x509 -key paris.key -out paris.crt -days 365 \
-  -subj "/C=FR/ST=Paris/L=Paris/O=Parking/OU=API/CN=10.0.1.6"
+  -subj "/C=FR/ST=Paris/L=Paris/O=Parking/OU=API/CN=<paris-vm-ip>"
 ```
 
 **Verify files created:**
@@ -132,10 +132,10 @@ net start MadridParkingAPI
 **Set via environment or `.env` file:**
 ```bash
 # Edit or create .env file in the Paris API directory
-cat > /home/azureuser/backend/paris-parking-api/.env << 'EOF'
+cat > /home/azureadmin/backend/paris-parking-api/.env << 'EOF'
 PORT=3003
-CERT_PATH=/home/azureuser/backend/paris-parking-api/paris.crt
-KEY_PATH=/home/azureuser/backend/paris-parking-api/paris.key
+CERT_PATH=/home/azureadmin/backend/paris-parking-api/paris.crt
+KEY_PATH=/home/azureadmin/backend/paris-parking-api/paris.key
 PARKING_NAME=Paris Centre Parking
 PARKING_CITY=Paris
 PARKING_LOCATION=Champs-Élysées, Paris
@@ -219,15 +219,15 @@ Update `parkingService.ts` to handle self-signed certificates properly (more sec
 ## Step 4: Update Frontend Configuration
 
 The React frontend (`parkingService.ts`) has been updated to call:
-- Madrid: `https://10.0.1.5:3002`
-- Paris: `https://10.0.1.6:3003`
+- Madrid: `https://<madrid-vm-ip>:3002`
+- Paris: `https://<paris-vm-ip>:3003`
 
 ### Via Environment Variables (Recommended)
 
 Set these in App Service Configuration:
 ```
-REACT_APP_MADRID_API_URL=https://10.0.1.5:3002
-REACT_APP_PARIS_API_URL=https://10.0.1.6:3003
+REACT_APP_MADRID_API_URL=https://<madrid-vm-ip>:3002
+REACT_APP_PARIS_API_URL=https://<paris-vm-ip>:3003
 REACT_APP_LISBON_API_URL=<public-container-app-url>
 ```
 
@@ -241,8 +241,8 @@ If environment variables are not set, the app uses defaults defined in `parkingS
 
 1. Test backend directly:
 ```bash
-curl --insecure https://10.0.1.5:3002/api/parking
-curl --insecure https://10.0.1.6:3003/api/parking
+curl --insecure https://<madrid-vm-ip>:3002/api/parking
+curl --insecure https://<paris-vm-ip>:3003/api/parking
 ```
 
 2. Access frontend:
@@ -317,7 +317,7 @@ taskkill /PID <PID> /F  # Windows
 
 2. **Certificate Validity:** Certificates are valid for 365 days. Plan to regenerate before expiration.
 
-3. **Private IPs:** Certificates use private IPs (10.0.1.5, 10.0.1.6). They won't work if accessed via public IPs or DNS names (unless DNS also points to these IPs).
+3. **Private IPs:** Certificates use private IPs (<madrid-vm-ip>, <paris-vm-ip>). They won't work if accessed via public IPs or DNS names (unless DNS also points to these IPs).
 
 4. **Mixed Content:** Ensure frontend URL scheme (HTTPS) matches backend API scheme (HTTPS).
 
@@ -334,7 +334,7 @@ rm madrid.crt madrid.key
 # Regenerate using steps in Step 1
 openssl genrsa -out madrid.key 2048
 openssl req -new -x509 -key madrid.key -out madrid.crt -days 365 \
-  -subj "/C=ES/ST=Madrid/L=Madrid/O=Parking/OU=API/CN=10.0.1.5"
+  -subj "/C=ES/ST=Madrid/L=Madrid/O=Parking/OU=API/CN=<madrid-vm-ip>"
 
 # Restart the service
 ```

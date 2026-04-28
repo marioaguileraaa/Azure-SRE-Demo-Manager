@@ -11,42 +11,60 @@ The infrastructure is organized into multiple resource groups for better managem
 1. **Hub Resource Group** (`rg-parking-hub-{env}`)
    - Virtual Network (VNet) with subnets
    - Log Analytics Workspace (shared across all components)
+   - Azure Container Registry (ACR)
    - Network Security Groups
 
 2. **Frontend Resource Group** (`rg-parking-frontend-{env}`)
    - Azure App Service Plan (Linux, B1 tier)
-   - Azure App Service (React application)
+   - Azure App Service (React + Express proxy, port 8080)
    - Application Insights
 
 3. **Lisbon API Resource Group** (`rg-parking-lisbon-{env}`)
    - Container App Environment
-   - Container App (Docker-based API)
+   - Container App (Docker-based API, port 3001)
    - Application Insights
 
-4. **Madrid API Resource Group** (`rg-parking-madrid-{env}`)
+4. **Berlin API Resource Group** (`rg-parking-berlin-{env}`)
+   - Container App Environment
+   - Container App (Docker-based API, port 3004)
+   - Application Insights
+
+5. **Madrid API Resource Group** (`rg-parking-madrid-{env}`)
    - Windows Server 2022 VM (Standard_B2s)
    - Network Interface
    - Public IP (optional)
    - Application Insights
 
-5. **Paris API Resource Group** (`rg-parking-paris-{env}`)
+6. **Paris API Resource Group** (`rg-parking-paris-{env}`)
    - Ubuntu Server 22.04 LTS VM (Standard_B2s)
    - Network Interface
    - Public IP (optional)
    - Application Insights
 
+7. **Chaos Control Resource Group** (`rg-parking-chaos-{env}`)
+   - Container App Environment
+   - Container App for Chaos Control service (port 3090)
+   - Application Insights
+
+8. **Berlin MCP Server Resource Group** (`rg-parking-berlin-mcp-{env}`) *(optional)*
+   - Container App for the Berlin MCP Server
+   - Application Insights
+   - Enable by setting `deployBerlinMcp=true` in your parameters file.
+
+> **Note**: The `vm-health-control` service is an application-layer service only (not provisioned by Bicep). It runs locally via `start-chaos-stack.sh` or can be deployed to an existing Container App environment.
+
 ## Cost Optimization Strategy
 
 The infrastructure is designed for cost optimization:
 
-- **App Service Plan**: B1 tier (Basic) - ~$13/month
-- **Virtual Machines**: Standard_B2s (2 vCPUs, 4GB RAM) - ~$30/month each
-- **Container Apps**: Consumption-based pricing with 0.25 vCPU and 0.5Gi memory
+- **App Service Plan**: B1 tier (Basic) — approximately $13/month
+- **Virtual Machines**: Standard_B2s (2 vCPUs, 4 GB RAM) — approximately $30/month each
+- **Container Apps**: Consumption-based pricing with 0.25 vCPU and 0.5 Gi memory
 - **Storage**: StandardSSD_LRS for VM disks
 - **Log Analytics**: Pay-as-you-go with 30-day retention
 - **Network**: Standard public IPs (optional, can be disabled)
 
-**Estimated Monthly Cost**: ~$120-150 (depending on usage)
+**Estimated Monthly Cost**: ~$120–180 (varies by region, usage, and optional components)
 
 ## Prerequisites
 
@@ -155,15 +173,15 @@ If you're using a custom container image:
 ```bash
 # Build and push your Lisbon API image
 cd backend/lisbon-parking-api
-docker build -t <your-registry>.azurecr.io/lisbon-parking-api:latest .
-az acr login --name <your-registry>
-docker push <your-registry>.azurecr.io/lisbon-parking-api:latest
+docker build -t <acr-name>.azurecr.io/lisbon-parking-api:latest .
+az acr login --name <acr-name>
+docker push <acr-name>.azurecr.io/lisbon-parking-api:latest
 
 # Update the Container App
 az containerapp update \
   --name ca-parking-lisbon \
-  --resource-group rg-parking-lisbon-dev \
-  --image <your-registry>.azurecr.io/lisbon-parking-api:latest
+  --resource-group rg-parking-lisbon-<env> \
+  --image <acr-name>.azurecr.io/lisbon-parking-api:latest
 ```
 
 ### 2. Deploy Madrid API to Windows VM
@@ -245,10 +263,10 @@ npm run build
 # Deploy using Azure CLI
 az webapp up \
   --name <app-service-name> \
-  --resource-group rg-parking-frontend-dev \
+  --resource-group rg-parking-frontend-<env> \
   --plan asp-parking-frontend \
   --runtime "NODE:18-lts" \
-  --src-path ./build
+  --src-path .
 ```
 
 Or use GitHub Actions / Azure DevOps for CI/CD.
@@ -264,10 +282,11 @@ az deployment sub show \
 ```
 
 Key outputs:
-- **Frontend URL**: https://app-parking-frontend-*.azurewebsites.net
-- **Lisbon API URL**: https://ca-parking-lisbon.*.azurecontainerapps.io
-- **Madrid API URL**: http://madrid-parking-*.westeurope.cloudapp.azure.com:3002
-- **Paris API URL**: http://paris-parking-*.westeurope.cloudapp.azure.com:3003
+- **Frontend URL**: `https://<app-service-name>.azurewebsites.net`
+- **Lisbon API URL**: `https://<lisbon-container-app-fqdn>.azurecontainerapps.io`
+- **Berlin API URL**: `https://<berlin-container-app-fqdn>.azurecontainerapps.io`
+- **Madrid API URL**: `http://<madrid-vm-fqdn>:3002`
+- **Paris API URL**: `https://<paris-vm-fqdn>:3003`
 
 ## Updating the Infrastructure
 
@@ -288,42 +307,40 @@ az deployment sub create \
 To delete all resources:
 
 ```bash
-# Delete all resource groups
-az group delete --name rg-parking-hub-dev --yes --no-wait
-az group delete --name rg-parking-frontend-dev --yes --no-wait
-az group delete --name rg-parking-lisbon-dev --yes --no-wait
-az group delete --name rg-parking-madrid-dev --yes --no-wait
-az group delete --name rg-parking-paris-dev --yes --no-wait
+# Replace <env> with your environment (e.g., dev, test, prod)
+az group delete --name rg-parking-hub-<env>            --yes --no-wait
+az group delete --name rg-parking-frontend-<env>       --yes --no-wait
+az group delete --name rg-parking-lisbon-<env>         --yes --no-wait
+az group delete --name rg-parking-berlin-<env>         --yes --no-wait
+az group delete --name rg-parking-madrid-<env>         --yes --no-wait
+az group delete --name rg-parking-paris-<env>          --yes --no-wait
+az group delete --name rg-parking-chaos-<env>          --yes --no-wait
+# Optional Berlin MCP:
+az group delete --name rg-parking-berlin-mcp-<env>     --yes --no-wait
 ```
+
+> ⚠️ **Cost reminder**: Azure resources continue to accrue charges until deleted. Run the cleanup commands above when the demo environment is no longer needed.
 
 ## Troubleshooting
 
 ### GitHub Runners Subnet Deployment
 
-**Issue**: Deployment fails with error `InUseSubnetCannotBeDeleted` for `snet-github-runners` subnet.
+**Issue**: Deployment fails with `InUseSubnetCannotBeDeleted` for `snet-github-runners` subnet.
 
 **Cause**: The subnet has a service association link from GitHub Actions networking that prevents deletion during VNet state reconciliation.
 
-**Solution**: **FIXED (February 13, 2026)** - The infrastructure has been updated to prevent this issue:
-- VNet subnets are now created as separate child resources instead of inline definitions
-- This prevents Azure from attempting to delete existing subnets during redeployment
-- The `snet-github-runners` subnet is managed by the `github-runner-network.bicep` module with proper GitHub delegation
+**Solution**: VNet subnets are created as separate child resources instead of inline definitions to prevent Azure from attempting to delete existing subnets during redeployment. The `snet-github-runners` subnet is managed by the `github-runner-network.bicep` module.
 
-**For existing deployments experiencing this issue:**
-If you have an older infrastructure deployment and encounter this error:
-- The subnet cannot be modified or removed while the service association link exists
-- You can either:
-  1. **Recommended**: Pull the latest infrastructure code and redeploy (the fix will prevent future occurrences)
-  2. **Manual cleanup** (if needed): Remove the GitHub Network Settings resource first:
-     ```bash
-     az resource delete \
-       --resource-group rg-parking-hub-dev \
-       --name github-actions-network-settings \
-       --resource-type GitHub.Network/networkSettings
-     ```
-     Then redeploy the infrastructure
-
-**Note**: With the February 13, 2026 fix, redeployments work without manual intervention.
+If you encounter this error on an older deployment:
+- Pull the latest infrastructure code and redeploy (preferred — prevents future occurrences).
+- Or remove the GitHub Network Settings resource first:
+  ```bash
+  az resource delete \
+    --resource-group rg-parking-hub-<env> \
+    --name github-actions-network-settings \
+    --resource-type GitHub.Network/networkSettings
+  ```
+  Then redeploy the infrastructure.
 
 ### Bicep Compilation Errors
 
@@ -350,53 +367,51 @@ az deployment operation sub list \
 ```bash
 # Reset VM password
 az vm user update \
-  --resource-group rg-parking-madrid-dev \
+  --resource-group rg-parking-madrid-<env> \
   --name vm-madrid-api \
   --username azureadmin \
   --password '<new-password>'
 
 # Enable boot diagnostics
 az vm boot-diagnostics enable \
-  --resource-group rg-parking-madrid-dev \
+  --resource-group rg-parking-madrid-<env> \
   --name vm-madrid-api
 ```
 
 ## Security Considerations
 
+> **This is a demo/development project.** The default settings below are intentionally permissive for ease of setup. Review all settings before exposing this environment to the internet.
+
 ### Critical Security Settings
 
-1. **SSH/RDP Access**: By default, the NSG allows SSH (port 22) and RDP (port 3389) from any IP address (`*`). **This is for development/demo purposes only.**
+1. **SSH/RDP Access**: By default, the NSG allows SSH (port 22) and RDP (port 3389) from any IP address (`*`). **This is for demo purposes only.**
 
-   For production:
+   For restricted access:
    ```bash
-   # Deploy with restricted IP access
    az deployment sub create \
      --location westeurope \
      --template-file main.bicep \
-     --parameters allowedSourceIpPrefix='YOUR.IP.ADDRESS.HERE/32'
+     --parameters allowedSourceIpPrefix='<your-ip>/32'
    ```
-   
-   Or better yet, use **Azure Bastion** for secure VM access without public IPs:
+
+   Or use **Azure Bastion** for secure VM access without public IPs:
    ```bash
-   # Disable public IPs and use Bastion
    --parameters createPublicIps=false
    ```
 
-2. **Container Registry Authentication**: The default configuration uses username/password for private registries. For production:
-   - Use **Azure Container Registry** with **Managed Identity** authentication
-   - Enable **admin user** only when necessary
-   - Rotate credentials regularly if using username/password
+2. **Self-signed certificates**: Paris and Madrid APIs use self-signed TLS certificates in Azure deployments. The Express proxy server disables certificate verification (`NODE_TLS_REJECT_UNAUTHORIZED=0`) to connect to these services. Do not use self-signed certificates in production.
+
+3. **Container Registry Authentication**: The default configuration uses admin credentials for private registries. For production, use **Managed Identity** authentication and disable the admin user.
 
 ### Additional Security Best Practices
 
-3. **Use Key Vault** for storing sensitive parameters (VM passwords, container registry credentials)
-4. **Enable Azure AD authentication** for App Service and Container Apps
-5. **Configure NSG rules** to restrict access based on your needs
-6. **Enable Azure Monitor** and Application Insights for all resources
+4. **Use Key Vault** for storing VM passwords and container registry credentials
+5. **Enable Azure AD authentication** for App Service and Container Apps
+6. **Configure NSG rules** to restrict inbound access to what is needed
 7. **Use Managed Identities** instead of connection strings where possible
 8. **Enable HTTPS only** for web applications
 9. **Regular patching** of VMs through Azure Update Management
-10. **Enable Azure Defender** for advanced threat protection
+10. **Enable Microsoft Defender for Cloud** for advanced threat protection
 
 ## Networking
 

@@ -39,9 +39,7 @@ Use the learnings from this issue to create a github issue on the connected repo
 ## Chat 3 - App Dependencies - prompt "conhecer as dependencias da aplicacao"
 
 ```prompt
-Generate a diagram for the application dependencies of the frontend app-parking-frontend-x6z6kgmn65dc4 from the backend APIs. Analyze Application Insights dependency telemetry of the last 24h to infer the backend APIs if required. The output should be a pretty visual ASCII diagram.
-
-Generate a Mermaid diagram with number of calls and average response time.
+Generate a diagram for the application dependencies of the frontend app-parking-frontend-x6z6kgmn65dc4 from the backend APIs. Analyze Application Insights dependency telemetry of the last 24h to infer the backend APIs if required. The output should be a pretty visual Mermaid diagram with aggregatted total number of calls and average response time.
 
 Summarize this in a table.
 ```
@@ -49,9 +47,7 @@ Summarize this in a table.
 ## Chat 4 - Madrid API (Windows Logs - Event)
     
 ```prompt
-Check Madrid API response status codes, errors and response time in the last 24h.
-
-Can you format the results in a more visual table
+Check Madrid API response status codes, errors and response time in the last 24h. Format the results in a more visual table.
 
 Get me a summary table of the calls per operation.
 ```

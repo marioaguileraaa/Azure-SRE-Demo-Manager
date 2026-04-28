@@ -38,29 +38,22 @@ Use the learnings from this issue to create a GitHub issue on the connected repo
 ## Chat 3 — App Dependencies
 
 ```prompt
-<<<<<<< HEAD
 Generate a diagram for the application dependencies of the frontend app-parking-frontend-x6z6kgmn65dc4 from the backend APIs. Analyze Application Insights dependency telemetry of the last 24h to infer the backend APIs if required. The output should be a pretty visual Mermaid diagram with aggregatted total number of calls and average response time.
-=======
+
+Generate a diagram for the application dependencies of the frontend app-parking-frontend from the backend APIs. Analyze Application Insights dependency telemetry of the last 24h to infer the backend APIs if required. The output should be a pretty visual Mermaid diagram with aggregated total number of calls and average response time.
+
+
 Generate a diagram for the application dependencies of the frontend from the backend APIs. Analyze Application Insights dependency telemetry of the last 24h to infer the backend APIs if required. The output should be a pretty visual ASCII diagram.
 
 Generate a Mermaid diagram with number of calls and average response time.
->>>>>>> 81db37c491ab4765766256be43c4111046d43327
-
 Summarize this in a table.
 ```
 
 ## Chat 4 — Madrid API (Windows Logs — Event Viewer)
 
 ```prompt
-<<<<<<< HEAD
-Check Madrid API response status codes, errors and response time in the last 24h. Format the results in a more visual table.
-=======
-Check Madrid API response status codes, errors and response time in the last 24h.
+Check Madrid API response status codes, errors and response time in the last 24h, including a summary of call per operation. Format the results in a visual table.
 
-Can you format the results in a more visual table?
->>>>>>> 81db37c491ab4765766256be43c4111046d43327
-
-Get me a summary table of the calls per operation.
 ```
 
 ## Chat 5 — Paris API (Linux Logs — Syslog)

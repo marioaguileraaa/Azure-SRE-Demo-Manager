@@ -12,7 +12,7 @@
       "value": "azureadmin"
     },
     "adminPassword": {
-      "value": "CHANGE_ME_P@ssw0rd123!"
+      "value": "GrifolsDemo2026!Secure"
     },
     "lisbonContainerImage": {
       "value": "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
@@ -30,16 +30,16 @@
       "value": true
     },
     "deployParisVm": {
+      "value": true
+    },
+    "deployBerlinMcp": {
       "value": false
     },
     "githubActionsPrincipalId": {
-      "value": "49734d7a-0a91-4996-9a7f-df7939bdc8b3"
-    },
-    "runnerSubnetPrefix": {
-      "value": "10.0.4.0/24"
+      "value": ""
     },
     "githubOrgDatabaseId": {
-      "value": "253047645"
+      "value": ""
     }
   }
 }

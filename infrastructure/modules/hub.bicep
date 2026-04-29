@@ -216,6 +216,7 @@ resource vmSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-05-01' = {
     routeTable: {
       id: udrVms.id
     }
+    privateEndpointNetworkPolicies: 'Disabled'
   }
 }
 

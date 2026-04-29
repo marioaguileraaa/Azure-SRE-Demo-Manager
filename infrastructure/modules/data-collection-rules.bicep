@@ -106,7 +106,7 @@ resource parisSyslogDcr 'Microsoft.Insights/dataCollectionRules@2022-06-01' = if
 						'Error'
 						'Warning'
 						'Notice'
-						'Informational'
+						'Info'
 						'Debug'
 					]
 				}

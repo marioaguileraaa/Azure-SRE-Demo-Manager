@@ -1,0 +1,45 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "value": "swedencentral"
+    },
+    "environment": {
+      "value": "prod"
+    },
+    "adminUsername": {
+      "value": "azureadmin"
+    },
+    "adminPassword": {
+      "value": "GrifolsDemo2026!Secure"
+    },
+    "lisbonContainerImage": {
+      "value": "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
+    },
+    "createPublicIps": {
+      "value": false
+    },
+    "createContainerRegistry": {
+      "value": true
+    },
+    "containerRegistrySku": {
+      "value": "Basic"
+    },
+    "deployMadridVm": {
+      "value": true
+    },
+    "deployParisVm": {
+      "value": true
+    },
+    "deployBerlinMcp": {
+      "value": false
+    },
+    "githubActionsPrincipalId": {
+      "value": ""
+    },
+    "githubOrgDatabaseId": {
+      "value": ""
+    }
+  }
+}

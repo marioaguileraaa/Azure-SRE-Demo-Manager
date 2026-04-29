@@ -22,9 +22,18 @@ resource dcrAssociation 'Microsoft.Insights/dataCollectionRuleAssociations@2022-
   name: associationName
   properties: {
     dataCollectionRuleId: dataCollectionRuleId
-    dataCollectionEndpointId: dataCollectionEndpointId
     description: associationDescription
   }
 }
 
+// DCE association must be a separate resource named exactly 'configurationAccessEndpoint'
+resource dceAssociation 'Microsoft.Insights/dataCollectionRuleAssociations@2022-06-01' = {
+  scope: vm
+  name: 'configurationAccessEndpoint'
+  properties: {
+    dataCollectionEndpointId: dataCollectionEndpointId
+  }
+}
+
 output dcrAssociationId string = dcrAssociation.id
+output dceAssociationId string = dceAssociation.id

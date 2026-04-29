@@ -113,26 +113,6 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
               value: chaosControlUrl
             }
           ]
-          probes: [
-            {
-              type: 'liveness'
-              httpGet: {
-                path: '/health'
-                port: 3001
-              }
-              initialDelaySeconds: 10
-              periodSeconds: 30
-            }
-            {
-              type: 'readiness'
-              httpGet: {
-                path: '/health'
-                port: 3001
-              }
-              initialDelaySeconds: 5
-              periodSeconds: 10
-            }
-          ]
         }
       ]
       scale: {

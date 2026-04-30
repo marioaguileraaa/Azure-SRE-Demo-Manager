@@ -246,7 +246,7 @@ module lisbonApi 'modules/lisbon-api.bicep' = {
     logAnalyticsWorkspaceId: hub.outputs.logAnalyticsWorkspaceId
     logAnalyticsCustomerId: hub.outputs.logAnalyticsCustomerId
     containerImage: lisbonContainerImage
-    containerRegistry: createContainerRegistry ? acr!.outputs.loginServer : containerRegistry
+    containerRegistry: ''
     chaosControlUrl: chaosControl.outputs.containerAppUrl
     tags: tags
   }
@@ -273,7 +273,7 @@ module berlinApi 'modules/berlin-api.bicep' = {
     location: location
     containerSubnetId: hub.outputs.containerSubnetId
     containerImage: berlinContainerImage
-    containerRegistry: createContainerRegistry ? acr!.outputs.loginServer : containerRegistry
+    containerRegistry: ''
     tags: tags
   }
 }
@@ -300,7 +300,7 @@ module chaosControl 'modules/chaos-control.bicep' = {
     environment: environment
     containerSubnetId: hub.outputs.containerSubnetId
     containerImage: chaosControlContainerImage
-    containerRegistry: createContainerRegistry ? acr!.outputs.loginServer : containerRegistry
+    containerRegistry: ''
     tags: tags
   }
 }
@@ -335,7 +335,7 @@ module vmHealthControl 'modules/vm-health-control.bicep' = {
     location: location
     containerAppEnvironmentId: chaosControl.outputs.containerAppEnvironmentId
     containerImage: vmHealthControlContainerImage
-    containerRegistry: createContainerRegistry ? acr!.outputs.loginServer : containerRegistry
+    containerRegistry: ''
     logAnalyticsWorkspaceId: hub.outputs.logAnalyticsWorkspaceId
     tags: tags
   }
@@ -433,12 +433,21 @@ module parisApi 'modules/paris-api.bicep' = {
 module vmLogCollection 'modules/data-collection-rules.bicep' = {
   scope: hubRg
   name: 'vm-log-collection-deployment'
+  dependsOn: [ vmLogTables ]
   params: {
     location: location
     logAnalyticsWorkspaceId: hub.outputs.logAnalyticsWorkspaceId
     deployMadridVm: deployMadridVm
     deployParisVm: deployParisVm
     tags: tags
+  }
+}
+
+module vmLogTables 'modules/vm-log-tables.bicep' = {
+  scope: hubRg
+  name: 'vm-log-tables-deployment'
+  params: {
+    workspaceName: hub.outputs.logAnalyticsWorkspaceName
   }
 }
 

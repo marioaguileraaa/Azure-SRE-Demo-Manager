@@ -47,6 +47,12 @@ jobs:
 
       - name: Deploy to Azure Container App
         run: |
+          az containerapp registry set \
+            --name ${{ env.CONTAINER_APP_NAME }} \
+            --resource-group ${{ env.LISBON_RESOURCE_GROUP }} \
+            --server ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io \
+            --identity system
+
           az containerapp update \
             --name ${{ env.CONTAINER_APP_NAME }} \
             --resource-group ${{ env.LISBON_RESOURCE_GROUP }} \

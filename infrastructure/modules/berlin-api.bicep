@@ -47,7 +47,7 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
     configuration: {
       ingress: {
         external: true
-        targetPort: 3004
+        targetPort: 80
         transport: 'auto'
         allowInsecure: false
       }
@@ -92,7 +92,7 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
         }
       ]
       scale: {
-        minReplicas: 0
+        minReplicas: 1
         maxReplicas: 3
         rules: [
           {

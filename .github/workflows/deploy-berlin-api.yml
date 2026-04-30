@@ -54,6 +54,11 @@ jobs:
             --resource-group ${{ env.BERLIN_RESOURCE_GROUP }} \
             --image ${{ env.IMAGE_TAG }}
 
+          az containerapp ingress update \
+            --name ${{ env.CONTAINER_APP_NAME }} \
+            --resource-group ${{ env.BERLIN_RESOURCE_GROUP }} \
+            --target-port 3004
+
       - name: Deployment summary
         run: |
           echo "### Deployment Successful! 🚀" >> $GITHUB_STEP_SUMMARY

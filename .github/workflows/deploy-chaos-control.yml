@@ -53,6 +53,11 @@ jobs:
             --resource-group ${{ env.CHAOS_CONTROL_RESOURCE_GROUP }} \
             --image ${{ env.IMAGE_TAG }}
 
+          az containerapp ingress update \
+            --name ${{ env.CONTAINER_APP_NAME }} \
+            --resource-group ${{ env.CHAOS_CONTROL_RESOURCE_GROUP }} \
+            --target-port 3090
+
       - name: Deployment summary
         run: |
           echo "### Deployment Successful! 🚀" >> $GITHUB_STEP_SUMMARY
